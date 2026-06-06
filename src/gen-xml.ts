@@ -1733,7 +1733,7 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 function genXmlTiming (slide: PresSlide): string {
 	// Collect animated objects, keeping their slide-object index (spid = idx + 2, matching <p:cNvPr id>)
 	const animated = slide._slideObjects
-		.map((obj, idx) => ({ anim: obj.options?.animation as AnimationProps, spid: idx + 2 }))
+		.map((obj, idx) => ({ anim: obj.options?.animation as AnimationProps, spid: idx + 2, exitMs: (obj.options as any)?._counterExit as number | undefined }))
 		.filter(entry => entry.anim?.type)
 
 	// Default-off invariant: emit nothing when no animations present
@@ -1749,17 +1749,39 @@ function genXmlTiming (slide: PresSlide): string {
 	const nodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
 	let shapeBlocks = ''
-	animated.forEach(({ anim, spid }) => {
+	animated.forEach(({ anim, spid, exitMs }) => {
 		const presetID = presetMap[anim.type] ?? 1
 		const nodeType = nodeTypeMap[anim.trigger ?? 'afterPrevious'] ?? 'afterEffect'
 		const delay = typeof anim.delay === 'number' ? anim.delay : 0
 		const effectId = nextId()
+		// Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
+		// Isolated here so genXmlAnimPayload stays scoped to the public animation types.
+		let exitBlock = ''
+		if (typeof exitMs === 'number') {
+			exitBlock =
+				'<p:par>' +
+				`<p:cTn id="${nextId()}" fill="hold">` +
+				`<p:stCondLst><p:cond delay="${exitMs}"/></p:stCondLst>` +
+				'<p:childTnLst>' +
+				'<p:set>' +
+				'<p:cBhvr>' +
+				`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+				'</p:cBhvr>' +
+				'<p:to><p:strVal val="hidden"/></p:to>' +
+				'</p:set>' +
+				'</p:childTnLst>' +
+				'</p:cTn>' +
+				'</p:par>'
+		}
 		shapeBlocks +=
 			'<p:par>' +
 			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType}">` +
 			`<p:stCondLst><p:cond delay="${delay}"/></p:stCondLst>` +
 			'<p:childTnLst>' +
 			genXmlAnimPayload(anim, spid, nextId) +
+			exitBlock +
 			'</p:childTnLst>' +
 			'</p:cTn>' +
 			'</p:par>'

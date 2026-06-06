@@ -1021,6 +1021,32 @@ export function addTableDefinition(
  * @since: 1.0.0
  */
 export function addTextDefinition(target: PresSlide, text: TextProps[], opts: TextPropsOptions, isPlaceholder: boolean): void {
+	// COUNTER SUGAR (PROMPT §2.4 approach #1): a `counter` option is NOT a native OOXML
+	// animation — OOXML cannot mutate displayed text content. We emulate a count-up by
+	// stacking N text frames at the same position, each reusing the `appear` entrance and
+	// hiding the previous frame after `stepMs`. Approach #2 (<p:anim> on a numeric attr)
+	// does not drive displayed text and is intentionally not attempted.
+	if (opts?.counter) {
+		const { from, to, suffix = '', stepMs = 500 } = opts.counter
+		const valid = typeof from === 'number' && isFinite(from) && typeof to === 'number' && isFinite(to) && to >= from
+		if (valid) {
+			const frameCount = to - from + 1
+			for (let i = 0; i < frameCount; i++) {
+				const value = from + i
+				const frameOpts: TextPropsOptions = { ...opts }
+				delete frameOpts.counter
+				// Sequential entrance: first frame immediately, each later frame one step after the previous.
+				frameOpts.animation = { type: 'appear', trigger: 'afterPrevious', delay: i === 0 ? 0 : stepMs }
+				// Every frame except the last hides itself one step after appearing -> count-up effect.
+				if (i < frameCount - 1) frameOpts._counterExit = stepMs
+				else delete frameOpts._counterExit
+				addTextDefinition(target, [{ text: `${value}${suffix}`, options: null }], frameOpts, isPlaceholder)
+			}
+			return
+		}
+		// Invalid counter: fall through to normal single-text behaviour (defensive, no crash).
+	}
+
 	const newObject: ISlideObject = {
 		_type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
 		shape: (opts?.shape) || SHAPE_TYPE.RECTANGLE,

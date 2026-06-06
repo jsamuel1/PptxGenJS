@@ -220,5 +220,15 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'animation-zoomin')
 		}
+	},
+	{
+		name: 'slide with number-counter (stacked appear/disappear frames)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addText('', { x: 1, y: 1, w: 4, h: 1, fontSize: 48, counter: { from: 1, to: 3, suffix: '%', stepMs: 180 } })
+			})
+			await expectNoSchemaErrors(buf, 'animation-counter')
+		}
 	}
 ]

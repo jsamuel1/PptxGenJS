@@ -1012,6 +1012,13 @@ export interface TextGlowProps {
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
 	/** Entrance animation applied to this object. */
 	animation?: AnimationProps
+	/**
+	 * Number-counter sugar: animate a count-up from `from` to `to` at this position.
+	 * @example { from: 0, to: 100, suffix: '%', stepMs: 30 }
+	 */
+	counter?: CounterProps
+	/** @internal Delay (ms) after which this counter frame hides itself (all frames but the last). */
+	_counterExit?: number
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
 		autoFit?: boolean
@@ -1854,6 +1861,22 @@ export interface AnimationProps {
 	trigger?: AnimationTrigger
 	/** Direction for flyIn. @default 'left' */
 	direction?: TransitionDirection
+}
+/**
+ * Number-counter sugar for `addText`. Expands into N stacked text frames at the
+ * same position, each chained `appear` -> previous-frame `disappear`, producing
+ * a count-up. OOXML has no text-content animation, so this stacked-frame approach
+ * (PROMPT §2.4 approach #1) is the only robust native path.
+ */
+export interface CounterProps {
+	/** First value shown. */
+	from: number
+	/** Last value shown (must be >= `from`). */
+	to: number
+	/** Text appended after each number. @default '' */
+	suffix?: string
+	/** Milliseconds between successive frames. @default 500 */
+	stepMs?: number
 }
 export interface SlideLayout extends SlideBaseProps {
 	_slide?: {
