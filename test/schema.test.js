@@ -173,5 +173,28 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'transition-push')
 		}
+	},
+	{
+		name: 'slide with appear + fadeIn animations',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addText('title', { x: 1, y: 1, w: 4, h: 1, animation: { type: 'fadeIn', duration: 420 } })
+				s.addText('sub', { x: 1, y: 2, w: 4, h: 1, animation: { type: 'appear', delay: 90 } })
+			})
+			await expectNoSchemaErrors(buf, 'animation-appear-fadein')
+		}
+	},
+	{
+		name: 'slide with staggered fadeIn animations',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addText('a', { x: 1, y: 1, w: 4, h: 1, animation: { type: 'fadeIn', delay: 0 } })
+				s.addText('b', { x: 1, y: 2, w: 4, h: 1, animation: { type: 'fadeIn', delay: 90 } })
+				s.addText('c', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'fadeIn', delay: 180 } })
+			})
+			await expectNoSchemaErrors(buf, 'animation-staggered')
+		}
 	}
 ]

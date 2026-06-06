@@ -505,6 +505,8 @@ export interface ThemeProps {
 export type MediaType = 'audio' | 'online' | 'video'
 
 export interface ImageProps extends PositionProps, DataOrPathProps, ObjectNameProps {
+	/** Entrance animation applied to this object. */
+	animation?: AnimationProps
 	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - PowerPoint: [right-click on an image] > "Edit Alt Text..."
@@ -636,6 +638,8 @@ export interface MediaProps extends PositionProps, DataOrPathProps, ObjectNamePr
 // shapes =========================================================================================
 
 export interface ShapeProps extends PositionProps, ObjectNameProps {
+	/** Entrance animation applied to this object. */
+	animation?: AnimationProps
 	/**
 	 * Horizontal alignment
 	 * @default 'left'
@@ -1006,6 +1010,8 @@ export interface TextGlowProps {
 }
 
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
+	/** Entrance animation applied to this object. */
+	animation?: AnimationProps
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
 		autoFit?: boolean
@@ -1833,6 +1839,20 @@ export interface TransitionProps {
 	/** Duration in milliseconds (mapped to coarse `spd`: <=250 fast, <=750 med, else slow). @default 'med' (~500ms) when omitted */
 	duration?: number
 	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
+	direction?: TransitionDirection
+}
+export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn'
+export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
+export interface AnimationProps {
+	/** Entrance effect. */
+	type: AnimationType
+	/** Effect duration in ms. @default 500 */
+	duration?: number
+	/** Delay before this effect starts, in ms (used for stagger). @default 0 */
+	delay?: number
+	/** When the effect starts relative to the timeline. @default 'afterPrevious' */
+	trigger?: AnimationTrigger
+	/** Direction for flyIn. @default 'left' */
 	direction?: TransitionDirection
 }
 export interface SlideLayout extends SlideBaseProps {

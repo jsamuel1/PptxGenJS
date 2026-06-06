@@ -31,6 +31,7 @@ import {
 	TextProps,
 	TextPropsOptions,
 	TransitionProps,
+	AnimationProps,
 } from './core-interfaces'
 import {
 	convertRotationDegrees,
@@ -1645,6 +1646,101 @@ export function genXmlTransition (trans?: TransitionProps): string {
 }
 
 /**
+ * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
+ * @param {AnimationProps} anim - the animation options
+ * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
+ * @param {() => number} nextId - allocator for globally-unique `<p:cTn id>` values
+ * @return {string} XML payload
+ */
+function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => number): string {
+	const dur = typeof anim.duration === 'number' ? anim.duration : 500
+	// ALL types emit the visibility <p:set> (instant show)
+	let payload =
+		'<p:set>' +
+		'<p:cBhvr>' +
+		`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+		`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+		'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+		'</p:cBhvr>' +
+		'<p:to><p:strVal val="visible"/></p:to>' +
+		'</p:set>'
+
+	// fadeIn ADDS a fade <p:animEffect>; appear/flyIn/zoomIn = visibility-only this slice (motion deferred to Slices 4/5)
+	if (anim.type === 'fadeIn') {
+		payload +=
+			'<p:animEffect transition="in" filter="fade">' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'</p:cBhvr>' +
+			'</p:animEffect>'
+	}
+
+	return payload
+}
+
+/**
+ * Generate the slide `<p:timing>` block from any objects carrying an `animation` option.
+ * Returns `''` when no object is animated (default-off byte-for-byte invariant).
+ * @param {PresSlide} slide - the slide object
+ * @return {string} XML
+ */
+function genXmlTiming (slide: PresSlide): string {
+	// Collect animated objects, keeping their slide-object index (spid = idx + 2, matching <p:cNvPr id>)
+	const animated = slide._slideObjects
+		.map((obj, idx) => ({ anim: obj.options?.animation as AnimationProps, spid: idx + 2 }))
+		.filter(entry => entry.anim?.type)
+
+	// Default-off invariant: emit nothing when no animations present
+	if (animated.length === 0) return ''
+
+	// Globally-unique <p:cTn id> allocator; ids 1-4 reserved for the envelope, per-shape ids start at 5
+	let idCounter = 5
+	const nextId = (): number => idCounter++
+
+	// presetID labels the effect in the PowerPoint UI
+	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23 }
+	// trigger -> nodeType
+	const nodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
+
+	let shapeBlocks = ''
+	animated.forEach(({ anim, spid }) => {
+		const presetID = presetMap[anim.type] ?? 1
+		const nodeType = nodeTypeMap[anim.trigger ?? 'afterPrevious'] ?? 'afterEffect'
+		const delay = typeof anim.delay === 'number' ? anim.delay : 0
+		const effectId = nextId()
+		shapeBlocks +=
+			'<p:par>' +
+			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType}">` +
+			`<p:stCondLst><p:cond delay="${delay}"/></p:stCondLst>` +
+			'<p:childTnLst>' +
+			genXmlAnimPayload(anim, spid, nextId) +
+			'</p:childTnLst>' +
+			'</p:cTn>' +
+			'</p:par>'
+	})
+
+	return (
+		'<p:timing><p:tnLst><p:par>' +
+		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
+		'<p:seq concurrent="1" nextAc="seek">' +
+		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>' +
+		'<p:par><p:cTn id="3" fill="hold" nodeType="afterEffect">' +
+		'<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
+		'<p:par><p:cTn id="4" fill="hold">' +
+		'<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
+		shapeBlocks +
+		'</p:childTnLst></p:cTn></p:par>' +
+		'</p:childTnLst></p:cTn></p:par>' +
+		'</p:childTnLst></p:cTn>' +
+		'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+		'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
+		'</p:seq>' +
+		'</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>'
+	)
+}
+
+/**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
  * @param {PresSlide} slide - the slide object to transform into XML
  * @return {string} XML
@@ -1658,6 +1754,7 @@ export function makeXmlSlide (slide: PresSlide): string {
 		`${slideObjectToXml(slide)}` +
 		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
 		`${genXmlTransition(slide.transition)}` +
+		`${genXmlTiming(slide)}` +
 		'</p:sld>'
 	)
 }
