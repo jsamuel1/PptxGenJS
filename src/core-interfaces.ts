@@ -199,6 +199,33 @@ export interface ShapeFillProps {
 	 */
 	alpha?: number
 }
+/**
+ * A single colour stop within a gradient fill.
+ * @since v4.0.0
+ */
+export interface GradientStop {
+	/** Stop position as a percentage 0–100. */
+	position: number
+	/** Hex colour (no leading '#') or ThemeColor. */
+	color: Color
+	/** Optional per-stop alpha 0–100 (100 = opaque). */
+	transparency?: number
+}
+/**
+ * Gradient fill properties (accepted anywhere a solid `ShapeFillProps` fill is).
+ * @since v4.0.0
+ */
+export interface GradientFillProps {
+	type: 'gradient'
+	/** 'horizontal' (0°), 'vertical' (90°), 'diagonal' (45°), or an angle in degrees. */
+	direction?: 'horizontal' | 'vertical' | 'diagonal' | number
+	stops: GradientStop[]
+	/**
+	 * Rotate gradient with the shape.
+	 * @default true
+	 */
+	rotWithShape?: boolean
+}
 export interface ShapeLineProps extends ShapeFillProps {
 	/**
 	 * Line width (pt)
@@ -635,8 +662,9 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:pptx.SchemeColor.accent1 } // Theme color Accent1
+	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps
+	fill?: ShapeFillProps | GradientFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false
@@ -832,8 +860,9 @@ export interface TableCellProps extends TextBaseProps {
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
+	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps
+	fill?: ShapeFillProps | GradientFillProps
 	hyperlink?: HyperlinkProps
 	/**
 	 * Cell margin (inches)
@@ -1017,8 +1046,9 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
+	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps
+	fill?: ShapeFillProps | GradientFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false

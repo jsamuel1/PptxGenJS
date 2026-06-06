@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -192,18 +192,22 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 
 /**
  * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
+ * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps} props fill props
  * @returns XML string
  */
-export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps): string {
+export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps | GradientFillProps): string {
 	let fillType = 'solid'
 	let colorVal = ''
 	let internalElements = ''
 	let outText = ''
 
 	if (props) {
-		if (typeof props === 'string') colorVal = props
-		else {
+		if (typeof props === 'string') {
+			colorVal = props
+		} else if (props.type === 'gradient') {
+			// Gradient fills are emitted as a self-contained `<a:gradFill>` (replaces `<a:solidFill>`)
+			return genXmlGradientFill(props)
+		} else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
 			if (props.alpha) internalElements += `<a:alpha val="${Math.round((100 - props.alpha) * 1000)}"/>` // DEPRECATED: @deprecated v3.3.0
@@ -221,6 +225,42 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 	}
 
 	return outText
+}
+
+/**
+ * Create a gradient fill element (`<a:gradFill>`), replacing the solid fill in a shape's `<p:spPr>`.
+ * Reuses `createColorElement()` per stop so hex and scheme colours are handled consistently.
+ * @param {GradientFillProps} props gradient fill props
+ * @returns {string} XML string (empty string when no stops are provided)
+ * @see ECMA-376 §20.1.8.33 (gradFill) / §20.1.8.41 (lin)
+ */
+export function genXmlGradientFill (props: GradientFillProps): string {
+	if (!props || !Array.isArray(props.stops) || props.stops.length === 0) return ''
+
+	// Normalise out-of-order input by sorting stops ascending by position
+	const stops = [...props.stops].sort((a, b) => (a.position || 0) - (b.position || 0))
+
+	const gsList = stops
+		.map(stop => {
+			// position 0–100 → `pos` in thousandths of a percent (× 1000)
+			const pos = Math.round((stop.position || 0) * 1000)
+			// Per-stop transparency uses PROMPT.md direct mapping (100 = opaque → 100000; 40 → 40000).
+			// NOTE: this differs from the solid-fill path which inverts via `(100 - transparency) * 1000`.
+			const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(stop.transparency * 1000)}"/>` : ''
+			return `<a:gs pos="${pos}">${createColorElement(stop.color, inner)}</a:gs>`
+		})
+		.join('')
+
+	// direction/angle → `<a:lin ang>` in 60,000ths of a degree (degrees × 60000)
+	let ang = 0
+	if (typeof props.direction === 'number') ang = Math.round(props.direction * 60000)
+	else if (props.direction === 'vertical') ang = 5400000 // 90°
+	else if (props.direction === 'diagonal') ang = 2700000 // 45°
+	else ang = 0 // 'horizontal' (0°) or undefined
+
+	const rotWithShape = props.rotWithShape === false ? '0' : '1'
+
+	return `<a:gradFill rotWithShape="${rotWithShape}"><a:gsLst>${gsList}</a:gsLst><a:lin ang="${ang}" scaled="1"/></a:gradFill>`
 }
 
 /**

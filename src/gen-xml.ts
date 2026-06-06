@@ -308,14 +308,21 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 							: ''
 						const cellTextDir = (cellOpts.textDirection && cellOpts.textDirection !== 'horz') ? ` vert="${cellOpts.textDirection}"` : ''
 
-						let fillColor =
-							cell._optImp?.fill?.color
-								? cell._optImp.fill.color
-								: cell._optImp?.fill && typeof cell._optImp.fill === 'string'
-									? cell._optImp.fill
-									: ''
-						fillColor = fillColor || cellOpts.fill ? cellOpts.fill : ''
-						const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
+						const cellFillProp = cell._optImp?.fill
+						// Gradient cell fill: route the whole object through genXmlColorSelection (emits <a:gradFill>)
+						let cellFill = ''
+						if (cellFillProp && typeof cellFillProp !== 'string' && cellFillProp.type === 'gradient') {
+							cellFill = genXmlColorSelection(cellFillProp)
+						} else {
+							let fillColor =
+								cellFillProp && typeof cellFillProp !== 'string' && cellFillProp.color
+									? cellFillProp.color
+									: typeof cellFillProp === 'string'
+										? cellFillProp
+										: ''
+							fillColor = fillColor || cellOpts.fill ? cellOpts.fill : ''
+							cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
+						}
 
 						let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
 						if (!Array.isArray(cellMargin) && typeof cellMargin === 'number') cellMargin = [cellMargin, cellMargin, cellMargin, cellMargin]

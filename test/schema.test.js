@@ -112,5 +112,44 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'embedded-png')
 		}
+	},
+	{
+		name: 'gradient-fill shape (3-stop horizontal)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 1,
+					fill: {
+						type: 'gradient', direction: 'horizontal',
+						stops: [
+							{ position: 0, color: '7C3AED' },
+							{ position: 50, color: 'A78BFA' },
+							{ position: 100, color: '38BDF8' }
+						]
+					}
+				})
+			})
+			await expectNoSchemaErrors(buf, 'gradient-shape')
+		}
+	},
+	{
+		name: 'gradient-fill shape with per-stop transparency',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 1,
+					fill: {
+						type: 'gradient', direction: 45,
+						stops: [
+							{ position: 0, color: '7C3AED', transparency: 40 },
+							{ position: 100, color: '38BDF8' }
+						]
+					}
+				})
+			})
+			await expectNoSchemaErrors(buf, 'gradient-shape-alpha')
+		}
 	}
 ]
