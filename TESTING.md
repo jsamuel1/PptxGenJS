@@ -112,6 +112,25 @@ npm run build
 
 ---
 
+## 🎬 Animations & Transitions (Manual)
+
+**Purpose:** Confirm the native slide transitions, shape entrance animations, and number-counter sugar *play back* correctly. The automated regex suite (`node test/run.js`) and the OOXML schema suite (`node test/run-schema.js`) already prove the *emitted XML* is correct and schema-valid — this manual pass only verifies *playback*, which cannot be automated.
+
+> ⚠️ Use **desktop Microsoft PowerPoint**. LibreOffice Impress and Apple Keynote render only the final static state and will **not** play the entrance/transition sequence, so they cannot verify this feature.
+
+1. Build a deck that exercises:
+   - Each transition type: `fade`, `push`, `wipe`, `cover`, `split`, `cut` (with a few `direction` variants on the directional ones).
+   - Each animation type: `appear`, `fadeIn`, `flyIn` (all four directions `left`/`right`/`up`/`down`), `zoomIn`.
+   - A `counter` count-up (e.g. `addText('', { counter: { from: 1, to: 10, suffix: '%', stepMs: 200 } })`).
+2. Open the deck in desktop PowerPoint and run the slideshow (`F5`).
+3. Verify on slide-advance each transition plays as configured.
+4. Verify each animated shape enters with the expected motion (fade in, fly in from the correct edge, zoom up from nothing) and that staggered `delay`/`trigger` ordering matches expectations.
+5. Verify the counter counts up frame-by-frame to its final value.
+
+> ℹ️ Native emission replaces the former external `postprocess.js` XML-surgery step for transitions/animations/gradient fills — that step **can now be retired** for these features.
+
+---
+
 ## 🏁 Test Completion Checklist
 
 | Dist File         | Test       | Tested Via             | Automation                                        | Result |

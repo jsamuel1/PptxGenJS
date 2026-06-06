@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Slide transitions — `slide.transition = { type, duration?, direction? }` emits a native `<p:transition>` element. Supported types: `fade`, `push`, `wipe`, `cover`, `split`, `cut`, `none`. `duration` (ms) maps to a coarse `spd` (`fast`/`med`/`slow`); `direction` (`left`/`right`/`up`/`down`) applies to the directional types (`push`/`wipe`/`cover`).
+- Shape, text, and image entrance animations — `animation = { type, duration?, delay?, trigger?, direction? }` emits a native per-slide `<p:timing>` block. Types: `appear`, `fadeIn`, `flyIn` (directional), `zoomIn`. Triggers: `onClick`, `withPrevious`, `afterPrevious`.
+- Number-counter text sugar — `counter = { from, to, suffix?, stepMs? }` on `addText()` expands into sequentially-revealed stacked frames to produce a native count-up effect (OOXML has no text-content animation, so this is the supported approach).
+- Gradient fills — `fill = { type: 'gradient', direction?, stops[], rotWithShape? }` on shapes, text-box backgrounds, and table cells emits `<a:gradFill>` with per-stop color/position/transparency.
+
 ### Fixed
 
 - Multiple `<a:pPr>` elements emitted per `<a:p>` cause "needs repair" — paragraph properties were re-emitted for every text run [\#1322](https://github.com/gitbrent/PptxGenJS/issues/1322)
