@@ -1665,7 +1665,7 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 		'<p:to><p:strVal val="visible"/></p:to>' +
 		'</p:set>'
 
-	// fadeIn ADDS a fade <p:animEffect>; appear/zoomIn = visibility-only this slice (zoomIn motion deferred to Slice 5)
+	// fadeIn ADDS a fade <p:animEffect>; appear = visibility-only (flyIn/zoomIn add motion below)
 	if (anim.type === 'fadeIn') {
 		payload +=
 			'<p:animEffect transition="in" filter="fade">' +
@@ -1700,6 +1700,25 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 			`<p:tav tm="100000"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
 			'</p:tavLst>' +
 			'</p:anim>'
+	}
+
+	// zoomIn ADDS two <p:anim> blocks that scale the shape from collapsed (0) to full size.
+	// One on ppt_w, one on ppt_h, each 0 at tm="0" -> #ppt_w/#ppt_h at tm="100000".
+	if (anim.type === 'zoomIn') {
+		;['ppt_w', 'ppt_h'].forEach(attr => {
+			payload +=
+				'<p:anim calcmode="lin" valueType="num">' +
+				'<p:cBhvr additive="base">' +
+				`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				`<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+				'</p:cBhvr>' +
+				'<p:tavLst>' +
+				'<p:tav tm="0"><p:val><p:strVal val="0"/></p:val></p:tav>' +
+				`<p:tav tm="100000"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+				'</p:tavLst>' +
+				'</p:anim>'
+		})
 	}
 
 	return payload

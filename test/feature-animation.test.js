@@ -91,14 +91,67 @@ module.exports = [
 		}
 	},
 	{
-		name: 'animation: zoomIn degrades to visibility-only this slice (no crash, no animEffect/anim)',
+		name: 'animation: zoomIn → TWO <p:anim> blocks on ppt_w & ppt_h, 0 → #ppt_w/#ppt_h, presetID=23',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } }))
 			assert(xml.includes('<p:timing>'), 'expected timing; got: ' + xml)
 			assert(xml.includes('presetID="23"'), 'zoomIn presetID must be 23; got: ' + xml)
-			// zoomIn motion deferred to Slice 5 → only visibility set, no animEffect/anim yet
-			assert(!xml.includes('<p:animEffect'), 'zoomIn must not emit animEffect this slice; got: ' + xml)
-			assert(!xml.includes('<p:anim '), 'zoomIn motion deferred (no <p:anim>); got: ' + xml)
+			assert(xml.includes('<p:cTn id="5" presetID="23" presetClass="entr"'), 'zoomIn wrapping effect cTn must carry presetID=23 presetClass=entr; got: ' + xml)
+			const animCount = (xml.match(/<p:anim calcmode="lin" valueType="num">/g) || []).length
+			assert(animCount === 2, 'zoomIn must emit exactly TWO <p:anim> blocks (ppt_w + ppt_h); got ' + animCount + ': ' + xml)
+			assert(xml.includes('<p:attrName>ppt_w</p:attrName>'), 'zoomIn must animate ppt_w; got: ' + xml)
+			assert(xml.includes('<p:attrName>ppt_h</p:attrName>'), 'zoomIn must animate ppt_h; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0"/></p:val></p:tav>'), 'zoomIn must scale from 0 at tm=0; got: ' + xml)
+			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_w"/></p:val></p:tav>'), 'zoomIn ppt_w end #ppt_w; got: ' + xml)
+			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_h"/></p:val></p:tav>'), 'zoomIn ppt_h end #ppt_h; got: ' + xml)
+			// visibility set still present alongside motion
+			assert(xml.includes('<p:strVal val="visible"/>'), 'zoomIn must still emit visibility set; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: zoomIn custom duration → both <p:anim> <p:cTn dur="N">',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn', duration: 720 } }))
+			const durs = (xml.match(/<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base"><p:cTn id="\d+" dur="(\d+)" fill="hold"\/>/g) || [])
+			assert(durs.length === 2, 'zoomIn must emit two <p:anim> with dur; got: ' + xml)
+			assert(durs.every(m => /dur="720"/.test(m)), 'both zoomIn <p:anim> must carry dur="720"; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: zoomIn keeps all <p:cTn id> unique (set + 2 anim distinct)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } }))
+			const ids = (xml.match(/<p:cTn id="(\d+)"/g) || []).map(m => m.match(/id="(\d+)"/)[1])
+			const uniq = new Set(ids)
+			assert(uniq.size === ids.length, `zoomIn <p:cTn id> values must be unique; got ${ids.join(',')}`)
+		}
+	},
+	{
+		name: 'animation: flyIn emits exactly ONE <p:anim> (zoomIn branch must not leak)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } }))
+			const animCount = (xml.match(/<p:anim calcmode="lin" valueType="num">/g) || []).length
+			assert(animCount === 1, 'flyIn must emit exactly ONE <p:anim>; got ' + animCount + ': ' + xml)
+			assert(!xml.includes('<p:attrName>ppt_w</p:attrName>'), 'flyIn must NOT animate ppt_w (no zoomIn leak); got: ' + xml)
+			assert(!xml.includes('<p:attrName>ppt_h</p:attrName>'), 'flyIn must NOT animate ppt_h (no zoomIn leak); got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: mixed fadeIn + flyIn + zoomIn → 3 effect blocks, presetIDs 10/2/23',
+		fn: async () => {
+			const xml = await slide1Xml(s => {
+				s.addText('a', { x: 1, y: 1, w: 4, h: 1, animation: { type: 'fadeIn' } })
+				s.addShape('rect', { x: 1, y: 2, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'up' } })
+				s.addText('c', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } })
+			})
+			assert(xml.includes('presetID="10"'), 'expected fadeIn presetID=10; got: ' + xml)
+			assert(xml.includes('presetID="2"'), 'expected flyIn presetID=2; got: ' + xml)
+			assert(xml.includes('presetID="23"'), 'expected zoomIn presetID=23; got: ' + xml)
+			// fadeIn = 1 animEffect; flyIn = 1 <p:anim>; zoomIn = 2 <p:anim> → 3 total <p:anim>
+			assert((xml.match(/<p:animEffect/g) || []).length === 1, 'expected exactly 1 animEffect (fadeIn); got: ' + xml)
+			assert((xml.match(/<p:anim calcmode="lin" valueType="num">/g) || []).length === 3, 'expected 3 <p:anim> (flyIn 1 + zoomIn 2); got: ' + xml)
+			const ids = (xml.match(/<p:cTn id="(\d+)"/g) || []).map(m => m.match(/id="(\d+)"/)[1])
+			assert(new Set(ids).size === ids.length, `mixed <p:cTn id> values must be unique; got ${ids.join(',')}`)
 		}
 	},
 	{

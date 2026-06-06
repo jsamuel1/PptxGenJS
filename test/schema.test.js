@@ -209,5 +209,16 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'animation-flyin')
 		}
+	},
+	{
+		name: 'slide with zoomIn animations',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'zoomIn' } })
+				s.addText('zoom', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn', duration: 720, delay: 90 } })
+			})
+			await expectNoSchemaErrors(buf, 'animation-zoomin')
+		}
 	}
 ]
