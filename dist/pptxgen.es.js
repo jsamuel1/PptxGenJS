@@ -1,4 +1,4 @@
-/* PptxGenJS 4.0.1 @ 2025-06-25T23:35:35.098Z */
+/* PptxGenJS 4.0.1 @ 2026-06-06T22:27:33.405Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -742,6 +742,15 @@ function rgbToHex(r, g, b) {
  */
 function createColorElement(colorStr, innerElements) {
     let colorVal = (colorStr || '').replace('#', '');
+    // 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
+    // continue with the leading 6-char RGB through the existing validation. This keeps
+    // fill/text/line/glow paths from silently falling back to DEF_FONT_COLOR on RGBA input.
+    if (/^[0-9a-fA-F]{8}$/.test(colorVal)) {
+        const alphaHex = colorVal.slice(6, 8);
+        const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * 100000);
+        innerElements = `<a:alpha val="${alphaVal}"/>${innerElements || ''}`;
+        colorVal = colorVal.slice(0, 6);
+    }
     if (!REGEX_HEX_COLOR.test(colorVal) &&
         colorVal !== SchemeColor.background1 &&
         colorVal !== SchemeColor.background2 &&
@@ -780,7 +789,7 @@ function createGlowElement(options, defaults) {
 }
 /**
  * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
+ * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps} props fill props
  * @returns XML string
  */
 function genXmlColorSelection(props) {
@@ -789,8 +798,13 @@ function genXmlColorSelection(props) {
     let internalElements = '';
     let outText = '';
     if (props) {
-        if (typeof props === 'string')
+        if (typeof props === 'string') {
             colorVal = props;
+        }
+        else if (props.type === 'gradient') {
+            // Gradient fills are emitted as a self-contained `<a:gradFill>` (replaces `<a:solidFill>`)
+            return genXmlGradientFill(props);
+        }
         else {
             if (props.type)
                 fillType = props.type;
@@ -811,6 +825,41 @@ function genXmlColorSelection(props) {
         }
     }
     return outText;
+}
+/**
+ * Create a gradient fill element (`<a:gradFill>`), replacing the solid fill in a shape's `<p:spPr>`.
+ * Reuses `createColorElement()` per stop so hex and scheme colours are handled consistently.
+ * @param {GradientFillProps} props gradient fill props
+ * @returns {string} XML string (empty string when no stops are provided)
+ * @see ECMA-376 §20.1.8.33 (gradFill) / §20.1.8.41 (lin)
+ */
+function genXmlGradientFill(props) {
+    if (!props || !Array.isArray(props.stops) || props.stops.length === 0)
+        return '';
+    // Normalise out-of-order input by sorting stops ascending by position
+    const stops = [...props.stops].sort((a, b) => (a.position || 0) - (b.position || 0));
+    const gsList = stops
+        .map(stop => {
+        // position 0–100 → `pos` in thousandths of a percent (× 1000)
+        const pos = Math.round((stop.position || 0) * 1000);
+        // Per-stop transparency uses PROMPT.md direct mapping (100 = opaque → 100000; 40 → 40000).
+        // NOTE: this differs from the solid-fill path which inverts via `(100 - transparency) * 1000`.
+        const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(stop.transparency * 1000)}"/>` : '';
+        return `<a:gs pos="${pos}">${createColorElement(stop.color, inner)}</a:gs>`;
+    })
+        .join('');
+    // direction/angle → `<a:lin ang>` in 60,000ths of a degree (degrees × 60000)
+    let ang = 0;
+    if (typeof props.direction === 'number')
+        ang = Math.round(props.direction * 60000);
+    else if (props.direction === 'vertical')
+        ang = 5400000; // 90°
+    else if (props.direction === 'diagonal')
+        ang = 2700000; // 45°
+    else
+        ang = 0; // 'horizontal' (0°) or undefined
+    const rotWithShape = props.rotWithShape === false ? '0' : '1';
+    return `<a:gradFill rotWithShape="${rotWithShape}"><a:gsLst>${gsList}</a:gsLst><a:lin ang="${ang}" scaled="1"/></a:gradFill>`;
 }
 /**
  * Get a new rel ID (rId) for charts, media, etc.
@@ -860,6 +909,16 @@ function correctShadowOptions(ShadowProps) {
         if (ShadowProps.color.startsWith('#')) {
             console.warn('Warning: shadow.color should not include hash (#) character, , e.g. "FF0000"');
             ShadowProps.color = ShadowProps.color.replace('#', '');
+        }
+        // 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when caller
+        // did not pass an explicit opacity), then strip the alpha byte from the color so
+        // emit sites produce valid 6-char `<a:srgbClr val="…"/>`.
+        if (/^[0-9a-fA-F]{8}$/.test(ShadowProps.color)) {
+            const alphaHex = ShadowProps.color.slice(6, 8);
+            if (ShadowProps.opacity === undefined) {
+                ShadowProps.opacity = parseInt(alphaHex, 16) / 255;
+            }
+            ShadowProps.color = ShadowProps.color.slice(0, 6);
         }
     }
     return ShadowProps;
@@ -1992,6 +2051,7 @@ function addImageDefinition(target, opt) {
         transparency: opt.transparency || 0,
         objectName,
         shadow: correctShadowOptions(opt.shadow),
+        animation: opt.animation,
     };
     // STEP 4: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
     if (strImgExtn === 'svg') {
@@ -2180,6 +2240,17 @@ function addNotesDefinition(target, notes) {
     });
 }
 /**
+ * Map of common friendly shape names users pass as bare strings to their
+ * valid OOXML preset values. PowerPoint can't parse the friendly spellings
+ * and removes the shape during repair .
+ */
+const SHAPE_NAME_ALIASES = {
+    oval: 'ellipse',
+    rectangle: 'rect',
+    roundedRectangle: 'roundRect',
+    roundedrectangle: 'roundRect',
+};
+/**
  * Adds a shape object to a slide definition.
  * @param {PresSlide} target slide object that the shape should be added to
  * @param {SHAPE_NAME} shapeName shape name
@@ -2188,9 +2259,15 @@ function addNotesDefinition(target, notes) {
 function addShapeDefinition(target, shapeName, opts) {
     const options = typeof opts === 'object' ? opts : {};
     options.line = options.line || { type: 'none' };
+    options.shadow = correctShadowOptions(options.shadow);
+    // Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid
+    // OOXML preset spellings before storing on the slide object.
+    const resolvedShapeName = (typeof shapeName === 'string' && SHAPE_NAME_ALIASES[shapeName])
+        ? SHAPE_NAME_ALIASES[shapeName]
+        : shapeName;
     const newObject = {
         _type: SLIDE_OBJECT_TYPES.text,
-        shape: shapeName || SHAPE_TYPE.RECTANGLE,
+        shape: resolvedShapeName || SHAPE_TYPE.RECTANGLE,
         options,
         text: null,
     };
@@ -2337,6 +2414,10 @@ function addTableDefinition(target, tableRows, options, slideLayout, presLayout,
     opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN;
     if (typeof opt.margin === 'number')
         opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)];
+    // defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
+    if (!Array.isArray(opt.margin) || opt.margin.length !== 4 || opt.margin.some((v) => typeof v !== 'number' || !isFinite(v))) {
+        opt.margin = DEF_CELL_MARGIN_IN;
+    }
     // NOTE: dont add default color on tables with hyperlinks! (it causes any textObj's with hyperlinks to have subsequent words to be black)
     if (JSON.stringify({ arrRows: arrRows }).indexOf('hyperlink') === -1) {
         if (!opt.color)
@@ -2511,6 +2592,33 @@ function addTableDefinition(target, tableRows, options, slideLayout, presLayout,
  * @since: 1.0.0
  */
 function addTextDefinition(target, text, opts, isPlaceholder) {
+    // COUNTER SUGAR (PROMPT §2.4 approach #1): a `counter` option is NOT a native OOXML
+    // animation — OOXML cannot mutate displayed text content. We emulate a count-up by
+    // stacking N text frames at the same position, each reusing the `appear` entrance and
+    // hiding the previous frame after `stepMs`. Approach #2 (<p:anim> on a numeric attr)
+    // does not drive displayed text and is intentionally not attempted.
+    if (opts === null || opts === void 0 ? void 0 : opts.counter) {
+        const { from, to, suffix = '', stepMs = 500 } = opts.counter;
+        const valid = typeof from === 'number' && isFinite(from) && typeof to === 'number' && isFinite(to) && to >= from;
+        if (valid) {
+            const frameCount = to - from + 1;
+            for (let i = 0; i < frameCount; i++) {
+                const value = from + i;
+                const frameOpts = Object.assign({}, opts);
+                delete frameOpts.counter;
+                // Sequential entrance: first frame immediately, each later frame one step after the previous.
+                frameOpts.animation = { type: 'appear', trigger: 'afterPrevious', delay: i === 0 ? 0 : stepMs };
+                // Every frame except the last hides itself one step after appearing -> count-up effect.
+                if (i < frameCount - 1)
+                    frameOpts._counterExit = stepMs;
+                else
+                    delete frameOpts._counterExit;
+                addTextDefinition(target, [{ text: `${value}${suffix}`, options: null }], frameOpts, isPlaceholder);
+            }
+            return;
+        }
+        // Invalid counter: fall through to normal single-text behaviour (defensive, no crash).
+    }
     const newObject = {
         _type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
         shape: (opts === null || opts === void 0 ? void 0 : opts.shape) || SHAPE_TYPE.RECTANGLE,
@@ -2633,7 +2741,7 @@ function addPlaceholdersToSlideLayouts(slide) {
             // NOTE: Check to ensure a placeholder does not already exist on the Slide
             // They are created when they have been populated with text (ex: `slide.addText('Hi', { placeholder:'title' });`)
             if (slide._slideObjects.filter(slideObj => slideObj.options && slideObj.options.placeholder === slideLayoutObj.options.placeholder).length === 0) {
-                addTextDefinition(slide, [{ text: '' }], slideLayoutObj.options, false);
+                addTextDefinition(slide, [{ text: '' }], slideLayoutObj.options, true);
             }
         }
     });
@@ -2805,6 +2913,12 @@ class Slide {
     }
     get hidden() {
         return this._hidden;
+    }
+    set transition(value) {
+        this._transition = value;
+    }
+    get transition() {
+        return this._transition;
     }
     /**
      * @type {SlideNumberProps}
@@ -3385,6 +3499,7 @@ function makeXmlCharts(rel) {
     var _a, _b, _c, _d;
     let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
     let usesSecondaryValAxis = false;
+    let usesSecondaryCatAxis = false;
     // STEP 1: Create chart
     {
         // CHARTSPACE: BEGIN vvv
@@ -3445,6 +3560,7 @@ function makeXmlCharts(rel) {
             const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY;
             const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY;
             usesSecondaryValAxis = usesSecondaryValAxis || options.secondaryValAxis;
+            usesSecondaryCatAxis = usesSecondaryCatAxis || options.secondaryCatAxis;
             strXml += makeChartType(type.type, type.data, options, valAxisId, catAxisId);
         });
     }
@@ -3478,10 +3594,21 @@ function makeXmlCharts(rel) {
             if (rel.opts._type === CHART_TYPE.BAR3D) {
                 strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY);
             }
+            // For combo charts referencing a secondary value axis via the
+            // `secondaryValAxis: true` flag (without a `valAxes` array),
+            // auto-synthesise the missing secondary value axis def so that
+            // the axId references in <c:plotArea> all resolve.
+            if (usesSecondaryValAxis) {
+                strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_SECONDARY);
+            }
         }
         // Combo Charts: Add secondary axes after all vals
         if (((_a = rel.opts) === null || _a === void 0 ? void 0 : _a.catAxes) && ((_b = rel.opts) === null || _b === void 0 ? void 0 : _b.catAxes[1])) {
             strXml += makeCatAxis(Object.assign(Object.assign({}, rel.opts), rel.opts.catAxes[1]), AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY);
+        }
+        else if (usesSecondaryCatAxis && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
+            // Same as above for the secondary category axis.
+            strXml += makeCatAxis(rel.opts, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY);
         }
     }
     // C: Chart Properties and plotArea Options: Border, Data Table, Fill, Legend
@@ -3841,7 +3968,14 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, isMultiTypeC
                 strXml += '  <c:marker val="1"/>';
             }
             // 5: Add axisId (NOTE: order matters! (category comes first))
-            strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/><c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`;
+            // Only 3D charts (BAR3D) get a series axis def; emitting a
+            // SERIES_PRIMARY axId for 2D charts produced a dangling reference
+            // that violated the OOXML invariant (every axId in <c:plotArea>
+            // must resolve to a defined catAx/valAx).
+            strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`;
+            if (chartType === CHART_TYPE.BAR3D) {
+                strXml += `<c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`;
+            }
             // 6: Close Chart tag
             strXml += `</c:${chartType}Chart>`;
             // end switch
@@ -5098,7 +5232,7 @@ function slideObjectToXml(slide) {
         strSlideXml += `<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${slide._bkgdImgRid}"><a:lum/></a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>`;
     }
     else if ((_a = slide.background) === null || _a === void 0 ? void 0 : _a.color) {
-        strSlideXml += `<p:bg><p:bgPr>${genXmlColorSelection(slide.background)}</p:bgPr></p:bg>`;
+        strSlideXml += `<p:bg><p:bgPr>${genXmlColorSelection(slide.background)}<a:effectLst/></p:bgPr></p:bg>`;
     }
     else if (!slide.bkgd && slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
         // NOTE: Default [white] background is needed on slideMaster1.xml to avoid gray background in Keynote (and Finder previews)
@@ -5279,7 +5413,7 @@ function slideObjectToXml(slide) {
                     strXml += `<a:tr h="${intRowH}">`;
                     // C: Loop over each CELL
                     cells.forEach(cellObj => {
-                        var _a, _b, _c, _d, _e;
+                        var _a, _b, _c;
                         const cell = cellObj;
                         const cellSpanAttrs = {
                             rowSpan: ((_a = cell.options) === null || _a === void 0 ? void 0 : _a.rowspan) > 1 ? cell.options.rowspan : undefined,
@@ -5310,16 +5444,28 @@ function slideObjectToXml(slide) {
                             ? ` anchor="${cellOpts.valign.replace(/^c$/i, 'ctr').replace(/^m$/i, 'ctr').replace('center', 'ctr').replace('middle', 'ctr').replace('top', 't').replace('btm', 'b').replace('bottom', 'b')}"`
                             : '';
                         const cellTextDir = (cellOpts.textDirection && cellOpts.textDirection !== 'horz') ? ` vert="${cellOpts.textDirection}"` : '';
-                        let fillColor = ((_d = (_c = cell._optImp) === null || _c === void 0 ? void 0 : _c.fill) === null || _d === void 0 ? void 0 : _d.color)
-                            ? cell._optImp.fill.color
-                            : ((_e = cell._optImp) === null || _e === void 0 ? void 0 : _e.fill) && typeof cell._optImp.fill === 'string'
-                                ? cell._optImp.fill
-                                : '';
-                        fillColor = fillColor || cellOpts.fill ? cellOpts.fill : '';
-                        const cellFill = fillColor ? genXmlColorSelection(fillColor) : '';
+                        const cellFillProp = (_c = cell._optImp) === null || _c === void 0 ? void 0 : _c.fill;
+                        // Gradient cell fill: route the whole object through genXmlColorSelection (emits <a:gradFill>)
+                        let cellFill = '';
+                        if (cellFillProp && typeof cellFillProp !== 'string' && cellFillProp.type === 'gradient') {
+                            cellFill = genXmlColorSelection(cellFillProp);
+                        }
+                        else {
+                            let fillColor = cellFillProp && typeof cellFillProp !== 'string' && cellFillProp.color
+                                ? cellFillProp.color
+                                : typeof cellFillProp === 'string'
+                                    ? cellFillProp
+                                    : '';
+                            fillColor = fillColor || cellOpts.fill ? cellOpts.fill : '';
+                            cellFill = fillColor ? genXmlColorSelection(fillColor) : '';
+                        }
                         let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN;
                         if (!Array.isArray(cellMargin) && typeof cellMargin === 'number')
                             cellMargin = [cellMargin, cellMargin, cellMargin, cellMargin];
+                        // defensive fallback - if `cellMargin` is not a 4-element array of finite numbers, use defaults (prevents NaN in marL/R/T/B)
+                        if (!Array.isArray(cellMargin) || cellMargin.length !== 4 || cellMargin.some(v => typeof v !== 'number' || !isFinite(v))) {
+                            cellMargin = DEF_CELL_MARGIN_IN;
+                        }
                         /** FUTURE: DEPRECATED:
                          * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
                          * - We cant introduce a breaking change before v4.0, so...
@@ -5493,16 +5639,19 @@ function slideObjectToXml(slide) {
                 }
                 // EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
                 if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-                    slideItemObj.options.shadow.type = slideItemObj.options.shadow.type || 'outer';
-                    slideItemObj.options.shadow.blur = valToPts(slideItemObj.options.shadow.blur || 8);
-                    slideItemObj.options.shadow.offset = valToPts(slideItemObj.options.shadow.offset || 4);
-                    slideItemObj.options.shadow.angle = Math.round((slideItemObj.options.shadow.angle || 270) * 60000);
-                    slideItemObj.options.shadow.opacity = Math.round((slideItemObj.options.shadow.opacity || 0.75) * 100000);
-                    slideItemObj.options.shadow.color = slideItemObj.options.shadow.color || DEF_TEXT_SHADOW.color;
+                    // derive emit-time values into locals so we don't mutate the user's options.shadow
+                    // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+                    const sh = slideItemObj.options.shadow;
+                    const shadowType = sh.type || 'outer';
+                    const shadowBlur = valToPts(sh.blur || 8);
+                    const shadowOffset = valToPts(sh.offset || 4);
+                    const shadowAngle = Math.round((sh.angle || 270) * 60000);
+                    const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
+                    const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
                     strSlideXml += '<a:effectLst>';
-                    strSlideXml += ` <a:${slideItemObj.options.shadow.type}Shdw ${slideItemObj.options.shadow.type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${slideItemObj.options.shadow.blur}" dist="${slideItemObj.options.shadow.offset}" dir="${slideItemObj.options.shadow.angle}">`;
-                    strSlideXml += ` <a:srgbClr val="${slideItemObj.options.shadow.color}">`;
-                    strSlideXml += ` <a:alpha val="${slideItemObj.options.shadow.opacity}"/></a:srgbClr>`;
+                    strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
+                    strSlideXml += ` <a:srgbClr val="${shadowColor}">`;
+                    strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
                     strSlideXml += ' </a:outerShdw>';
                     strSlideXml += '</a:effectLst>';
                 }
@@ -5576,17 +5725,20 @@ function slideObjectToXml(slide) {
                 strSlideXml += ` <a:prstGeom prst="${rounding ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>`;
                 // EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
                 if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-                    slideItemObj.options.shadow.type = slideItemObj.options.shadow.type || 'outer';
-                    slideItemObj.options.shadow.blur = valToPts(slideItemObj.options.shadow.blur || 8);
-                    slideItemObj.options.shadow.offset = valToPts(slideItemObj.options.shadow.offset || 4);
-                    slideItemObj.options.shadow.angle = Math.round((slideItemObj.options.shadow.angle || 270) * 60000);
-                    slideItemObj.options.shadow.opacity = Math.round((slideItemObj.options.shadow.opacity || 0.75) * 100000);
-                    slideItemObj.options.shadow.color = slideItemObj.options.shadow.color || DEF_TEXT_SHADOW.color;
+                    // derive emit-time values into locals so we don't mutate the user's options.shadow
+                    // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+                    const sh = slideItemObj.options.shadow;
+                    const shadowType = sh.type || 'outer';
+                    const shadowBlur = valToPts(sh.blur || 8);
+                    const shadowOffset = valToPts(sh.offset || 4);
+                    const shadowAngle = Math.round((sh.angle || 270) * 60000);
+                    const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
+                    const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
                     strSlideXml += '<a:effectLst>';
-                    strSlideXml += `<a:${slideItemObj.options.shadow.type}Shdw ${slideItemObj.options.shadow.type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${slideItemObj.options.shadow.blur}" dist="${slideItemObj.options.shadow.offset}" dir="${slideItemObj.options.shadow.angle}">`;
-                    strSlideXml += `<a:srgbClr val="${slideItemObj.options.shadow.color}">`;
-                    strSlideXml += `<a:alpha val="${slideItemObj.options.shadow.opacity}"/></a:srgbClr>`;
-                    strSlideXml += `</a:${slideItemObj.options.shadow.type}Shdw>`;
+                    strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
+                    strSlideXml += `<a:srgbClr val="${shadowColor}">`;
+                    strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
+                    strSlideXml += `</a:${shadowType}Shdw>`;
                     strSlideXml += '</a:effectLst>';
                 }
                 strSlideXml += '</p:spPr>';
@@ -5851,11 +6003,9 @@ function genXmlParagraphProperties(textObj, isDefault) {
         if (typeof textObj.options.bullet === 'object') {
             if ((_b = (_a = textObj === null || textObj === void 0 ? void 0 : textObj.options) === null || _a === void 0 ? void 0 : _a.bullet) === null || _b === void 0 ? void 0 : _b.indent)
                 bulletMarL = valToPts(textObj.options.bullet.indent);
-            if (textObj.options.bullet.type) {
-                if (textObj.options.bullet.type.toString().toLowerCase() === 'number') {
-                    paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL}" indent="-${bulletMarL}"`;
-                    strXmlBullet = `<a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'}"/>`;
-                }
+            if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
+                paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL}" indent="-${bulletMarL}"`;
+                strXmlBullet = `<a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'}"/>`;
             }
             else if (textObj.options.bullet.characterCode) {
                 let bulletCode = `&#x${textObj.options.bullet.characterCode};`;
@@ -6114,9 +6264,11 @@ function genXmlTextBody(slideObj) {
     const opts = slideObj.options || {};
     let tmpTextObjects = [];
     const arrTextObjects = [];
-    // FIRST: Shapes without text, etc. may be sent here during build, but have no text to render so return an empty string
-    if (opts && slideObj._type !== SLIDE_OBJECT_TYPES.tablecell && (typeof slideObj.text === 'undefined' || slideObj.text === null))
-        return '';
+    // FIRST: Shapes without text reach this point with `slideObj.text` null/undefined.
+    // We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
+    // the empty-txBody fallback below appends `<a:p><a:endParaRPr/></a:p>` when no
+    // `<a:p>` was produced. Returning early here would emit `<p:sp>` without
+    // `<p:txBody>`, which PowerPoint reports as a needs-repair error (#1441).
     // STEP 1: Start textBody
     let strSlideXml = slideObj._type === SLIDE_OBJECT_TYPES.tablecell ? '<a:txBody>' : '<p:txBody>';
     // STEP 2: Add bodyProperties
@@ -6220,6 +6372,7 @@ function genXmlTextBody(slideObj) {
         strSlideXml += '<a:p>';
         // NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
         let paragraphPropXml = `<a:pPr ${((_a = line[0].options) === null || _a === void 0 ? void 0 : _a.rtlMode) ? ' rtl="1" ' : ''}`;
+        let paragraphPropEmitted = false;
         // B: Start paragraph, loop over lines and add text runs
         line.forEach((textObj, idx) => {
             // A: Set line index
@@ -6235,8 +6388,16 @@ function genXmlTextBody(slideObj) {
             textObj.options.indentLevel = textObj.options.indentLevel || opts.indentLevel;
             textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore;
             textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter;
-            paragraphPropXml = genXmlParagraphProperties(textObj, false);
-            strSlideXml += paragraphPropXml.replace('<a:pPr></a:pPr>', ''); // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
+            // OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
+            // Emit paragraph properties exactly once, derived from the first run that yields non-empty pPr XML.
+            if (!paragraphPropEmitted) {
+                paragraphPropXml = genXmlParagraphProperties(textObj, false);
+                const cleaned = paragraphPropXml.replace('<a:pPr></a:pPr>', ''); // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
+                if (cleaned) {
+                    strSlideXml += cleaned;
+                    paragraphPropEmitted = true;
+                }
+            }
             // C: Inherit any main options (color, fontSize, etc.)
             // NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
             // so the run building function cant just fallback to Slide.color, therefore, we need to do that here before passing options below.
@@ -6248,7 +6409,19 @@ function genXmlTextBody(slideObj) {
                     textObj.options[key] = val;
             });
             // D: Add formatted textrun
-            strSlideXml += genXmlTextRun(textObj);
+            // When this paragraph emits bullet markup (`bullet:true` or any object
+            // form), strip a single leading bullet glyph (+ optional whitespace) from
+            // the first run's text. Otherwise PowerPoint renders two bullets — one
+            // from the paragraph-level `<a:buChar/>` and one from the literal glyph
+            // in `<a:t>`. Mid-text glyphs and `bullet:false`/no-bullet are unaffected.
+            let _textRunObj = textObj;
+            if (idx === 0 && line[0].options.bullet && typeof textObj.text === 'string') {
+                const _stripped = textObj.text.replace(/^[\u2022\u25E6\u25AA\u25AB\u25CF\u25CB\u2023\u2043\u2219]\s*/, '');
+                if (_stripped !== textObj.text) {
+                    _textRunObj = { text: _stripped, options: textObj.options };
+                }
+            }
+            strSlideXml += genXmlTextRun(_textRunObj);
             // E: Flag close fontSize for empty [lineBreak] elements
             if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {
                 reqsClosingFontSize = true;
@@ -6327,28 +6500,40 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide) {
     strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">';
     strXml += '<Default Extension="xml" ContentType="application/xml"/>';
     strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>';
-    strXml += '<Default Extension="jpeg" ContentType="image/jpeg"/>';
-    strXml += '<Default Extension="jpg" ContentType="image/jpg"/>';
-    strXml += '<Default Extension="svg" ContentType="image/svg+xml"/>';
-    // STEP 1: Add standard/any media types used in Presentation
-    strXml += '<Default Extension="png" ContentType="image/png"/>';
-    strXml += '<Default Extension="gif" ContentType="image/gif"/>';
-    strXml += '<Default Extension="m4v" ContentType="video/mp4"/>'; // NOTE: Hard-Code this extension as it wont be created in loop below (as extn !== type)
-    strXml += '<Default Extension="mp4" ContentType="video/mp4"/>'; // NOTE: Hard-Code this extension as it wont be created in loop below (as extn !== type)
-    slides.forEach(slide => {
-        (slide._relsMedia || []).forEach(rel => {
-            if (rel.type !== 'image' && rel.type !== 'online' && rel.type !== 'chart' && rel.extn !== 'm4v' && !strXml.includes(rel.type)) {
-                strXml += '<Default Extension="' + rel.extn + '" ContentType="' + rel.type + '"/>';
-            }
+    // STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
+    // Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
+    // Skip 'online' rels (no part written) and rels missing extn/type.
+    const extnTypeMap = new Map();
+    const ctTargets = [];
+    (slides || []).forEach(s => ctTargets.push(s));
+    (slideLayouts || []).forEach(l => ctTargets.push(l));
+    if (masterSlide)
+        ctTargets.push(masterSlide);
+    let ctHasChart = false;
+    ctTargets.forEach(target => {
+        (target._relsMedia || []).forEach(rel => {
+            if (rel.type === 'online' || !rel.extn || !rel.type)
+                return;
+            if (!extnTypeMap.has(rel.extn))
+                extnTypeMap.set(rel.extn, rel.type);
         });
+        if (((target._relsChart) || []).length > 0)
+            ctHasChart = true;
     });
-    strXml += '<Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>';
-    strXml += '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>';
+    extnTypeMap.forEach((type, extn) => {
+        strXml += '<Default Extension="' + extn + '" ContentType="' + type + '"/>';
+    });
+    // Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
+    if (ctHasChart) {
+        strXml += '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>';
+    }
     // STEP 2: Add presentation and slide master(s)/slide(s)
     strXml += '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>';
     strXml += '<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>';
+    // Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
+    // rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
+    strXml += '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>';
     slides.forEach((slide, idx) => {
-        strXml += `<Override PartName="/ppt/slideMasters/slideMaster${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>`;
         strXml += `<Override PartName="/ppt/slides/slide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
         // Add charts if any
         slide._relsChart.forEach(rel => {
@@ -6359,6 +6544,8 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide) {
     strXml += '<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>';
     strXml += '<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>';
     strXml += '<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>';
+    // notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
+    strXml += '<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>';
     strXml += '<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>';
     // STEP 4: Add Slide Layouts
     slideLayouts.forEach((layout, idx) => {
@@ -6375,11 +6562,7 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide) {
     masterSlide._relsChart.forEach(rel => {
         strXml += ' <Override PartName="' + rel.Target + '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>';
     });
-    masterSlide._relsMedia.forEach(rel => {
-        if (rel.type !== 'image' && rel.type !== 'online' && rel.type !== 'chart' && rel.extn !== 'm4v' && !strXml.includes(rel.type)) {
-            strXml += ' <Default Extension="' + rel.extn + '" ContentType="' + rel.type + '"/>';
-        }
-    });
+    // master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
     // LAST: Finish XML (Resume core)
     strXml += ' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>';
     strXml += ' <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>';
@@ -6485,6 +6668,201 @@ function makeXmlPresentationRels(slides) {
 }
 // XML-GEN: Functions that run 1-N times (once for each Slide)
 /**
+ * Generates the `<p:transition>` element for a slide (entrance effect).
+ * Returns '' when no transition is set (or type 'none') so default output is byte-for-byte unchanged.
+ * Emitted after `</p:clrMapOvr>` and before any `<p:timing>` per schema child order.
+ * @param {TransitionProps} trans - the slide transition properties (optional)
+ * @return {string} XML (empty string when no transition)
+ */
+function genXmlTransition(trans) {
+    if (!trans || !trans.type || trans.type === 'none')
+        return '';
+    // Map duration (ms) to coarse `spd`: <=250 fast, <=750 med, else slow; omitted -> med
+    let spd = 'med';
+    if (typeof trans.duration === 'number') {
+        if (trans.duration <= 250)
+            spd = 'fast';
+        else if (trans.duration <= 750)
+            spd = 'med';
+        else
+            spd = 'slow';
+    }
+    // Direction map for directional transitions (push/wipe/cover)
+    const dirMap = { left: 'l', right: 'r', up: 'u', down: 'd' };
+    const dir = dirMap[trans.direction] || 'l';
+    let child = '';
+    switch (trans.type) {
+        case 'fade':
+            child = '<p:fade/>';
+            break;
+        case 'cut':
+            child = '<p:cut/>';
+            break;
+        case 'split':
+            child = '<p:split/>';
+            break;
+        case 'push':
+        case 'wipe':
+        case 'cover':
+            child = `<p:${trans.type} dir="${dir}"/>`;
+            break;
+        default:
+            return '';
+    }
+    return `<p:transition spd="${spd}">${child}</p:transition>`;
+}
+/**
+ * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
+ * @param {AnimationProps} anim - the animation options
+ * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
+ * @param {() => number} nextId - allocator for globally-unique `<p:cTn id>` values
+ * @return {string} XML payload
+ */
+function genXmlAnimPayload(anim, spid, nextId) {
+    var _a, _b;
+    const dur = typeof anim.duration === 'number' ? anim.duration : 500;
+    // ALL types emit the visibility <p:set> (instant show)
+    let payload = '<p:set>' +
+        '<p:cBhvr>' +
+        `<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+        `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+        '<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+        '</p:cBhvr>' +
+        '<p:to><p:strVal val="visible"/></p:to>' +
+        '</p:set>';
+    // fadeIn ADDS a fade <p:animEffect>; appear = visibility-only (flyIn/zoomIn add motion below)
+    if (anim.type === 'fadeIn') {
+        payload +=
+            '<p:animEffect transition="in" filter="fade">' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '</p:cBhvr>' +
+                '</p:animEffect>';
+    }
+    // flyIn ADDS a <p:anim> that translates the shape from offscreen to its final position.
+    // direction (TransitionDirection: left|right|up|down) -> animated attr + tm="0" start formula:
+    //   left  -> ppt_x, "0-#ppt_w/2"   right -> ppt_x, "1+#ppt_w/2"
+    //   up    -> ppt_y, "0-#ppt_h/2"   down  -> ppt_y, "1+#ppt_h/2"
+    if (anim.type === 'flyIn') {
+        const flyMap = {
+            left: { attr: 'ppt_x', start: '0-#ppt_w/2' },
+            right: { attr: 'ppt_x', start: '1+#ppt_w/2' },
+            up: { attr: 'ppt_y', start: '0-#ppt_h/2' },
+            down: { attr: 'ppt_y', start: '1+#ppt_h/2' },
+        };
+        const { attr, start } = (_b = flyMap[(_a = anim.direction) !== null && _a !== void 0 ? _a : 'left']) !== null && _b !== void 0 ? _b : flyMap.left;
+        payload +=
+            '<p:anim calcmode="lin" valueType="num">' +
+                '<p:cBhvr additive="base">' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                `<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+                '</p:cBhvr>' +
+                '<p:tavLst>' +
+                `<p:tav tm="0"><p:val><p:strVal val="${start}"/></p:val></p:tav>` +
+                `<p:tav tm="100000"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+                '</p:tavLst>' +
+                '</p:anim>';
+    }
+    // zoomIn ADDS two <p:anim> blocks that scale the shape from collapsed (0) to full size.
+    // One on ppt_w, one on ppt_h, each 0 at tm="0" -> #ppt_w/#ppt_h at tm="100000".
+    if (anim.type === 'zoomIn') {
+        ['ppt_w', 'ppt_h'].forEach(attr => {
+            payload +=
+                '<p:anim calcmode="lin" valueType="num">' +
+                    '<p:cBhvr additive="base">' +
+                    `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                    `<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+                    '</p:cBhvr>' +
+                    '<p:tavLst>' +
+                    '<p:tav tm="0"><p:val><p:strVal val="0"/></p:val></p:tav>' +
+                    `<p:tav tm="100000"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+                    '</p:tavLst>' +
+                    '</p:anim>';
+        });
+    }
+    return payload;
+}
+/**
+ * Generate the slide `<p:timing>` block from any objects carrying an `animation` option.
+ * Returns `''` when no object is animated (default-off byte-for-byte invariant).
+ * @param {PresSlide} slide - the slide object
+ * @return {string} XML
+ */
+function genXmlTiming(slide) {
+    // Collect animated objects, keeping their slide-object index (spid = idx + 2, matching <p:cNvPr id>)
+    const animated = slide._slideObjects
+        .map((obj, idx) => { var _a, _b; return ({ anim: (_a = obj.options) === null || _a === void 0 ? void 0 : _a.animation, spid: idx + 2, exitMs: (_b = obj.options) === null || _b === void 0 ? void 0 : _b._counterExit }); })
+        .filter(entry => { var _a; return (_a = entry.anim) === null || _a === void 0 ? void 0 : _a.type; });
+    // Default-off invariant: emit nothing when no animations present
+    if (animated.length === 0)
+        return '';
+    // Globally-unique <p:cTn id> allocator; ids 1-4 reserved for the envelope, per-shape ids start at 5
+    let idCounter = 5;
+    const nextId = () => idCounter++;
+    // presetID labels the effect in the PowerPoint UI
+    const presetMap = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23 };
+    // trigger -> nodeType
+    const nodeTypeMap = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' };
+    let shapeBlocks = '';
+    animated.forEach(({ anim, spid, exitMs }) => {
+        var _a, _b, _c;
+        const presetID = (_a = presetMap[anim.type]) !== null && _a !== void 0 ? _a : 1;
+        const nodeType = (_c = nodeTypeMap[(_b = anim.trigger) !== null && _b !== void 0 ? _b : 'afterPrevious']) !== null && _c !== void 0 ? _c : 'afterEffect';
+        const delay = typeof anim.delay === 'number' ? anim.delay : 0;
+        const effectId = nextId();
+        // Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
+        // Isolated here so genXmlAnimPayload stays scoped to the public animation types.
+        let exitBlock = '';
+        if (typeof exitMs === 'number') {
+            exitBlock =
+                '<p:par>' +
+                    `<p:cTn id="${nextId()}" fill="hold">` +
+                    `<p:stCondLst><p:cond delay="${exitMs}"/></p:stCondLst>` +
+                    '<p:childTnLst>' +
+                    '<p:set>' +
+                    '<p:cBhvr>' +
+                    `<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+                    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                    '<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+                    '</p:cBhvr>' +
+                    '<p:to><p:strVal val="hidden"/></p:to>' +
+                    '</p:set>' +
+                    '</p:childTnLst>' +
+                    '</p:cTn>' +
+                    '</p:par>';
+        }
+        shapeBlocks +=
+            '<p:par>' +
+                `<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType}">` +
+                `<p:stCondLst><p:cond delay="${delay}"/></p:stCondLst>` +
+                '<p:childTnLst>' +
+                genXmlAnimPayload(anim, spid, nextId) +
+                exitBlock +
+                '</p:childTnLst>' +
+                '</p:cTn>' +
+                '</p:par>';
+    });
+    return ('<p:timing><p:tnLst><p:par>' +
+        '<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
+        '<p:seq concurrent="1" nextAc="seek">' +
+        '<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>' +
+        '<p:par><p:cTn id="3" fill="hold" nodeType="afterEffect">' +
+        '<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
+        '<p:par><p:cTn id="4" fill="hold">' +
+        '<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
+        shapeBlocks +
+        '</p:childTnLst></p:cTn></p:par>' +
+        '</p:childTnLst></p:cTn></p:par>' +
+        '</p:childTnLst></p:cTn>' +
+        '<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+        '<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
+        '</p:seq>' +
+        '</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>');
+}
+/**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
  * @param {PresSlide} slide - the slide object to transform into XML
  * @return {string} XML
@@ -6495,7 +6873,10 @@ function makeXmlSlide(slide) {
         'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
         `${(slide === null || slide === void 0 ? void 0 : slide.hidden) ? ' show="0"' : ''}>` +
         `${slideObjectToXml(slide)}` +
-        '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>');
+        '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
+        `${genXmlTransition(slide.transition)}` +
+        `${genXmlTiming(slide)}` +
+        '</p:sld>');
 }
 /**
  * Get text content of Notes from Slide
@@ -6650,7 +7031,7 @@ function makeXmlMasterRel(masterSlide, slideLayouts) {
  */
 function makeXmlNotesMasterRel() {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
 		</Relationships>`;
 }
 /**
@@ -6694,16 +7075,17 @@ function makeXmlPresentation(pres) {
         `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} saveSubsetFonts="1" autoCompressPictures="0">`;
     // STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
     strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>';
-    // STEP 2: Add all Slides (SPEC: tag 3 under <presentation>)
+    // STEP 2: Add Notes Master (SPEC: tag 2 under <presentation>)
+    // CT_Presentation child sequence (ECMA-376 Part 1 §19.2.1.26) requires
+    // notesMasterIdLst to appear BEFORE sldIdLst. Emitting it after sldIdLst
+    // (or after sldSz/notesSz) violates the schema and is flagged by
+    // OpenXmlValidator as Sch_UnexpectedElementContentExpectingComplex.
+    // (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
+    strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`;
+    // STEP 3: Add all Slides (SPEC: tag 3 under <presentation>)
     strXml += '<p:sldIdLst>';
     pres.slides.forEach(slide => (strXml += `<p:sldId id="${slide._slideId}" r:id="rId${slide._rId}"/>`));
     strXml += '</p:sldIdLst>';
-    // STEP 3: Add Notes Master (SPEC: tag 2 under <presentation>)
-    // (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
-    // IMPORTANT: In this order (matches PPT2019) PPT will give corruption message on open!
-    // IMPORTANT: Placing this before `<p:sldIdLst>` causes warning in modern powerpoint!
-    // IMPORTANT: Presentations open without warning Without this line, however, the pres isnt preview in Finder anymore or viewable in iOS!
-    strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`;
     // STEP 4: Add sizes
     strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`;
     strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`;
@@ -7022,8 +7404,16 @@ class PptxGenJS {
                 zip.folder('_rels');
                 zip.folder('docProps');
                 zip.folder('ppt').folder('_rels');
-                zip.folder('ppt/charts').folder('_rels');
-                zip.folder('ppt/embeddings');
+                // only scaffold ppt/charts and ppt/embeddings when at least one
+                // target actually has a chart. Otherwise JSZip emits stray empty
+                // directory entries into the archive on every minimal deck.
+                const hasCharts = this.slides.some(s => (s._relsChart || []).length > 0) ||
+                    this.slideLayouts.some(l => (l._relsChart || []).length > 0) ||
+                    ((this.masterSlide && this.masterSlide._relsChart) || []).length > 0;
+                if (hasCharts) {
+                    zip.folder('ppt/charts').folder('_rels');
+                    zip.folder('ppt/embeddings');
+                }
                 zip.folder('ppt/media');
                 zip.folder('ppt/slideLayouts').folder('_rels');
                 zip.folder('ppt/slideMasters').folder('_rels');
@@ -7037,6 +7427,8 @@ class PptxGenJS {
                 zip.file('docProps/core.xml', makeXmlCore(this.title, this.subject, this.author, this.revision)); // TODO: pass only `this` like below! 20200206
                 zip.file('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this.slides));
                 zip.file('ppt/theme/theme1.xml', makeXmlTheme(this));
+                // emit a separate theme2.xml part so notesMaster1.xml.rels resolves
+                zip.file('ppt/theme/theme2.xml', makeXmlTheme(this));
                 zip.file('ppt/presentation.xml', makeXmlPresentation(this));
                 zip.file('ppt/presProps.xml', makeXmlPresProps());
                 zip.file('ppt/tableStyles.xml', makeXmlTableStyles());
