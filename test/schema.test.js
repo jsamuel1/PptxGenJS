@@ -196,5 +196,18 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'animation-staggered')
 		}
+	},
+	{
+		name: 'slide with flyIn animations (all four directions)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } })
+				s.addShape('rect', { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00' }, animation: { type: 'flyIn', direction: 'right' } })
+				s.addShape('rect', { x: 1, y: 3, w: 2, h: 1, fill: { color: '0000FF' }, animation: { type: 'flyIn', direction: 'up', duration: 650 } })
+				s.addShape('rect', { x: 4, y: 3, w: 2, h: 1, fill: { color: 'FFFF00' }, animation: { type: 'flyIn', direction: 'down' } })
+			})
+			await expectNoSchemaErrors(buf, 'animation-flyin')
+		}
 	}
 ]

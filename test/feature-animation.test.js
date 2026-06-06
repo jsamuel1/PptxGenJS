@@ -91,18 +91,87 @@ module.exports = [
 		}
 	},
 	{
-		name: 'animation: flyIn/zoomIn degrade to visibility-only this slice (no crash, no animEffect)',
+		name: 'animation: zoomIn degrades to visibility-only this slice (no crash, no animEffect/anim)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } }))
+			assert(xml.includes('<p:timing>'), 'expected timing; got: ' + xml)
+			assert(xml.includes('presetID="23"'), 'zoomIn presetID must be 23; got: ' + xml)
+			// zoomIn motion deferred to Slice 5 → only visibility set, no animEffect/anim yet
+			assert(!xml.includes('<p:animEffect'), 'zoomIn must not emit animEffect this slice; got: ' + xml)
+			assert(!xml.includes('<p:anim '), 'zoomIn motion deferred (no <p:anim>); got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn left → <p:anim> on ppt_x, start "0-#ppt_w/2", end "#ppt_x"',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } }))
+			assert(xml.includes('presetID="2"'), 'flyIn presetID must be 2; got: ' + xml)
+			assert(xml.includes('<p:anim calcmode="lin" valueType="num">'), 'expected <p:anim>; got: ' + xml)
+			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn left must animate ppt_x; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_w/2"/></p:val></p:tav>'), 'flyIn left start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_x"/></p:val></p:tav>'), 'flyIn left end #ppt_x; got: ' + xml)
+			// visibility set still present alongside motion
+			assert(xml.includes('<p:strVal val="visible"/>'), 'flyIn must still emit visibility set; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn right → start "1+#ppt_w/2" on ppt_x',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'right' } }))
+			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn right must animate ppt_x; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="1+#ppt_w/2"/></p:val></p:tav>'), 'flyIn right start formula; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn up → <p:anim> on ppt_y, start "0-#ppt_h/2", end "#ppt_y"',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'up' } }))
+			assert(xml.includes('<p:attrName>ppt_y</p:attrName>'), 'flyIn up must animate ppt_y; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_h/2"/></p:val></p:tav>'), 'flyIn up start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_y"/></p:val></p:tav>'), 'flyIn up end #ppt_y; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn down → start "1+#ppt_h/2" on ppt_y',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'down' } }))
+			assert(xml.includes('<p:attrName>ppt_y</p:attrName>'), 'flyIn down must animate ppt_y; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="1+#ppt_h/2"/></p:val></p:tav>'), 'flyIn down start formula; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn default (no direction) → left formula (ppt_x, "0-#ppt_w/2")',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn' } }))
+			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn default must animate ppt_x; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_w/2"/></p:val></p:tav>'), 'flyIn default = left start formula; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn custom duration → <p:anim> <p:cTn dur="N">',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', duration: 650 } }))
+			assert(/<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base"><p:cTn id="\d+" dur="650" fill="hold"\/>/.test(xml),
+				'flyIn motion must carry dur="650"; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: appear/fadeIn emit ZERO <p:anim> (flyIn branch must not leak)',
 		fn: async () => {
 			const xml = await slide1Xml(s => {
-				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } })
-				s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } })
+				s.addText('a', { x: 1, y: 1, w: 4, h: 1, animation: { type: 'appear' } })
+				s.addText('b', { x: 1, y: 2, w: 4, h: 1, animation: { type: 'fadeIn' } })
 			})
-			assert(xml.includes('<p:timing>'), 'expected timing; got: ' + xml)
-			assert(xml.includes('presetID="2"'), 'flyIn presetID must be 2; got: ' + xml)
-			assert(xml.includes('presetID="23"'), 'zoomIn presetID must be 23; got: ' + xml)
-			// motion deferred → only visibility sets, no animEffect/anim yet
-			assert(!xml.includes('<p:animEffect'), 'flyIn/zoomIn must not emit animEffect this slice; got: ' + xml)
-			assert(!xml.includes('<p:anim '), 'flyIn motion deferred (no <p:anim>); got: ' + xml)
+			assert(!xml.includes('<p:anim '), 'appear/fadeIn must NOT emit <p:anim>; got: ' + xml)
+		}
+	},
+	{
+		name: 'animation: flyIn keeps all <p:cTn id> unique (set id + anim id distinct)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } }))
+			const ids = (xml.match(/<p:cTn id="(\d+)"/g) || []).map(m => m.match(/id="(\d+)"/)[1])
+			const uniq = new Set(ids)
+			assert(uniq.size === ids.length, `flyIn <p:cTn id> values must be unique; got ${ids.join(',')}`)
 		}
 	},
 	{

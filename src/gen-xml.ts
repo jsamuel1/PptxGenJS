@@ -1665,7 +1665,7 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 		'<p:to><p:strVal val="visible"/></p:to>' +
 		'</p:set>'
 
-	// fadeIn ADDS a fade <p:animEffect>; appear/flyIn/zoomIn = visibility-only this slice (motion deferred to Slices 4/5)
+	// fadeIn ADDS a fade <p:animEffect>; appear/zoomIn = visibility-only this slice (zoomIn motion deferred to Slice 5)
 	if (anim.type === 'fadeIn') {
 		payload +=
 			'<p:animEffect transition="in" filter="fade">' +
@@ -1674,6 +1674,32 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
 			'</p:cBhvr>' +
 			'</p:animEffect>'
+	}
+
+	// flyIn ADDS a <p:anim> that translates the shape from offscreen to its final position.
+	// direction (TransitionDirection: left|right|up|down) -> animated attr + tm="0" start formula:
+	//   left  -> ppt_x, "0-#ppt_w/2"   right -> ppt_x, "1+#ppt_w/2"
+	//   up    -> ppt_y, "0-#ppt_h/2"   down  -> ppt_y, "1+#ppt_h/2"
+	if (anim.type === 'flyIn') {
+		const flyMap: Record<string, { attr: string; start: string }> = {
+			left: { attr: 'ppt_x', start: '0-#ppt_w/2' },
+			right: { attr: 'ppt_x', start: '1+#ppt_w/2' },
+			up: { attr: 'ppt_y', start: '0-#ppt_h/2' },
+			down: { attr: 'ppt_y', start: '1+#ppt_h/2' },
+		}
+		const { attr, start } = flyMap[anim.direction ?? 'left'] ?? flyMap.left
+		payload +=
+			'<p:anim calcmode="lin" valueType="num">' +
+			'<p:cBhvr additive="base">' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			`<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+			'</p:cBhvr>' +
+			'<p:tavLst>' +
+			`<p:tav tm="0"><p:val><p:strVal val="${start}"/></p:val></p:tav>` +
+			`<p:tav tm="100000"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+			'</p:tavLst>' +
+			'</p:anim>'
 	}
 
 	return payload
