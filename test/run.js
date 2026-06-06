@@ -8,7 +8,7 @@ const successes = []
 
 async function loadAndRun() {
 	const dir = __dirname
-	const files = fs.readdirSync(dir).filter(f => /^bug-\d+\.test\.js$/.test(f)).sort()
+	const files = fs.readdirSync(dir).filter(f => /^(bug-\d+|feature-[a-z0-9-]+)\.test\.js$/.test(f)).sort()
 	for (const f of files) {
 		const full = path.join(dir, f)
 		const cases = require(full)
