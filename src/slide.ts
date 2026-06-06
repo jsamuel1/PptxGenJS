@@ -26,6 +26,7 @@ import {
 	TableRow,
 	TextProps,
 	TextPropsOptions,
+	TransitionProps,
 } from './core-interfaces'
 import * as genObj from './gen-objects'
 
@@ -138,6 +139,19 @@ export default class Slide {
 
 	public get hidden(): boolean {
 		return this._hidden
+	}
+
+	/**
+	 * Slide transition (entrance effect applied when navigating to this slide)
+	 * @type {TransitionProps}
+	 */
+	private _transition: TransitionProps
+	public set transition(value: TransitionProps) {
+		this._transition = value
+	}
+
+	public get transition(): TransitionProps {
+		return this._transition
 	}
 
 	/**

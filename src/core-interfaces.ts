@@ -1825,6 +1825,16 @@ export interface SlideBaseProps {
 	 */
 	bkgd?: string | BackgroundProps
 }
+export type TransitionType = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'split' | 'cut'
+export type TransitionDirection = 'left' | 'right' | 'up' | 'down'
+export interface TransitionProps {
+	/** Transition effect. @default 'none' */
+	type: TransitionType
+	/** Duration in milliseconds (mapped to coarse `spd`: <=250 fast, <=750 med, else slow). @default 'med' (~500ms) when omitted */
+	duration?: number
+	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
+	direction?: TransitionDirection
+}
 export interface SlideLayout extends SlideBaseProps {
 	_slide?: {
 		_bkgdImgRid?: number
@@ -1867,6 +1877,13 @@ export interface PresSlide extends SlideBaseProps {
 	 * @default false
 	 */
 	hidden?: boolean
+	/**
+	 * Slide transition (entrance effect applied when navigating to this slide)
+	 * @example { type: 'fade' }
+	 * @example { type: 'push', direction: 'left', duration: 500 }
+	 * @default none (no transition emitted)
+	 */
+	transition?: TransitionProps
 	/**
 	 * Slide number options
 	 */

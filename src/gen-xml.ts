@@ -30,6 +30,7 @@ import {
 	TableCellProps,
 	TextProps,
 	TextPropsOptions,
+	TransitionProps,
 } from './core-interfaces'
 import {
 	convertRotationDegrees,
@@ -1599,6 +1600,51 @@ export function makeXmlPresentationRels (slides: PresSlide[]): string {
 // XML-GEN: Functions that run 1-N times (once for each Slide)
 
 /**
+ * Generates the `<p:transition>` element for a slide (entrance effect).
+ * Returns '' when no transition is set (or type 'none') so default output is byte-for-byte unchanged.
+ * Emitted after `</p:clrMapOvr>` and before any `<p:timing>` per schema child order.
+ * @param {TransitionProps} trans - the slide transition properties (optional)
+ * @return {string} XML (empty string when no transition)
+ */
+export function genXmlTransition (trans?: TransitionProps): string {
+	if (!trans || !trans.type || trans.type === 'none') return ''
+
+	// Map duration (ms) to coarse `spd`: <=250 fast, <=750 med, else slow; omitted -> med
+	let spd = 'med'
+	if (typeof trans.duration === 'number') {
+		if (trans.duration <= 250) spd = 'fast'
+		else if (trans.duration <= 750) spd = 'med'
+		else spd = 'slow'
+	}
+
+	// Direction map for directional transitions (push/wipe/cover)
+	const dirMap: { [key: string]: string } = { left: 'l', right: 'r', up: 'u', down: 'd' }
+	const dir = dirMap[trans.direction] || 'l'
+
+	let child = ''
+	switch (trans.type) {
+		case 'fade':
+			child = '<p:fade/>'
+			break
+		case 'cut':
+			child = '<p:cut/>'
+			break
+		case 'split':
+			child = '<p:split/>'
+			break
+		case 'push':
+		case 'wipe':
+		case 'cover':
+			child = `<p:${trans.type} dir="${dir}"/>`
+			break
+		default:
+			return ''
+	}
+
+	return `<p:transition spd="${spd}">${child}</p:transition>`
+}
+
+/**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
  * @param {PresSlide} slide - the slide object to transform into XML
  * @return {string} XML
@@ -1610,7 +1656,9 @@ export function makeXmlSlide (slide: PresSlide): string {
 		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
 		`${slide?.hidden ? ' show="0"' : ''}>` +
 		`${slideObjectToXml(slide)}` +
-		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>'
+		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
+		`${genXmlTransition(slide.transition)}` +
+		'</p:sld>'
 	)
 }
 

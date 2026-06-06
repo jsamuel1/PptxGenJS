@@ -151,5 +151,27 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'gradient-shape-alpha')
 		}
+	},
+	{
+		name: 'slide with fade transition',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.transition = { type: 'fade', duration: 500 }
+				s.addText('hi', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'transition-fade')
+		}
+	},
+	{
+		name: 'slide with directional push transition',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.transition = { type: 'push', direction: 'left', duration: 750 }
+				s.addText('hi', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'transition-push')
+		}
 	}
 ]
