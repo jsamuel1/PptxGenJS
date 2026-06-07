@@ -56,11 +56,15 @@ module.exports = [
 				s.addText('b', { x: 1, y: 2, w: 4, h: 1, animation: { type: 'fadeIn', delay: 90 } })
 				s.addText('c', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'fadeIn', delay: 180 } })
 			})
-			// effect-node start conditions carry the per-shape stagger
-			assert(xml.includes('presetID="10" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/>'),
-				'shape1 delay=0 expected; got: ' + xml)
-			assert(xml.includes('nodeType="afterEffect"><p:stCondLst><p:cond delay="90"/>'), 'shape2 delay=90 expected; got: ' + xml)
-			assert(xml.includes('nodeType="afterEffect"><p:stCondLst><p:cond delay="180"/>'), 'shape3 delay=180 expected; got: ' + xml)
+			// Each afterPrevious shape is its own build step; the per-step wrapper
+			// (nodeType="afterEffect") carries the stagger delay, members are withEffect.
+			assert(xml.includes('fill="hold" nodeType="afterEffect"><p:stCondLst><p:cond delay="0"/>'),
+				'step1 wrapper delay=0 expected; got: ' + xml)
+			assert(xml.includes('nodeType="afterEffect"><p:stCondLst><p:cond delay="90"/>'), 'step2 wrapper delay=90 expected; got: ' + xml)
+			assert(xml.includes('nodeType="afterEffect"><p:stCondLst><p:cond delay="180"/>'), 'step3 wrapper delay=180 expected; got: ' + xml)
+			// three sequential build steps, each carrying a fadeIn member (presetID=10)
+			assert((xml.match(/fill="hold" nodeType="afterEffect"/g) || []).length === 3, 'expected 3 build-step wrappers; got: ' + xml)
+			assert((xml.match(/presetID="10"/g) || []).length === 3, 'expected 3 fadeIn members; got: ' + xml)
 		}
 	},
 	{
@@ -96,7 +100,7 @@ module.exports = [
 			const xml = await slide1Xml(s => s.addText('z', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'zoomIn' } }))
 			assert(xml.includes('<p:timing>'), 'expected timing; got: ' + xml)
 			assert(xml.includes('presetID="23"'), 'zoomIn presetID must be 23; got: ' + xml)
-			assert(xml.includes('<p:cTn id="5" presetID="23" presetClass="entr"'), 'zoomIn wrapping effect cTn must carry presetID=23 presetClass=entr; got: ' + xml)
+			assert(/<p:cTn id="\d+" presetID="23" presetClass="entr"/.test(xml), 'zoomIn wrapping effect cTn must carry presetID=23 presetClass=entr; got: ' + xml)
 			const animCount = (xml.match(/<p:anim calcmode="lin" valueType="num">/g) || []).length
 			assert(animCount === 2, 'zoomIn must emit exactly TWO <p:anim> blocks (ppt_w + ppt_h); got ' + animCount + ': ' + xml)
 			assert(xml.includes('<p:attrName>ppt_w</p:attrName>'), 'zoomIn must animate ppt_w; got: ' + xml)

@@ -1739,20 +1739,37 @@ function genXmlTiming (slide: PresSlide): string {
 	// Default-off invariant: emit nothing when no animations present
 	if (animated.length === 0) return ''
 
-	// Globally-unique <p:cTn id> allocator; ids 1-4 reserved for the envelope, per-shape ids start at 5
-	let idCounter = 5
+	// Globally-unique <p:cTn id> allocator. ids 1-2 are reserved for the envelope
+	// (tmRoot, mainSeq); build-step wrappers + per-shape effect/payload nodes start at 3.
+	let idCounter = 3
 	const nextId = (): number => idCounter++
 
 	// presetID labels the effect in the PowerPoint UI
 	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23 }
-	// trigger -> nodeType
-	const nodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
+	// trigger -> build-step wrapper nodeType
+	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
-	let shapeBlocks = ''
-	animated.forEach(({ anim, spid, exitMs }) => {
+	// --- Group animated objects into BUILD STEPS by trigger ---------------------
+	// afterPrevious / onClick start a NEW step; withPrevious joins the CURRENT step.
+	// (A leading withPrevious with no current step opens its own step.) Each step is
+	// emitted as a <p:par> directly under <p:seq nodeType="mainSeq"> — the container
+	// that actually sequences in PowerPoint — so steps play one-after-the-previous.
+	type Entry = (typeof animated)[number]
+	interface BuildStep { trigger: string; members: Entry[] }
+	const steps: BuildStep[] = []
+	animated.forEach(entry => {
+		const trigger = entry.anim.trigger ?? 'afterPrevious'
+		if (trigger === 'withPrevious' && steps.length > 0) {
+			steps[steps.length - 1].members.push(entry)
+		} else {
+			steps.push({ trigger, members: [entry] })
+		}
+	})
+
+	// Render a single animated object as a member <p:par> (nodeType="withEffect").
+	const renderMember = (entry: Entry, memberDelay: number): string => {
+		const { anim, spid, exitMs } = entry
 		const presetID = presetMap[anim.type] ?? 1
-		const nodeType = nodeTypeMap[anim.trigger ?? 'afterPrevious'] ?? 'afterEffect'
-		const delay = typeof anim.delay === 'number' ? anim.delay : 0
 		const effectId = nextId()
 		// Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
 		// Isolated here so genXmlAnimPayload stays scoped to the public animation types.
@@ -1775,13 +1792,40 @@ function genXmlTiming (slide: PresSlide): string {
 				'</p:cTn>' +
 				'</p:par>'
 		}
-		shapeBlocks +=
+		// Members are always withEffect: the step trigger lives on the wrapper, and
+		// members of a step play in parallel relative to the step's start.
+		return (
 			'<p:par>' +
-			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="${nodeType}">` +
-			`<p:stCondLst><p:cond delay="${delay}"/></p:stCondLst>` +
+			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="withEffect">` +
+			`<p:stCondLst><p:cond delay="${memberDelay}"/></p:stCondLst>` +
 			'<p:childTnLst>' +
 			genXmlAnimPayload(anim, spid, nextId) +
 			exitBlock +
+			'</p:childTnLst>' +
+			'</p:cTn>' +
+			'</p:par>'
+		)
+	}
+
+	let stepsXml = ''
+	steps.forEach(step => {
+		const wrapNodeType = wrapNodeTypeMap[step.trigger] ?? 'afterEffect'
+		// The step wrapper consumes the lead member's delay as the inter-step gap.
+		// onClick steps wait indefinitely for a user click.
+		const leadDelay = typeof step.members[0].anim.delay === 'number' ? step.members[0].anim.delay : 0
+		const wrapCond = step.trigger === 'onClick' ? 'indefinite' : String(leadDelay)
+		const wrapId = nextId()
+		// Lead member's delay is consumed by the wrapper (member delay 0); withPrevious
+		// joiners keep their own delay as an intra-step stagger.
+		const membersXml = step.members
+			.map((m, i) => renderMember(m, i === 0 ? 0 : typeof m.anim.delay === 'number' ? m.anim.delay : 0))
+			.join('')
+		stepsXml +=
+			'<p:par>' +
+			`<p:cTn id="${wrapId}" fill="hold" nodeType="${wrapNodeType}">` +
+			`<p:stCondLst><p:cond delay="${wrapCond}"/></p:stCondLst>` +
+			'<p:childTnLst>' +
+			membersXml +
 			'</p:childTnLst>' +
 			'</p:cTn>' +
 			'</p:par>'
@@ -1792,13 +1836,7 @@ function genXmlTiming (slide: PresSlide): string {
 		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
 		'<p:seq concurrent="1" nextAc="seek">' +
 		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>' +
-		'<p:par><p:cTn id="3" fill="hold" nodeType="afterEffect">' +
-		'<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
-		'<p:par><p:cTn id="4" fill="hold">' +
-		'<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>' +
-		shapeBlocks +
-		'</p:childTnLst></p:cTn></p:par>' +
-		'</p:childTnLst></p:cTn></p:par>' +
+		stepsXml +
 		'</p:childTnLst></p:cTn>' +
 		'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
 		'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +

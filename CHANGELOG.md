@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Shape entrance animations did not cascade — `genXmlTiming` wrapped every effect inside one shared parallel `<p:cTn>` container, so `afterPrevious`/`withPrevious` triggers were treated as simultaneous (the number-counter and grouped entrances all fired at once). Effects are now grouped into build steps by trigger and emitted as separate `<p:par>` elements directly under `<p:seq nodeType="mainSeq">`, so PowerPoint plays them one-after-the-previous.
 - Multiple `<a:pPr>` elements emitted per `<a:p>` cause "needs repair" — paragraph properties were re-emitted for every text run [\#1322](https://github.com/gitbrent/PptxGenJS/issues/1322)
 - `[Content_Types].xml` emits a slideMaster `Override` per slide instead of a single Override matching `slideMaster1.xml` [\#1444](https://github.com/gitbrent/PptxGenJS/issues/1444) [\#1449](https://github.com/gitbrent/PptxGenJS/issues/1449)
 - `addShape()` with bare-string aliases (`"oval"`, `"rectangle"`, `"roundedRectangle"`) emits invalid OOXML preset names that PowerPoint strips during repair
