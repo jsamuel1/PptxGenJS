@@ -733,6 +733,21 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += '</p:graphicFrame>'
 				break
 
+			case SLIDE_OBJECT_TYPES.group:
+				// Feature 6: nested shape group. The `<a:xfrm>` carries the absolute position/size;
+				// `chOff="0,0"` + `chExt`=ext gives a 1:1 child coordinate space, so children use
+				// coordinates relative to the group origin. Children reuse the standard shape/text
+				// emitters via `genGroupChildrenXml`.
+				strSlideXml += '<p:grpSp>'
+				strSlideXml += `<p:nvGrpSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName || `Group ${idx + 1}`}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>`
+				strSlideXml += `<p:grpSpPr><a:xfrm${locationAttr}>`
+				strSlideXml += `<a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/>`
+				strSlideXml += `<a:chOff x="0" y="0"/><a:chExt cx="${cx}" cy="${cy}"/>`
+				strSlideXml += '</a:xfrm></p:grpSpPr>'
+				strSlideXml += genGroupChildrenXml(slide, slideItemObj._grpObjects, idx)
+				strSlideXml += '</p:grpSp>'
+				break
+
 			default:
 				strSlideXml += ''
 				break
@@ -798,6 +813,49 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 	// LAST: Return
 	return strSlideXml
+}
+
+/**
+ * Feature 6: Render a shape group's child objects as the inner markup of a `<p:grpSp>`.
+ * Reuses the full slide emitter (`slideObjectToXml`) on the same slide with its object list
+ * temporarily swapped to the group's children (and slide-number footer suppressed), then
+ * extracts just the `<p:spTree>` child markup (everything after the root `</p:grpSpPr>` up to
+ * `</p:spTree>`). Child `<p:cNvPr>` ids are offset to stay unique within the slide part so
+ * PowerPoint does not flag the file for repair.
+ * @param {PresSlide | SlideLayout} slide - parent slide (provides layout/rels/presLayout)
+ * @param {ISlideObject[]} grpObjects - the group's child slide objects
+ * @param {number} groupIdx - the group's index within the slide (used to namespace child ids)
+ * @return {string} child markup to nest inside `<p:grpSp>`
+ */
+function genGroupChildrenXml (slide: PresSlide | SlideLayout, grpObjects: ISlideObject[], groupIdx: number): string {
+	if (!grpObjects || grpObjects.length === 0) return ''
+
+	// Temporarily render the children through the normal slide pipeline. Background is emitted
+	// before `<p:spTree>` (outside the extracted region) so it is harmless; the slide-number
+	// footer is emitted inside `<p:spTree>`, so suppress it during the recursive render.
+	const savedObjects = slide._slideObjects
+	const savedSlideNum = (slide as PresSlide)._slideNumberProps
+	slide._slideObjects = grpObjects
+	;(slide as PresSlide)._slideNumberProps = null
+	let fullXml: string
+	try {
+		fullXml = slideObjectToXml(slide)
+	} finally {
+		slide._slideObjects = savedObjects
+		;(slide as PresSlide)._slideNumberProps = savedSlideNum
+	}
+
+	const startMarker = '</p:grpSpPr>'
+	const startIdx = fullXml.indexOf(startMarker)
+	const endIdx = fullXml.lastIndexOf('</p:spTree>')
+	if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) return ''
+	let childXml = fullXml.substring(startIdx + startMarker.length, endIdx)
+
+	// Keep child cNvPr ids unique within the slide part (avoid PowerPoint "needs repair").
+	const idBase = (groupIdx + 1) * 1000
+	childXml = childXml.replace(/<p:cNvPr id="(\d+)"/g, (_m, n: string) => `<p:cNvPr id="${idBase + Number(n)}"`)
+
+	return childXml
 }
 
 /**

@@ -282,6 +282,18 @@ module.exports = [
 		}
 	},
 	{
+		name: 'shape group (addGroup) with nested shape + text',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				const g = s.addGroup({ x: 1, y: 2, w: 8, h: 4 })
+				g.addShape('roundRect', { x: 0.5, y: 0.5, w: 2, h: 2, fill: { color: '1A1A24' } })
+				g.addText('Grouped', { x: 0.6, y: 0.7, w: 1.8, h: 1, color: 'FFFFFF' })
+			})
+			await expectNoSchemaErrors(buf, 'shape-group')
+		}
+	},
+	{
 		name: 'line shape with negative width normalizes to positive cx + flipH',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

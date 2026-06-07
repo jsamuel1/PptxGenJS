@@ -7,6 +7,7 @@ import {
 	AddSlideProps,
 	BackgroundProps,
 	CalloutProps,
+	GroupProps,
 	HexColor,
 	IChartMulti,
 	IChartOpts,
@@ -21,6 +22,7 @@ import {
 	PresLayout,
 	PresSlide,
 	ShapeProps,
+	SlideGroup,
 	SlideLayout,
 	SlideNumberProps,
 	TableProps,
@@ -233,6 +235,17 @@ export default class Slide {
 		// let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
 		genObj.addShapeDefinition(this, shapeName, options)
 		return this
+	}
+
+	/**
+	 * Add a shape group to Slide (Feature 6).
+	 * Returns a group handle whose `addShape()`/`addText()` use coordinates relative to the
+	 * group origin; the group emits a `<p:grpSp>` with an absolute `<a:xfrm>` + `chOff`/`chExt`.
+	 * @param {GroupProps} options - group position/size options
+	 * @return {SlideGroup} group handle exposing `addShape` / `addText`
+	 */
+	addGroup(options: GroupProps): SlideGroup {
+		return genObj.addGroupDefinition(this, options)
 	}
 
 	/**

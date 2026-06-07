@@ -792,6 +792,28 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	valign?: VAlign
 }
 
+/**
+ * Feature 6 — Shape grouping.
+ * Options for `slide.addGroup(...)`. Defines the absolute position/size of a group
+ * container (`<p:grpSp>`); child shapes/text added to the returned group object use
+ * coordinates **relative to the group origin**.
+ * @since v4.1.0
+ */
+export interface GroupProps extends PositionProps, ObjectNameProps {}
+
+/**
+ * Feature 6 — Shape grouping.
+ * The object returned by `slide.addGroup(...)`. Supports `addShape()`/`addText()` whose
+ * `x`/`y` are relative to the group origin (the group's `chOff` is `0,0`).
+ * @since v4.1.0
+ */
+export interface SlideGroup {
+	/** Add a shape to the group (coords relative to the group origin). */
+	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => SlideGroup
+	/** Add text to the group (coords relative to the group origin). */
+	addText: (text: string | TextProps[], options?: TextPropsOptions) => SlideGroup
+}
+
 // tables =========================================================================================
 
 export interface TableToSlidesProps extends TableProps {
@@ -1786,6 +1808,8 @@ export interface ISlideObject {
 	mtype?: MediaType
 	mediaRid?: number
 	shape?: SHAPE_NAME
+	// group (Feature 6): child slide objects rendered inside a `<p:grpSp>` with coords relative to the group origin
+	_grpObjects?: ISlideObject[]
 }
 // PRIVATE ^^^
 

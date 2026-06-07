@@ -28,6 +28,7 @@ import {
 	AddSlideProps,
 	BackgroundProps,
 	CalloutProps,
+	GroupProps,
 	IChartMulti,
 	IChartOptsLib,
 	IOptsChartData,
@@ -40,6 +41,7 @@ import {
 	PresSlide,
 	ShapeLineProps,
 	ShapeProps,
+	SlideGroup,
 	SlideLayout,
 	SlideMasterProps,
 	TableCell,
@@ -773,6 +775,60 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	if (options.objectName) textOpts.objectName = options.objectName
 
 	addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false)
+}
+
+/**
+ * Feature 6: Adds a shape group to a slide definition and returns a group handle.
+ * The group emits a `<p:grpSp>` whose `<a:xfrm>` carries the absolute position/size plus
+ * `chOff="0,0"`/`chExt` equal to the extent — so child shapes/text use coordinates relative
+ * to the group origin (1:1 scale). Children are added via the returned object's
+ * `addShape()` / `addText()`, which reuse the existing shape/text intake but push onto the
+ * group's private child array instead of the slide.
+ * @param {PresSlide} target slide the group should be added to
+ * @param {GroupProps} opts group position/size options
+ * @return {SlideGroup} group handle exposing `addShape` / `addText`
+ */
+export function addGroupDefinition(target: PresSlide, opts: GroupProps): SlideGroup {
+	const options = typeof opts === 'object' ? opts : ({} as GroupProps)
+	const grpObjects: ISlideObject[] = []
+	const groupObj: ISlideObject = {
+		_type: SLIDE_OBJECT_TYPES.group,
+		options: {
+			x: options.x !== undefined ? options.x : 0,
+			y: options.y !== undefined ? options.y : 0,
+			w: options.w !== undefined ? options.w : 0,
+			h: options.h !== undefined ? options.h : 0,
+			objectName: options.objectName ? encodeXmlEntities(options.objectName) : `Group ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.group).length + 1}`,
+		},
+		_grpObjects: grpObjects,
+	}
+	target._slideObjects.push(groupObj)
+
+	// Proxy target: existing intake fns push onto the group's child array but reuse the parent
+	// slide's rels/layout/color so child shapes/text render identically to top-level ones.
+	const childTarget = {
+		_slideObjects: grpObjects,
+		_rels: target._rels,
+		_relsChart: target._relsChart,
+		_relsMedia: target._relsMedia,
+		_slideLayout: target._slideLayout,
+		_presLayout: target._presLayout,
+		color: target.color,
+	} as unknown as PresSlide
+
+	const group: SlideGroup = {
+		addShape(shapeName: SHAPE_NAME, shapeOpts?: ShapeProps): SlideGroup {
+			addShapeDefinition(childTarget, shapeName, (shapeOpts || {}) as ShapeProps)
+			return group
+		},
+		addText(text: string | TextProps[], textOpts?: TextPropsOptions): SlideGroup {
+			const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options: textOpts }] : text
+			addTextDefinition(childTarget, textParam as TextProps[], (textOpts || {}) as TextPropsOptions, false)
+			return group
+		},
+	}
+
+	return group
 }
 
 /**
