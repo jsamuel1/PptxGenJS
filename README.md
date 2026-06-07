@@ -3,10 +3,10 @@
 ![PptxGenJS Sample Slides](https://raw.githubusercontent.com/gitbrent/PptxGenJS/gh-pages/img/readme_banner.png)
 
 ![jsdelivr downloads](https://data.jsdelivr.com/v1/package/gh/gitbrent/pptxgenjs/badge)
-![NPM Downloads](https://img.shields.io/npm/dm/pptxgenjs?style=flat-square)
-![GitHub Repo stars](https://img.shields.io/github/stars/gitbrent/pptxgenjs?style=flat-square)
-![GitHub License](https://img.shields.io/github/license/gitbrent/pptxgenjs?style=flat-square)
-![TypeScript defs](https://img.shields.io/npm/types/pptxgenjs?style=flat-square)
+![NPM Downloads](https://img.shields.io/npm/dm/@jsamuel1/pptxgenjs?style=flat-square)
+![GitHub Repo stars](https://img.shields.io/github/stars/jsamuel1/PptxGenJS?style=flat-square)
+![GitHub License](https://img.shields.io/github/license/jsamuel1/PptxGenJS?style=flat-square)
+![TypeScript defs](https://img.shields.io/npm/types/@jsamuel1/pptxgenjs?style=flat-square)
 
 ## 🚀 Features
 
@@ -64,11 +64,11 @@ Choose your preferred method to install **PptxGenJS**:
 ### Quick Install (Node-based)
 
 ```bash
-npm install pptxgenjs
+npm install @jsamuel1/pptxgenjs
 ```
 
 ```bash
-yarn add pptxgenjs
+yarn add @jsamuel1/pptxgenjs
 ```
 
 ### CDN (Browser Usage)
@@ -122,7 +122,7 @@ PptxGenJS PowerPoint presentations are created via JavaScript by following 4 bas
 #### Angular/React, ES6, TypeScript
 
 ```typescript
-import pptxgen from "pptxgenjs";
+import pptxgen from "@jsamuel1/pptxgenjs";
 
 // 1. Create a new Presentation
 let pres = new pptxgen();
