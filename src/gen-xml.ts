@@ -42,6 +42,7 @@ import {
 	getSmartParseNumber,
 	getUuid,
 	inch2Emu,
+	svgPathToOoxml,
 	valToPts,
 } from './gen-utils'
 
@@ -151,6 +152,11 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 			if (placeholderObj.options.w || placeholderObj.options.w === 0) cx = getSmartParseNumber(placeholderObj.options.w, 'X', slide._presLayout)
 			if (placeholderObj.options.h || placeholderObj.options.h === 0) cy = getSmartParseNumber(placeholderObj.options.h, 'Y', slide._presLayout)
 		}
+		// Normalize negative extents: PPTX requires cx/cy >= 0 (ST_PositiveCoordinate); encode direction via flip
+		// A shape drawn "backwards" (e.g. a line with negative w/h) otherwise emits an invalid `<a:ext>` that triggers PowerPoint repair.
+		if (cx < 0) { x += cx; cx = Math.abs(cx); imgWidth = cx; slideItemObj.options.flipH = !slideItemObj.options.flipH }
+		if (cy < 0) { y += cy; cy = Math.abs(cy); imgHeight = cy; slideItemObj.options.flipV = !slideItemObj.options.flipV }
+
 		//
 		if (slideItemObj.options.flipH) locationAttr += ' flipH="1"'
 		if (slideItemObj.options.flipV) locationAttr += ' flipV="1"'
@@ -439,7 +445,10 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += `<a:off x="${x}" y="${y}"/>`
 				strSlideXml += `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 
-				if (slideItemObj.shape === 'custGeom') {
+				if (slideItemObj.options.svgPath) {
+					// Feature 9: Convert an SVG path to OOXML custom geometry (<a:custGeom>) instead of a preset geometry.
+					strSlideXml += svgPathToOoxml(slideItemObj.options.svgPath.d, slideItemObj.options.svgPath.viewBox.w, slideItemObj.options.svgPath.viewBox.h)
+				} else if (slideItemObj.shape === 'custGeom') {
 					strSlideXml += '<a:custGeom><a:avLst />'
 					strSlideXml += '<a:gdLst>'
 					strSlideXml += '</a:gdLst>'
@@ -1128,9 +1137,9 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		if (slideObject.options.fit) {
 			// NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013!
 			if (slideObject.options.fit === 'none') bodyProperties += ''
-			// NOTE: Shrink does not work automatically - PowerPoint calculates the `fontScale` value dynamically upon resize
-			// else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit fontScale="85000" lnSpcReduction="20000"/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
-			else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit/>'
+			// "Shrink text on overflow": emit a fixed `fontScale` (70%) so the text is scaled down to fit the shape.
+			// NOTE: PowerPoint recalculates `fontScale` dynamically once the text/shape is edited; the emitted value is the initial scale.
+			else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit fontScale="70000"/>'
 			else if (slideObject.options.fit === 'resize') bodyProperties += '<a:spAutoFit/>'
 		}
 		//
@@ -1686,14 +1695,15 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 
 	// flyIn ADDS a <p:anim> that translates the shape from offscreen to its final position.
 	// direction (TransitionDirection: left|right|up|down) -> animated attr + tm="0" start formula:
-	//   left  -> ppt_x, "0-#ppt_w/2"   right -> ppt_x, "1+#ppt_w/2"
-	//   up    -> ppt_y, "0-#ppt_h/2"   down  -> ppt_y, "1+#ppt_h/2"
+	//   left  -> ppt_x, "#ppt_x-1slide"   right -> ppt_x, "#ppt_x+1slide"
+	//   up    -> ppt_y, "#ppt_y+1slide"   down  -> ppt_y, "#ppt_y-1slide"
+	// The "1slide" offset starts the shape one full slide-width/height offscreen (PowerPoint-native Fly In).
 	if (anim.type === 'flyIn') {
 		const flyMap: Record<string, { attr: string; start: string }> = {
-			left: { attr: 'ppt_x', start: '0-#ppt_w/2' },
-			right: { attr: 'ppt_x', start: '1+#ppt_w/2' },
-			up: { attr: 'ppt_y', start: '0-#ppt_h/2' },
-			down: { attr: 'ppt_y', start: '1+#ppt_h/2' },
+			left: { attr: 'ppt_x', start: '#ppt_x-1slide' },
+			right: { attr: 'ppt_x', start: '#ppt_x+1slide' },
+			up: { attr: 'ppt_y', start: '#ppt_y+1slide' },
+			down: { attr: 'ppt_y', start: '#ppt_y-1slide' },
 		}
 		const { attr, start } = flyMap[anim.direction ?? 'left'] ?? flyMap.left
 		payload +=

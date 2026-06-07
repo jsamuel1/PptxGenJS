@@ -51,7 +51,8 @@ export function getUuid (uuidFormat: string): string {
 	return uuidFormat.replace(/[xy]/g, function (c) {
 		const r = (Math.random() * 16) | 0
 		const v = c === 'x' ? r : (r & 0x3) | 0x8
-		return v.toString(16)
+		// OOXML ST_Guid requires uppercase hex: \{[0-9A-F]{8}-...\}
+		return v.toString(16).toUpperCase()
 	})
 }
 
@@ -333,4 +334,155 @@ export function correctShadowOptions (ShadowProps: ShadowProps): ShadowProps | u
 	}
 
 	return ShadowProps
+}
+
+/**
+ * Convert an SVG `<path d="…">` definition to an OOXML custom geometry (`<a:custGeom>`).
+ *
+ * Supports the following SVG path commands (both absolute upper-case and relative lower-case):
+ * - `M`/`m` moveTo            → `<a:moveTo>`  (extra coordinate pairs become implicit `lineTo`)
+ * - `L`/`l` lineTo            → `<a:lnTo>`
+ * - `H`/`h` horizontal lineTo → `<a:lnTo>`
+ * - `V`/`v` vertical lineTo   → `<a:lnTo>`
+ * - `C`/`c` cubic Bézier      → `<a:cubicBezTo>`
+ * - `Q`/`q` quadratic Bézier  → `<a:quadBezTo>`
+ * - `Z`/`z` close path        → `<a:close>`
+ *
+ * Relative commands are tracked against the current pen position and converted to absolute
+ * coordinates. Coordinates are scaled from the SVG viewBox into EMU via `914400 / width`, so the
+ * viewBox width maps to exactly 1 inch (914400 EMU) of path coordinate space. The shape's on-slide
+ * dimensions still come from the `<a:xfrm><a:ext>` set by the caller — the path coordinate system is
+ * stretched to fit it — so the absolute scale here only needs to be internally consistent.
+ *
+ * @param {string} svgPathD - the SVG path `d` attribute (e.g. `"M 0 0 L 12 0 L 6 12 Z"`)
+ * @param {number} width - SVG viewBox width
+ * @param {number} height - SVG viewBox height
+ * @returns {string} OOXML `<a:custGeom>…</a:custGeom>` string (empty string on invalid input)
+ * @see ECMA-376 §20.1.9.8 (custGeom) / §20.1.9.16 (path2D)
+ */
+export function svgPathToOoxml (svgPathD: string, width: number, height: number): string {
+	if (!svgPathD || typeof svgPathD !== 'string' || !(width > 0) || !(height > 0)) return ''
+
+	const scale = 914400 / width
+	const pathW = Math.round(width * scale)
+	const pathH = Math.round(height * scale)
+
+	// Match each command letter followed by its (possibly empty) run of numeric arguments
+	const commandRegex = /([MmLlHhVvCcQqZz])([^MmLlHhVvCcQqZz]*)/g
+	// Match numbers incl. decimals, leading sign, and scientific notation
+	const numberRegex = /-?\d*\.?\d+(?:[eE][-+]?\d+)?/g
+
+	const sc = (v: number): number => Math.round(v * scale)
+
+	let curX = 0
+	let curY = 0
+	let startX = 0
+	let startY = 0
+	let xml = ''
+
+	let match: RegExpExecArray | null
+	while ((match = commandRegex.exec(svgPathD)) !== null) {
+		const cmd = match[1]
+		const isRel = cmd >= 'a' && cmd <= 'z'
+		const upper = cmd.toUpperCase()
+		const args = (match[2].match(numberRegex) ?? []).map(Number)
+		let i = 0
+
+		switch (upper) {
+			case 'M': {
+				// First coordinate pair is a moveTo; any subsequent pairs are implicit lineTo (per SVG spec)
+				let first = true
+				while (i + 1 < args.length) {
+					let x = args[i]
+					let y = args[i + 1]
+					if (isRel) { x += curX; y += curY }
+					curX = x
+					curY = y
+					if (first) {
+						startX = curX
+						startY = curY
+						xml += `<a:moveTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:moveTo>`
+						first = false
+					} else {
+						xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`
+					}
+					i += 2
+				}
+				break
+			}
+			case 'L': {
+				while (i + 1 < args.length) {
+					let x = args[i]
+					let y = args[i + 1]
+					if (isRel) { x += curX; y += curY }
+					curX = x
+					curY = y
+					xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`
+					i += 2
+				}
+				break
+			}
+			case 'H': {
+				while (i < args.length) {
+					let x = args[i]
+					if (isRel) x += curX
+					curX = x
+					xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`
+					i += 1
+				}
+				break
+			}
+			case 'V': {
+				while (i < args.length) {
+					let y = args[i]
+					if (isRel) y += curY
+					curY = y
+					xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`
+					i += 1
+				}
+				break
+			}
+			case 'C': {
+				while (i + 5 < args.length) {
+					let x1 = args[i]
+					let y1 = args[i + 1]
+					let x2 = args[i + 2]
+					let y2 = args[i + 3]
+					let x = args[i + 4]
+					let y = args[i + 5]
+					if (isRel) { x1 += curX; y1 += curY; x2 += curX; y2 += curY; x += curX; y += curY }
+					xml += `<a:cubicBezTo><a:pt x="${sc(x1)}" y="${sc(y1)}"/><a:pt x="${sc(x2)}" y="${sc(y2)}"/><a:pt x="${sc(x)}" y="${sc(y)}"/></a:cubicBezTo>`
+					curX = x
+					curY = y
+					i += 6
+				}
+				break
+			}
+			case 'Q': {
+				while (i + 3 < args.length) {
+					let x1 = args[i]
+					let y1 = args[i + 1]
+					let x = args[i + 2]
+					let y = args[i + 3]
+					if (isRel) { x1 += curX; y1 += curY; x += curX; y += curY }
+					xml += `<a:quadBezTo><a:pt x="${sc(x1)}" y="${sc(y1)}"/><a:pt x="${sc(x)}" y="${sc(y)}"/></a:quadBezTo>`
+					curX = x
+					curY = y
+					i += 4
+				}
+				break
+			}
+			case 'Z': {
+				xml += '<a:close/>'
+				// Pen returns to the start of the current subpath
+				curX = startX
+				curY = startY
+				break
+			}
+			default:
+				break
+		}
+	}
+
+	return `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst><a:path w="${pathW}" h="${pathH}">${xml}</a:path></a:pathLst></a:custGeom>`
 }

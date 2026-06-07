@@ -1114,7 +1114,10 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			itemOpts._bodyProp = itemOpts._bodyProp || {}
-			itemOpts._bodyProp.autoFit = itemOpts.autoFit || false // DEPRECATED: (3.3.0) If true, shape will collapse to text size (Fit To shape)
+			// Back-compat: legacy `autoFit: true` ("resize shape to fit text") now maps to `fit: 'resize'`.
+			// Routing through `fit` keeps a single code path (and avoids emitting `<a:spAutoFit/>` twice). @deprecated 3.3.0
+			if (itemOpts.autoFit === true && !itemOpts.fit) itemOpts.fit = 'resize'
+			itemOpts._bodyProp.autoFit = false // DEPRECATED: (3.3.0) superseded by `fit` (see above)
 			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : null // VALS: [t,ctr,b]
 			itemOpts._bodyProp.vert = itemOpts.vert || null // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true

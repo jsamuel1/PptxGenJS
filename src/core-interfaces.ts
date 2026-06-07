@@ -712,6 +712,15 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	rectRadius?: number
 	/**
+	 * Custom geometry generated from an SVG `<path d="…">` definition.
+	 * - When set, the shape emits `<a:custGeom>` (converted from the SVG path) instead of `<a:prstGeom>`.
+	 * - Supports `M/L/H/V/C/Q/Z` commands (absolute) and their lower-case relative variants.
+	 * - `viewBox` provides the SVG coordinate space used to scale points into the shape geometry.
+	 * @since v4.1.0
+	 * @example { d: 'M 0 0 L 12 0 L 6 12 Z', viewBox: { w: 12, h: 12 } } // a triangle
+	 */
+	svgPath?: { d: string, viewBox: { w: number, h: number } }
+	/**
 	 * Rotation (degrees)
 	 * - range: -360 to 360
 	 * @default 0

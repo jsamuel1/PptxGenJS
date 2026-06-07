@@ -9,7 +9,7 @@
 //
 // Run with: npm run schema-test
 
-const { build, assert } = require('./helpers')
+const { build, assert, readEntry } = require('./helpers')
 const { validateBuf } = require('./validator')
 
 async function expectNoSchemaErrors (buf, label) {
@@ -239,6 +239,75 @@ module.exports = [
 				s.addText('lorem ipsum dolor sit amet, consectetur adipiscing elit', { x: 1, y: 1, w: 6, h: 3, columns: 2, columnSpacing: 0.4 })
 			})
 			await expectNoSchemaErrors(buf, 'multicol-text')
+		}
+	},
+	{
+		name: 'svgPath custom-geometry shape (triangle)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 2, h: 2,
+					fill: { color: '7C3AED' },
+					svgPath: { d: 'M 0 0 L 12 0 L 6 12 Z', viewBox: { w: 12, h: 12 } }
+				})
+			})
+			await expectNoSchemaErrors(buf, 'svgpath-triangle')
+		}
+	},
+	{
+		name: 'svgPath custom-geometry shape (cubic + quadratic + relative)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 3, h: 3,
+					fill: { color: '38BDF8' },
+					svgPath: { d: 'M 0 0 C 0 12 12 12 12 0 Q 6 6 0 0 z m 2 2 l 4 0 l 0 4 z', viewBox: { w: 24, h: 24 } }
+				})
+			})
+			await expectNoSchemaErrors(buf, 'svgpath-curves')
+		}
+	},
+	{
+		name: 'sections emit uppercase GUID ids (ST_Guid)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSection({ title: 'Intro' })
+				p.addSlide({ sectionTitle: 'Intro' }).addText('hi', { x: 1, y: 1, w: 4, h: 1 })
+				p.addSection({ title: 'Body' })
+				p.addSlide({ sectionTitle: 'Body' }).addText('there', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'sections-guid')
+		}
+	},
+	{
+		name: 'line shape with negative width normalizes to positive cx + flipH',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.addSlide().addShape('line', { x: 5, y: 2, w: -2, h: 1, line: { color: '7C3AED', width: 1 } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// The first <a:xfrm> belongs to the spTree group (has chOff/chExt); select the shape's xfrm.
+			const xfrm = (xml.match(/<a:xfrm[^>]*>(?:(?!<\/a:xfrm>).)*?<\/a:xfrm>/gs) || []).find(x => !x.includes('chOff')) || ''
+			const cx = Number((xfrm.match(/<a:ext\s+cx="(-?\d+)"/) || [])[1])
+			assert(cx > 0, `negative-width line: expected cx > 0, got ${cx} (xfrm: ${xfrm})`)
+			assert(/<a:xfrm[^>]*\bflipH="1"/.test(xfrm), `negative-width line: expected flipH="1" on xfrm (xfrm: ${xfrm})`)
+			await expectNoSchemaErrors(buf, 'line-negative-width')
+		}
+	},
+	{
+		name: 'line shape with negative height normalizes to positive cy + flipV',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.addSlide().addShape('line', { x: 5, y: 4, w: 2, h: -1.5, line: { color: '38BDF8', width: 1 } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const xfrm = (xml.match(/<a:xfrm[^>]*>(?:(?!<\/a:xfrm>).)*?<\/a:xfrm>/gs) || []).find(x => !x.includes('chOff')) || ''
+			const cy = Number((xfrm.match(/<a:ext\s+cx="-?\d+"\s+cy="(-?\d+)"/) || [])[1])
+			assert(cy > 0, `negative-height line: expected cy > 0, got ${cy} (xfrm: ${xfrm})`)
+			assert(/<a:xfrm[^>]*\bflipV="1"/.test(xfrm), `negative-height line: expected flipV="1" on xfrm (xfrm: ${xfrm})`)
+			await expectNoSchemaErrors(buf, 'line-negative-height')
 		}
 	}
 ]

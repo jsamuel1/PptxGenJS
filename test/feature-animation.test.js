@@ -159,49 +159,49 @@ module.exports = [
 		}
 	},
 	{
-		name: 'animation: flyIn left → <p:anim> on ppt_x, start "0-#ppt_w/2", end "#ppt_x"',
+		name: 'animation: flyIn left → <p:anim> on ppt_x, start "#ppt_x-1slide", end "#ppt_x"',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'left' } }))
 			assert(xml.includes('presetID="2"'), 'flyIn presetID must be 2; got: ' + xml)
 			assert(xml.includes('<p:anim calcmode="lin" valueType="num">'), 'expected <p:anim>; got: ' + xml)
 			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn left must animate ppt_x; got: ' + xml)
-			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_w/2"/></p:val></p:tav>'), 'flyIn left start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="#ppt_x-1slide"/></p:val></p:tav>'), 'flyIn left start formula; got: ' + xml)
 			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_x"/></p:val></p:tav>'), 'flyIn left end #ppt_x; got: ' + xml)
 			// visibility set still present alongside motion
 			assert(xml.includes('<p:strVal val="visible"/>'), 'flyIn must still emit visibility set; got: ' + xml)
 		}
 	},
 	{
-		name: 'animation: flyIn right → start "1+#ppt_w/2" on ppt_x',
+		name: 'animation: flyIn right → start "#ppt_x+1slide" on ppt_x',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'right' } }))
 			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn right must animate ppt_x; got: ' + xml)
-			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="1+#ppt_w/2"/></p:val></p:tav>'), 'flyIn right start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="#ppt_x+1slide"/></p:val></p:tav>'), 'flyIn right start formula; got: ' + xml)
 		}
 	},
 	{
-		name: 'animation: flyIn up → <p:anim> on ppt_y, start "0-#ppt_h/2", end "#ppt_y"',
+		name: 'animation: flyIn up → <p:anim> on ppt_y, start "#ppt_y+1slide", end "#ppt_y"',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'up' } }))
 			assert(xml.includes('<p:attrName>ppt_y</p:attrName>'), 'flyIn up must animate ppt_y; got: ' + xml)
-			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_h/2"/></p:val></p:tav>'), 'flyIn up start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="#ppt_y+1slide"/></p:val></p:tav>'), 'flyIn up start formula; got: ' + xml)
 			assert(xml.includes('<p:tav tm="100000"><p:val><p:strVal val="#ppt_y"/></p:val></p:tav>'), 'flyIn up end #ppt_y; got: ' + xml)
 		}
 	},
 	{
-		name: 'animation: flyIn down → start "1+#ppt_h/2" on ppt_y',
+		name: 'animation: flyIn down → start "#ppt_y-1slide" on ppt_y',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn', direction: 'down' } }))
 			assert(xml.includes('<p:attrName>ppt_y</p:attrName>'), 'flyIn down must animate ppt_y; got: ' + xml)
-			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="1+#ppt_h/2"/></p:val></p:tav>'), 'flyIn down start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="#ppt_y-1slide"/></p:val></p:tav>'), 'flyIn down start formula; got: ' + xml)
 		}
 	},
 	{
-		name: 'animation: flyIn default (no direction) → left formula (ppt_x, "0-#ppt_w/2")',
+		name: 'animation: flyIn default (no direction) → left formula (ppt_x, "#ppt_x-1slide")',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'flyIn' } }))
 			assert(xml.includes('<p:attrName>ppt_x</p:attrName>'), 'flyIn default must animate ppt_x; got: ' + xml)
-			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="0-#ppt_w/2"/></p:val></p:tav>'), 'flyIn default = left start formula; got: ' + xml)
+			assert(xml.includes('<p:tav tm="0"><p:val><p:strVal val="#ppt_x-1slide"/></p:val></p:tav>'), 'flyIn default = left start formula; got: ' + xml)
 		}
 	},
 	{

@@ -15,6 +15,8 @@ document.getElementById('btnGenFunc_Shape').addEventListener('click', () => exec
 document.getElementById('btnGenFunc_Text').addEventListener('click', () => execGenSlidesFunc('Text'));
 document.getElementById('btnGenFunc_Table').addEventListener('click', () => execGenSlidesFunc('Table'));
 document.getElementById('btnGenFunc_Master').addEventListener('click', () => execGenSlidesFunc('Master'));
+// Fork feature demo: transitions, entrance animations, gradients, counter (guarded — optional button)
+document.getElementById('btnGenFunc_Animation')?.addEventListener('click', () => execGenSlidesFunc('Animation'));
 
 // STEP 2: HTML-to-PPTX: Dynamic Table input handlers
 document.getElementById('table2slides1').addEventListener('click', () => table2slides1());

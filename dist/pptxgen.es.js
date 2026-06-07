@@ -1,4 +1,4 @@
-/* PptxGenJS 4.0.1 @ 2026-06-07T05:05:05.129Z */
+/* PptxGenJS 4.1.0 @ 2026-06-07T11:53:01.419Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -662,7 +662,8 @@ function getUuid(uuidFormat) {
     return uuidFormat.replace(/[xy]/g, function (c) {
         const r = (Math.random() * 16) | 0;
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
+        // OOXML ST_Guid requires uppercase hex: \{[0-9A-F]{8}-...\}
+        return v.toString(16).toUpperCase();
     });
 }
 /**
@@ -922,6 +923,170 @@ function correctShadowOptions(ShadowProps) {
         }
     }
     return ShadowProps;
+}
+/**
+ * Convert an SVG `<path d="…">` definition to an OOXML custom geometry (`<a:custGeom>`).
+ *
+ * Supports the following SVG path commands (both absolute upper-case and relative lower-case):
+ * - `M`/`m` moveTo            → `<a:moveTo>`  (extra coordinate pairs become implicit `lineTo`)
+ * - `L`/`l` lineTo            → `<a:lnTo>`
+ * - `H`/`h` horizontal lineTo → `<a:lnTo>`
+ * - `V`/`v` vertical lineTo   → `<a:lnTo>`
+ * - `C`/`c` cubic Bézier      → `<a:cubicBezTo>`
+ * - `Q`/`q` quadratic Bézier  → `<a:quadBezTo>`
+ * - `Z`/`z` close path        → `<a:close>`
+ *
+ * Relative commands are tracked against the current pen position and converted to absolute
+ * coordinates. Coordinates are scaled from the SVG viewBox into EMU via `914400 / width`, so the
+ * viewBox width maps to exactly 1 inch (914400 EMU) of path coordinate space. The shape's on-slide
+ * dimensions still come from the `<a:xfrm><a:ext>` set by the caller — the path coordinate system is
+ * stretched to fit it — so the absolute scale here only needs to be internally consistent.
+ *
+ * @param {string} svgPathD - the SVG path `d` attribute (e.g. `"M 0 0 L 12 0 L 6 12 Z"`)
+ * @param {number} width - SVG viewBox width
+ * @param {number} height - SVG viewBox height
+ * @returns {string} OOXML `<a:custGeom>…</a:custGeom>` string (empty string on invalid input)
+ * @see ECMA-376 §20.1.9.8 (custGeom) / §20.1.9.16 (path2D)
+ */
+function svgPathToOoxml(svgPathD, width, height) {
+    var _a;
+    if (!svgPathD || typeof svgPathD !== 'string' || !(width > 0) || !(height > 0))
+        return '';
+    const scale = 914400 / width;
+    const pathW = Math.round(width * scale);
+    const pathH = Math.round(height * scale);
+    // Match each command letter followed by its (possibly empty) run of numeric arguments
+    const commandRegex = /([MmLlHhVvCcQqZz])([^MmLlHhVvCcQqZz]*)/g;
+    // Match numbers incl. decimals, leading sign, and scientific notation
+    const numberRegex = /-?\d*\.?\d+(?:[eE][-+]?\d+)?/g;
+    const sc = (v) => Math.round(v * scale);
+    let curX = 0;
+    let curY = 0;
+    let startX = 0;
+    let startY = 0;
+    let xml = '';
+    let match;
+    while ((match = commandRegex.exec(svgPathD)) !== null) {
+        const cmd = match[1];
+        const isRel = cmd >= 'a' && cmd <= 'z';
+        const upper = cmd.toUpperCase();
+        const args = ((_a = match[2].match(numberRegex)) !== null && _a !== void 0 ? _a : []).map(Number);
+        let i = 0;
+        switch (upper) {
+            case 'M': {
+                // First coordinate pair is a moveTo; any subsequent pairs are implicit lineTo (per SVG spec)
+                let first = true;
+                while (i + 1 < args.length) {
+                    let x = args[i];
+                    let y = args[i + 1];
+                    if (isRel) {
+                        x += curX;
+                        y += curY;
+                    }
+                    curX = x;
+                    curY = y;
+                    if (first) {
+                        startX = curX;
+                        startY = curY;
+                        xml += `<a:moveTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:moveTo>`;
+                        first = false;
+                    }
+                    else {
+                        xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`;
+                    }
+                    i += 2;
+                }
+                break;
+            }
+            case 'L': {
+                while (i + 1 < args.length) {
+                    let x = args[i];
+                    let y = args[i + 1];
+                    if (isRel) {
+                        x += curX;
+                        y += curY;
+                    }
+                    curX = x;
+                    curY = y;
+                    xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`;
+                    i += 2;
+                }
+                break;
+            }
+            case 'H': {
+                while (i < args.length) {
+                    let x = args[i];
+                    if (isRel)
+                        x += curX;
+                    curX = x;
+                    xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`;
+                    i += 1;
+                }
+                break;
+            }
+            case 'V': {
+                while (i < args.length) {
+                    let y = args[i];
+                    if (isRel)
+                        y += curY;
+                    curY = y;
+                    xml += `<a:lnTo><a:pt x="${sc(curX)}" y="${sc(curY)}"/></a:lnTo>`;
+                    i += 1;
+                }
+                break;
+            }
+            case 'C': {
+                while (i + 5 < args.length) {
+                    let x1 = args[i];
+                    let y1 = args[i + 1];
+                    let x2 = args[i + 2];
+                    let y2 = args[i + 3];
+                    let x = args[i + 4];
+                    let y = args[i + 5];
+                    if (isRel) {
+                        x1 += curX;
+                        y1 += curY;
+                        x2 += curX;
+                        y2 += curY;
+                        x += curX;
+                        y += curY;
+                    }
+                    xml += `<a:cubicBezTo><a:pt x="${sc(x1)}" y="${sc(y1)}"/><a:pt x="${sc(x2)}" y="${sc(y2)}"/><a:pt x="${sc(x)}" y="${sc(y)}"/></a:cubicBezTo>`;
+                    curX = x;
+                    curY = y;
+                    i += 6;
+                }
+                break;
+            }
+            case 'Q': {
+                while (i + 3 < args.length) {
+                    let x1 = args[i];
+                    let y1 = args[i + 1];
+                    let x = args[i + 2];
+                    let y = args[i + 3];
+                    if (isRel) {
+                        x1 += curX;
+                        y1 += curY;
+                        x += curX;
+                        y += curY;
+                    }
+                    xml += `<a:quadBezTo><a:pt x="${sc(x1)}" y="${sc(y1)}"/><a:pt x="${sc(x)}" y="${sc(y)}"/></a:quadBezTo>`;
+                    curX = x;
+                    curY = y;
+                    i += 4;
+                }
+                break;
+            }
+            case 'Z': {
+                xml += '<a:close/>';
+                // Pen returns to the start of the current subpath
+                curX = startX;
+                curY = startY;
+                break;
+            }
+        }
+    }
+    return `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst><a:path w="${pathW}" h="${pathH}">${xml}</a:path></a:pathLst></a:custGeom>`;
 }
 
 /**
@@ -2683,7 +2848,11 @@ function addTextDefinition(target, text, opts, isPlaceholder) {
             itemOpts.lineSpacingMultiple = itemOpts.lineSpacingMultiple && !isNaN(itemOpts.lineSpacingMultiple) ? itemOpts.lineSpacingMultiple : null;
             // D: Transform text options to bodyProperties as thats how we build XML
             itemOpts._bodyProp = itemOpts._bodyProp || {};
-            itemOpts._bodyProp.autoFit = itemOpts.autoFit || false; // DEPRECATED: (3.3.0) If true, shape will collapse to text size (Fit To shape)
+            // Back-compat: legacy `autoFit: true` ("resize shape to fit text") now maps to `fit: 'resize'`.
+            // Routing through `fit` keeps a single code path (and avoids emitting `<a:spAutoFit/>` twice). @deprecated 3.3.0
+            if (itemOpts.autoFit === true && !itemOpts.fit)
+                itemOpts.fit = 'resize';
+            itemOpts._bodyProp.autoFit = false; // DEPRECATED: (3.3.0) superseded by `fit` (see above)
             itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : null; // VALS: [t,ctr,b]
             itemOpts._bodyProp.vert = itemOpts.vert || null; // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
             itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true;
@@ -5290,6 +5459,20 @@ function slideObjectToXml(slide) {
             if (placeholderObj.options.h || placeholderObj.options.h === 0)
                 cy = getSmartParseNumber(placeholderObj.options.h, 'Y', slide._presLayout);
         }
+        // Normalize negative extents: PPTX requires cx/cy >= 0 (ST_PositiveCoordinate); encode direction via flip
+        // A shape drawn "backwards" (e.g. a line with negative w/h) otherwise emits an invalid `<a:ext>` that triggers PowerPoint repair.
+        if (cx < 0) {
+            x += cx;
+            cx = Math.abs(cx);
+            imgWidth = cx;
+            slideItemObj.options.flipH = !slideItemObj.options.flipH;
+        }
+        if (cy < 0) {
+            y += cy;
+            cy = Math.abs(cy);
+            imgHeight = cy;
+            slideItemObj.options.flipV = !slideItemObj.options.flipV;
+        }
         //
         if (slideItemObj.options.flipH)
             locationAttr += ' flipH="1"';
@@ -5560,7 +5743,11 @@ function slideObjectToXml(slide) {
                 strSlideXml += `<a:xfrm${locationAttr}>`;
                 strSlideXml += `<a:off x="${x}" y="${y}"/>`;
                 strSlideXml += `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`;
-                if (slideItemObj.shape === 'custGeom') {
+                if (slideItemObj.options.svgPath) {
+                    // Feature 9: Convert an SVG path to OOXML custom geometry (<a:custGeom>) instead of a preset geometry.
+                    strSlideXml += svgPathToOoxml(slideItemObj.options.svgPath.d, slideItemObj.options.svgPath.viewBox.w, slideItemObj.options.svgPath.viewBox.h);
+                }
+                else if (slideItemObj.shape === 'custGeom') {
                     strSlideXml += '<a:custGeom><a:avLst />';
                     strSlideXml += '<a:gdLst>';
                     strSlideXml += '</a:gdLst>';
@@ -6200,6 +6387,13 @@ function genXmlBodyProperties(slideObject) {
             bodyProperties += ' anchor="' + slideObject.options._bodyProp.anchor + '"'; // VALS: [t,ctr,b]
         if (slideObject.options._bodyProp.vert)
             bodyProperties += ' vert="' + slideObject.options._bodyProp.vert + '"'; // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+        // D2: Multi-column text (numCol/spcCol attributes on <a:bodyPr>)
+        // NOTE: must be appended as attributes BEFORE the opening tag is closed below (section E)
+        if (slideObject.options.columns && slideObject.options.columns > 1) {
+            bodyProperties += ` numCol="${Math.round(slideObject.options.columns)}"`;
+            const spcColIn = typeof slideObject.options.columnSpacing === 'number' ? slideObject.options.columnSpacing : 0.5;
+            bodyProperties += ` spcCol="${Math.round(spcColIn * EMU)}"`;
+        }
         // E: Close <a:bodyPr element
         bodyProperties += '>';
         /**
@@ -6211,10 +6405,10 @@ function genXmlBodyProperties(slideObject) {
             // NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013!
             if (slideObject.options.fit === 'none')
                 bodyProperties += '';
-            // NOTE: Shrink does not work automatically - PowerPoint calculates the `fontScale` value dynamically upon resize
-            // else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit fontScale="85000" lnSpcReduction="20000"/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
+            // "Shrink text on overflow": emit a fixed `fontScale` (70%) so the text is scaled down to fit the shape.
+            // NOTE: PowerPoint recalculates `fontScale` dynamically once the text/shape is edited; the emitted value is the initial scale.
             else if (slideObject.options.fit === 'shrink')
-                bodyProperties += '<a:normAutofit/>';
+                bodyProperties += '<a:normAutofit fontScale="70000"/>';
             else if (slideObject.options.fit === 'resize')
                 bodyProperties += '<a:spAutoFit/>';
         }
@@ -6742,14 +6936,15 @@ function genXmlAnimPayload(anim, spid, nextId) {
     }
     // flyIn ADDS a <p:anim> that translates the shape from offscreen to its final position.
     // direction (TransitionDirection: left|right|up|down) -> animated attr + tm="0" start formula:
-    //   left  -> ppt_x, "0-#ppt_w/2"   right -> ppt_x, "1+#ppt_w/2"
-    //   up    -> ppt_y, "0-#ppt_h/2"   down  -> ppt_y, "1+#ppt_h/2"
+    //   left  -> ppt_x, "#ppt_x-1slide"   right -> ppt_x, "#ppt_x+1slide"
+    //   up    -> ppt_y, "#ppt_y+1slide"   down  -> ppt_y, "#ppt_y-1slide"
+    // The "1slide" offset starts the shape one full slide-width/height offscreen (PowerPoint-native Fly In).
     if (anim.type === 'flyIn') {
         const flyMap = {
-            left: { attr: 'ppt_x', start: '0-#ppt_w/2' },
-            right: { attr: 'ppt_x', start: '1+#ppt_w/2' },
-            up: { attr: 'ppt_y', start: '0-#ppt_h/2' },
-            down: { attr: 'ppt_y', start: '1+#ppt_h/2' },
+            left: { attr: 'ppt_x', start: '#ppt_x-1slide' },
+            right: { attr: 'ppt_x', start: '#ppt_x+1slide' },
+            up: { attr: 'ppt_y', start: '#ppt_y+1slide' },
+            down: { attr: 'ppt_y', start: '#ppt_y-1slide' },
         };
         const { attr, start } = (_b = flyMap[(_a = anim.direction) !== null && _a !== void 0 ? _a : 'left']) !== null && _b !== void 0 ? _b : flyMap.left;
         payload +=
