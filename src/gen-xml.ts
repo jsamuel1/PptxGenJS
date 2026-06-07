@@ -540,24 +540,37 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 					strSlideXml += '</a:ln>'
 				}
 
-				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// derive emit-time values into locals so we don't mutate the user's options.shadow
-					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-					const sh = slideItemObj.options.shadow
-					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur || 8)
-					const shadowOffset = valToPts(sh.offset || 4)
-					const shadowAngle = Math.round((sh.angle || 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
-					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
+				// EFFECTS > SHADOW + GLOW (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
+				// Both effects share a single <a:effectLst>; emit it once if either is present.
+				{
+					const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none')
+					const hasGlow = !!slideItemObj.options.glow
+					if (hasShadow || hasGlow) {
+						strSlideXml += '<a:effectLst>'
 
-					strSlideXml += '<a:effectLst>'
-					strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
-					strSlideXml += ` <a:srgbClr val="${shadowColor}">`
-					strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`
-					strSlideXml += ' </a:outerShdw>'
-					strSlideXml += '</a:effectLst>'
+						if (hasShadow) {
+							// derive emit-time values into locals so we don't mutate the user's options.shadow
+							// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+							const sh = slideItemObj.options.shadow
+							const shadowType = sh.type || 'outer'
+							const shadowBlur = valToPts(sh.blur || 8)
+							const shadowOffset = valToPts(sh.offset || 4)
+							const shadowAngle = Math.round((sh.angle || 270) * 60000)
+							const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+							const shadowColor = sh.color || DEF_TEXT_SHADOW.color
+
+							strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
+							strSlideXml += `<a:srgbClr val="${shadowColor}">`
+							strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`
+							strSlideXml += `</a:${shadowType}Shdw>`
+						}
+
+						if (hasGlow) {
+							strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW)
+						}
+
+						strSlideXml += '</a:effectLst>'
+					}
 				}
 
 				/* TODO: FUTURE: Text wrapping (copied from MS-PPTX export)

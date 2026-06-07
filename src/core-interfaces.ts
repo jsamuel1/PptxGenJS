@@ -732,6 +732,13 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * TODO: need new demo.js entry for shape shadow
 	 */
 	shadow?: ShadowProps
+	/**
+	 * Glow effect options (Feature 10).
+	 * Emits `<a:glow>` inside the shape's `<a:effectLst>`.
+	 * @example { size: 5, color: '7C3AED', opacity: 0.3 }
+	 * @since v4.1.0
+	 */
+	glow?: TextGlowProps
 
 	/**
 	 * @deprecated v3.3.0
