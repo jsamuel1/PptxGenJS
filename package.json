@@ -10,7 +10,7 @@
 		"url": "https://github.com/gitbrent/"
 	}],
 	"description": "Create JavaScript PowerPoint Presentations — fork with slide transitions, entrance animations, gradient fills, and 20+ OOXML correctness fixes",
-	"homepage": "https://gitbrent.github.io/PptxGenJS/",
+	"homepage": "https://github.com/jsamuel1/PptxGenJS#readme",
 	"license": "MIT",
 	"exports": {
 		"types": "./types/index.d.ts",
