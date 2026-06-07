@@ -1,14 +1,16 @@
 {
 	"name": "@jsamuel1/pptxgenjs",
-	"version": "4.1.0",
+	"version": "4.1.1",
 	"author": {
 		"name": "Joshua Samuel",
 		"url": "https://github.com/jsamuel1/"
 	},
-	"contributors": [{
-		"name": "Brent Ely",
-		"url": "https://github.com/gitbrent/"
-	}],
+	"contributors": [
+		{
+			"name": "Brent Ely",
+			"url": "https://github.com/gitbrent/"
+		}
+	],
 	"description": "Create JavaScript PowerPoint Presentations — fork with slide transitions, entrance animations, gradient fills, and 20+ OOXML correctness fixes",
 	"homepage": "https://github.com/jsamuel1/PptxGenJS#readme",
 	"license": "MIT",
