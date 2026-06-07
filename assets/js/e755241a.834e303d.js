@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkpptxgenjs_gh_pages=self.webpackChunkpptxgenjs_gh_pages||[]).push([[7682],{3417:function(s){s.exports=JSON.parse('{"allTagsPath":"/PptxGenJS/blog/tags","slug":"/PptxGenJS/blog/tags/docusaurus","name":"docusaurus","count":4,"permalink":"/PptxGenJS/blog/tags/docusaurus"}')}}]);

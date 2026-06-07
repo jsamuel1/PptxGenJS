@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkpptxgenjs_gh_pages=self.webpackChunkpptxgenjs_gh_pages||[]).push([[4310],{3057:function(e){e.exports=JSON.parse('{"allTagsPath":"/PptxGenJS/blog/tags","slug":"/PptxGenJS/blog/tags/hello","name":"hello","count":2,"permalink":"/PptxGenJS/blog/tags/hello"}')}}]);
