@@ -55,7 +55,7 @@ fork (no PR review, no cherry-pick — we are not pushing to upstream).
 
 Priority tiers (open queue only):
 
-- **P1 (file-corruption / "needs repair"):** B20
+- **P1 (file-corruption / "needs repair"):** (none currently open)
 - **P2 (silent data loss / wrong output):** (none currently open)
 - **P3 (cosmetic / non-breaking):** (none currently open)
 
@@ -73,71 +73,7 @@ Termination contract:
 
 # Open queue
 
-## B20: `<p:presentation>` child elements emitted out of order
-
-**Priority:** P1  
-**Source:** Schema validation — every fixture in `test/schema.test.js` trips this same error.
-
-### Symptom
-
-`ppt/presentation.xml` emits `<p:notesMasterIdLst>` after `<p:notesSz>`.
-The OOXML CT_Presentation type requires children in a specific order:
-
-```
-sldMasterIdLst, notesMasterIdLst, handoutMasterIdLst,
-sldIdLst, sldSz, notesSz, smartTags?, embeddedFontLst?, ...
-```
-
-The current emitter places `notesMasterIdLst` AFTER `notesSz`, which is
-invalid OOXML. Microsoft's `OpenXmlValidator` flags this on every deck
-PptxGenJS produces today.
-
-### Reproduction
-
-Every deck reproduces this — validate any output via the configured
-schema-test target:
-
-```javascript
-var pptxgen = require('pptxgenjs');
-var pres = new pptxgen();
-pres.addSlide();
-pres.stream().then(buf => {
-  require('fs').writeFileSync('repro.pptx', buf);
-});
-// Then: ./tools/ooxml-validator/bin/OOXMLValidatorCLI repro.pptx
-// Or:   npm run schema-test  (all 8 fixtures fail with this single error)
-```
-
-Validator output (Microsoft `OpenXmlValidator` via `OOXMLValidatorCLI`):
-
-```
-[Schema] The element has unexpected child element 'notesMasterIdLst'.
-List of possible elements expected: <notesSz>.
-Path: /ppt/presentation.xml   Id: Sch_UnexpectedElementContentExpectingComplex
-```
-
-### Root-cause hypothesis
-
-`makeXmlPresentation` in `src/gen-xml.ts` constructs `<p:presentation>`
-by appending children in source-code order rather than schema-canonical
-order. Reorder the emission so `<p:notesMasterIdLst>` (and any other
-out-of-position children) appear in their CT_Presentation positions.
-
-### Acceptance criteria
-
-- `npm run schema-test` reports zero schema errors against the existing
-  fixture set (the only currently-flagged error is this one; fixing it
-  should clear all 8 fixtures).
-- Existing `npm test` (58 regex tests) continues to pass.
-- Every other element in `<p:presentation>` (e.g. `sldMasterIdLst`,
-  `sldIdLst`, `sldSz`) is also confirmed to be in the canonical order
-  while you're in there.
-
-### References
-
-- OpenXmlValidator error id: `Sch_UnexpectedElementContentExpectingComplex`
-  at XPath `/p:presentation[1]`, part `/ppt/presentation.xml`.
-- OOXML CT_Presentation child sequence: ECMA-376 Part 1 §19.2.1.26.
+_(empty — all reported bugs are closed; see **Already fixed** below.)_
 
 ---
 
@@ -168,6 +104,7 @@ for archival to a separate file (e.g. `.autoloop/closed.md`).
 | B17 | Empty `ppt/charts/` and `ppt/embeddings/` directories created unconditionally | `07064047` |
 | B18 | Placeholder objects created as TEXT instead of PLACEHOLDER | `91da6a68` |
 | B19 | `bullet: { type: "bullet" }` produced no bullet | `d6a1de4b` |
+| B20 | `<p:presentation>` children emitted out of CT_Presentation order (`notesMasterIdLst` after `notesSz`) | `727e331d` |
 
 ---
 
