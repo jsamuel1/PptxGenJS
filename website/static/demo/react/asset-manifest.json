@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/PptxGenJS/demo/react/static/css/main.6b44277d.css",
+    "main.js": "/PptxGenJS/demo/react/static/js/main.d4768983.js",
+    "static/js/787.ece98cc6.chunk.js": "/PptxGenJS/demo/react/static/js/787.ece98cc6.chunk.js",
+    "index.html": "/PptxGenJS/demo/react/index.html",
+    "main.6b44277d.css.map": "/PptxGenJS/demo/react/static/css/main.6b44277d.css.map",
+    "main.d4768983.js.map": "/PptxGenJS/demo/react/static/js/main.d4768983.js.map",
+    "787.ece98cc6.chunk.js.map": "/PptxGenJS/demo/react/static/js/787.ece98cc6.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.6b44277d.css",
+    "static/js/main.d4768983.js"
+  ]
+}

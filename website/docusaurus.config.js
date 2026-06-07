@@ -1,0 +1,220 @@
+const { themes } = require('prism-react-renderer');
+const lightTheme = themes.github;
+const darkTheme = themes.dracula;
+
+// With JSDoc @type annotations, IDEs can provide config autocompletion
+/** @type {import('@docusaurus/types').DocusaurusConfig} */
+export default {
+	title: "PptxGenJS",
+	tagline: "Create JavaScript PowerPoint Presentations",
+	url: "https://gitbrent.github.io",
+	baseUrl: "/PptxGenJS/",
+	organizationName: "PptxGenJS",
+	projectName: "PptxGenJS",
+	baseUrlIssueBanner: true,
+	url: "https://gitbrent.github.io",
+	customFields: {
+		repoUrl: "https://github.com/gitbrent/PptxGenJS",
+	},
+	onBrokenLinks: "throw",
+	onBrokenMarkdownLinks: "warn",
+	trailingSlash: true,
+	favicon: "img/favicon.png",
+	presets: [
+		[
+			"@docusaurus/preset-classic",
+			/** @type {import('@docusaurus/preset-classic').Options} */
+			({
+				docs: {
+					showLastUpdateAuthor: true,
+					showLastUpdateTime: true,
+					path: "./docs",
+					sidebarPath: require.resolve("./sidebars.js"),
+				},
+				/*
+				blog: {
+					showReadingTime: true,
+					// Please change this to your repo.
+					editUrl: "https://github.com/facebook/docusaurus/edit/main/website/blog/",
+				},
+				*/
+				theme: {
+					customCss: require.resolve("./src/css/custom.css"),
+				},
+				gtag: {
+					trackingID: 'G-4F7ZC3PH3Y',
+					anonymizeIP: true,
+				},
+			}),
+		],
+	],
+	themeConfig: {
+		liveCodeBlock: {
+			playgroundPosition: "bottom",
+		},
+		docs: {
+			sidebar: { hideable: true },
+		},
+		colorMode: {
+			defaultMode: "light",
+			disableSwitch: false,
+			respectPrefersColorScheme: true,
+		},
+		stylesheets: [
+			{
+				href: 'css/custom.css'
+			},
+		],
+		announcementBar: {
+			id: "supportus",
+			content: '⭐️  If you like PptxGenJS, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/gitbrent/PptxGenJS">GitHub</a>! ⭐️',
+		},
+		prism: {
+			theme: lightTheme,
+			darkTheme: darkTheme,
+		},
+		image: "img/favicon.png",
+		navbar: {
+			style: "dark",
+			title: "PptxGenJS",
+			logo: {
+				alt: "PptGenJS Logo",
+				src: "img/favicon.png",
+				srcDark: "img/favicon.png",
+			},
+			items: [
+				{
+					to: "docs/introduction",
+					label: "Docs",
+					position: "left",
+					"aria-label": "documentation",
+				},
+				/*{
+					to: "docs/installation",
+					label: "Installation",
+					position: "left",
+					"aria-label": "installation",
+				},*/
+				{
+					to: "demos",
+					label: "Demo Showcase",
+					position: "left",
+					"aria-label": "demos",
+				},
+				{
+					to: "html2pptx",
+					label: "HTML-to-PPTX Feature",
+					position: "left",
+					"aria-label": "html-to-pptx",
+				},
+				{
+					href: "https://github.com/gitbrent/PptxGenJS/releases",
+					label: "Latest Release",
+					position: "left",
+					"aria-label": "latest release",
+				},
+				/*
+				{
+					to: "sponsor",
+					label: "Donate",
+					position: "left",
+					className: "navbar-sponsor icon-svg-coin",
+					"aria-label": "sponsor us with a donation",
+				},
+				{
+					href: "https://www.npmjs.com/package/pptxgenjs",
+					position: "right",
+					className: "header-npm-link",
+					"aria-label": "NPM homepage",
+				},
+				{
+					href: "https://github.com/gitbrent/PptxGenJS",
+					position: "right",
+					className: "header-github-link",
+					"aria-label": "GitHub repository",
+				},
+				*/
+				{
+					href: "https://www.npmjs.com/package/pptxgenjs",
+					label: "npm",
+					position: "right",
+					"aria-label": "npm home page",
+				},
+				{
+					href: "https://github.com/gitbrent/PptxGenJS/",
+					label: "GitHub",
+					position: "right",
+					"aria-label": "GitHub repository",
+				},
+			],
+		},
+		footer: {
+			style: "light",
+			links: [
+				{
+					title: "Learn",
+					items: [
+						{
+							label: "Quick Start",
+							to: "docs/quick-start",
+						},
+						{
+							label: "Installation",
+							to: "docs/installation",
+						},
+						{
+							label: "Demos",
+							href: "/demos",
+						},
+					],
+				},
+				{
+					title: "Community",
+					items: [
+						{
+							label: "Stack Overflow",
+							href: "https://stackoverflow.com/questions/tagged/pptxgenjs",
+						},
+						{
+							label: "Reddit",
+							href: "https://www.reddit.com/search/?q=%22pptxgenjs%22",
+						},
+					],
+				},
+				{
+					title: "More",
+					items: [
+						{
+							label: "GitHub Project",
+							href: "https://github.com/gitbrent/pptxgenjs",
+						},
+						{
+							label: "Social Media",
+							href: "https://fosstodon.org/@gitbrent",
+						},
+					],
+				},
+				{
+					title: "Legal",
+					items: [
+						{
+							label: "Privacy",
+							href: "/privacy",
+						},
+						{
+							label: "License",
+							href: "/license",
+						},
+					],
+				},
+			],
+			copyright: `Copyright © ${new Date().getFullYear()} Brent Ely`,
+			logo: {
+				alt: "PptxGenJS Logo",
+				src: "img/pptxgenjs-footer.png",
+				href: "https://github.com/gitbrent/PptxGenJS",
+			},
+		},
+	},
+	plugins: ["pptxgenjs-plugin"]
+};
