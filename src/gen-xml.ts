@@ -1109,6 +1109,14 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		if (slideObject.options._bodyProp.anchor) bodyProperties += ' anchor="' + slideObject.options._bodyProp.anchor + '"' // VALS: [t,ctr,b]
 		if (slideObject.options._bodyProp.vert) bodyProperties += ' vert="' + slideObject.options._bodyProp.vert + '"' // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 
+		// D2: Multi-column text (numCol/spcCol attributes on <a:bodyPr>)
+		// NOTE: must be appended as attributes BEFORE the opening tag is closed below (section E)
+		if (slideObject.options.columns && slideObject.options.columns > 1) {
+			bodyProperties += ` numCol="${Math.round(slideObject.options.columns)}"`
+			const spcColIn = typeof slideObject.options.columnSpacing === 'number' ? slideObject.options.columnSpacing : 0.5
+			bodyProperties += ` spcCol="${Math.round(spcColIn * EMU)}"`
+		}
+
 		// E: Close <a:bodyPr element
 		bodyProperties += '>'
 

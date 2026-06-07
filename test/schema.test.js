@@ -230,5 +230,15 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'animation-counter')
 		}
+	},
+	{
+		name: 'multi-column text (numCol/spcCol on bodyPr)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const s = p.addSlide()
+				s.addText('lorem ipsum dolor sit amet, consectetur adipiscing elit', { x: 1, y: 1, w: 6, h: 3, columns: 2, columnSpacing: 0.4 })
+			})
+			await expectNoSchemaErrors(buf, 'multicol-text')
+		}
 	}
 ]

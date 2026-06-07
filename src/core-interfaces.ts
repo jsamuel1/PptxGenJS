@@ -1055,6 +1055,22 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 */
 	fit?: 'none' | 'shrink' | 'resize'
 	/**
+	 * Number of text columns within the text body (1 = default single column).
+	 * Emits `numCol` on `<a:bodyPr>`. Only takes effect when greater than 1.
+	 * @example 2 // two-column text
+	 * @default 1
+	 * @since v4.0.0
+	 */
+	columns?: number
+	/**
+	 * Spacing between text columns, in inches.
+	 * Emits `spcCol` on `<a:bodyPr>` (only when `columns` > 1).
+	 * @example 0.4 // 0.4 inch gap between columns
+	 * @default 0.5
+	 * @since v4.0.0
+	 */
+	columnSpacing?: number
+	/**
 	 * Shape fill
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent

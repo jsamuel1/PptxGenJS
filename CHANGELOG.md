@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Multi-column text — `columns` (and optional `columnSpacing`, inches) on `addText()` emits `numCol`/`spcCol` attributes on `<a:bodyPr>`, so multi-column text layouts no longer require manually positioned side-by-side text boxes. `spcCol` defaults to `0.5"`; columns are only emitted when `columns > 1`.
 - Slide transitions — `slide.transition = { type, duration?, direction? }` emits a native `<p:transition>` element. Supported types: `fade`, `push`, `wipe`, `cover`, `split`, `cut`, `none`. `duration` (ms) maps to a coarse `spd` (`fast`/`med`/`slow`); `direction` (`left`/`right`/`up`/`down`) applies to the directional types (`push`/`wipe`/`cover`).
 - Shape, text, and image entrance animations — `animation = { type, duration?, delay?, trigger?, direction? }` emits a native per-slide `<p:timing>` block. Types: `appear`, `fadeIn`, `flyIn` (directional), `zoomIn`. Triggers: `onClick`, `withPrevious`, `afterPrevious`.
 - Number-counter text sugar — `counter = { from, to, suffix?, stepMs? }` on `addText()` expands into sequentially-revealed stacked frames to produce a native count-up effect (OOXML has no text-content animation, so this is the supported approach).
