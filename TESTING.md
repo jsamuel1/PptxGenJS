@@ -127,8 +127,6 @@ npm run build
 4. Verify each animated shape enters with the expected motion (fade in, fly in from the correct edge, zoom up from nothing) and that staggered `delay`/`trigger` ordering matches expectations.
 5. Verify the counter counts up frame-by-frame to its final value.
 
-> ℹ️ Native emission replaces the former external `postprocess.js` XML-surgery step for transitions/animations/gradient fills — that step **can now be retired** for these features.
-
 ---
 
 ## 🏁 Test Completion Checklist
