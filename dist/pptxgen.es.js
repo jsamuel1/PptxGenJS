@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.0 @ 2026-06-07T11:53:01.419Z */
+/* PptxGenJS 4.1.1 @ 2026-06-07T21:17:30.873Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -579,6 +579,7 @@ var MASTER_OBJECTS;
 var SLIDE_OBJECT_TYPES;
 (function (SLIDE_OBJECT_TYPES) {
     SLIDE_OBJECT_TYPES["chart"] = "chart";
+    SLIDE_OBJECT_TYPES["group"] = "group";
     SLIDE_OBJECT_TYPES["hyperlink"] = "hyperlink";
     SLIDE_OBJECT_TYPES["image"] = "image";
     SLIDE_OBJECT_TYPES["media"] = "media";
@@ -2479,6 +2480,90 @@ function addShapeDefinition(target, shapeName, opts) {
     target._slideObjects.push(newObject);
 }
 /**
+ * Feature 7: Adds a rounded-rectangle callout/badge to a slide definition.
+ * Thin sugar over `addTextDefinition` with `shape:'roundRect'`, centred text, and a
+ * corner-radius `adj` value computed from `cornerRadius` (inches) per:
+ *   `adj = Math.round((cornerRadius / (h / 2)) * 50000)`.
+ * @param {PresSlide} target slide object that the callout should be added to
+ * @param {CalloutProps} opts callout options
+ */
+function addCalloutDefinition(target, opts) {
+    const options = typeof opts === 'object' ? opts : {};
+    const h = options.h !== undefined ? Number(options.h) : 0.4;
+    const w = options.w !== undefined ? options.w : 1.5;
+    const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.1;
+    // Map inches -> OOXML `adj` (percentage of half-shortest-side × 1000). Guard divide-by-zero.
+    const calloutAdj = h > 0 ? Math.round((cornerRadius / (h / 2)) * 50000) : 0;
+    const fill = options.fill !== undefined ? options.fill : '7C3AED';
+    const textOpts = {
+        shape: SHAPE_TYPE.ROUNDED_RECTANGLE,
+        x: options.x !== undefined ? options.x : 1,
+        y: options.y !== undefined ? options.y : 1,
+        w,
+        h,
+        fill: typeof fill === 'string' ? { color: fill } : fill,
+        color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
+        fontSize: options.fontSize !== undefined ? options.fontSize : 12,
+        bold: options.fontBold !== undefined ? options.fontBold : true,
+        align: options.align || 'center',
+        valign: options.valign || 'middle',
+        _calloutAdj: calloutAdj,
+    };
+    if (options.objectName)
+        textOpts.objectName = options.objectName;
+    addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false);
+}
+/**
+ * Feature 6: Adds a shape group to a slide definition and returns a group handle.
+ * The group emits a `<p:grpSp>` whose `<a:xfrm>` carries the absolute position/size plus
+ * `chOff="0,0"`/`chExt` equal to the extent — so child shapes/text use coordinates relative
+ * to the group origin (1:1 scale). Children are added via the returned object's
+ * `addShape()` / `addText()`, which reuse the existing shape/text intake but push onto the
+ * group's private child array instead of the slide.
+ * @param {PresSlide} target slide the group should be added to
+ * @param {GroupProps} opts group position/size options
+ * @return {SlideGroup} group handle exposing `addShape` / `addText`
+ */
+function addGroupDefinition(target, opts) {
+    const options = typeof opts === 'object' ? opts : {};
+    const grpObjects = [];
+    const groupObj = {
+        _type: SLIDE_OBJECT_TYPES.group,
+        options: {
+            x: options.x !== undefined ? options.x : 0,
+            y: options.y !== undefined ? options.y : 0,
+            w: options.w !== undefined ? options.w : 0,
+            h: options.h !== undefined ? options.h : 0,
+            objectName: options.objectName ? encodeXmlEntities(options.objectName) : `Group ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.group).length + 1}`,
+        },
+        _grpObjects: grpObjects,
+    };
+    target._slideObjects.push(groupObj);
+    // Proxy target: existing intake fns push onto the group's child array but reuse the parent
+    // slide's rels/layout/color so child shapes/text render identically to top-level ones.
+    const childTarget = {
+        _slideObjects: grpObjects,
+        _rels: target._rels,
+        _relsChart: target._relsChart,
+        _relsMedia: target._relsMedia,
+        _slideLayout: target._slideLayout,
+        _presLayout: target._presLayout,
+        color: target.color,
+    };
+    const group = {
+        addShape(shapeName, shapeOpts) {
+            addShapeDefinition(childTarget, shapeName, (shapeOpts || {}));
+            return group;
+        },
+        addText(text, textOpts) {
+            const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options: textOpts }] : text;
+            addTextDefinition(childTarget, textParam, (textOpts || {}), false);
+            return group;
+        },
+    };
+    return group;
+}
+/**
  * Adds a table object to a slide definition.
  * @param {PresSlide} target - slide object that the table should be added to
  * @param {TableRow[]} tableRows - table data
@@ -3159,6 +3244,27 @@ class Slide {
         // TypeScript => `pptxgen.shapes.RECTANGLE` [string] "rect" ... shapeName = 'rect'
         // let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
         addShapeDefinition(this, shapeName, options);
+        return this;
+    }
+    /**
+     * Add a shape group to Slide (Feature 6).
+     * Returns a group handle whose `addShape()`/`addText()` use coordinates relative to the
+     * group origin; the group emits a `<p:grpSp>` with an absolute `<a:xfrm>` + `chOff`/`chExt`.
+     * @param {GroupProps} options - group position/size options
+     * @return {SlideGroup} group handle exposing `addShape` / `addText`
+     */
+    addGroup(options) {
+        return addGroupDefinition(this, options);
+    }
+    /**
+     * Add a rounded-rectangle callout/badge to Slide (Feature 7).
+     * Sugar over `addShape('roundRect', …)` with centred text and an `adj`
+     * corner-radius derived from `cornerRadius` (inches).
+     * @param {CalloutProps} options - callout options
+     * @return {Slide} this Slide
+     */
+    addCallout(options) {
+        addCalloutDefinition(this, options);
         return this;
     }
     /**
@@ -5794,7 +5900,11 @@ function slideObjectToXml(slide) {
                 }
                 else {
                     strSlideXml += '<a:prstGeom prst="' + slideItemObj.shape + '"><a:avLst>';
-                    if (slideItemObj.options.rectRadius) {
+                    if (slideItemObj.options._calloutAdj !== undefined && slideItemObj.options._calloutAdj !== null) {
+                        // Feature 7: addCallout() supplies a pre-computed `adj` value; emit it verbatim.
+                        strSlideXml += `<a:gd name="adj" fmla="val ${slideItemObj.options._calloutAdj}"/>`;
+                    }
+                    else if (slideItemObj.options.rectRadius) {
                         strSlideXml += `<a:gd name="adj" fmla="val ${Math.round((slideItemObj.options.rectRadius * EMU * 100000) / Math.min(cx, cy))}"/>`;
                     }
                     else if (slideItemObj.options.angleRange) {
@@ -5824,23 +5934,33 @@ function slideObjectToXml(slide) {
                     // FUTURE: `endArrowSize` < a: headEnd type = "arrow" w = "lg" len = "lg" /> 'sm' | 'med' | 'lg'(values are 1 - 9, making a 3x3 grid of w / len possibilities)
                     strSlideXml += '</a:ln>';
                 }
-                // EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-                if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-                    // derive emit-time values into locals so we don't mutate the user's options.shadow
-                    // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-                    const sh = slideItemObj.options.shadow;
-                    const shadowType = sh.type || 'outer';
-                    const shadowBlur = valToPts(sh.blur || 8);
-                    const shadowOffset = valToPts(sh.offset || 4);
-                    const shadowAngle = Math.round((sh.angle || 270) * 60000);
-                    const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
-                    const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
-                    strSlideXml += '<a:effectLst>';
-                    strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
-                    strSlideXml += ` <a:srgbClr val="${shadowColor}">`;
-                    strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
-                    strSlideXml += ' </a:outerShdw>';
-                    strSlideXml += '</a:effectLst>';
+                // EFFECTS > SHADOW + GLOW (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
+                // Both effects share a single <a:effectLst>; emit it once if either is present.
+                {
+                    const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none');
+                    const hasGlow = !!slideItemObj.options.glow;
+                    if (hasShadow || hasGlow) {
+                        strSlideXml += '<a:effectLst>';
+                        if (hasShadow) {
+                            // derive emit-time values into locals so we don't mutate the user's options.shadow
+                            // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+                            const sh = slideItemObj.options.shadow;
+                            const shadowType = sh.type || 'outer';
+                            const shadowBlur = valToPts(sh.blur || 8);
+                            const shadowOffset = valToPts(sh.offset || 4);
+                            const shadowAngle = Math.round((sh.angle || 270) * 60000);
+                            const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
+                            const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
+                            strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
+                            strSlideXml += `<a:srgbClr val="${shadowColor}">`;
+                            strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
+                            strSlideXml += `</a:${shadowType}Shdw>`;
+                        }
+                        if (hasGlow) {
+                            strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW);
+                        }
+                        strSlideXml += '</a:effectLst>';
+                    }
                 }
                 /* TODO: FUTURE: Text wrapping (copied from MS-PPTX export)
                     // Commented out b/c i'm not even sure this works - current code produces text that wraps in shapes and textboxes, so...
@@ -5988,6 +6108,20 @@ function slideObjectToXml(slide) {
                 strSlideXml += ' </a:graphic>';
                 strSlideXml += '</p:graphicFrame>';
                 break;
+            case SLIDE_OBJECT_TYPES.group:
+                // Feature 6: nested shape group. The `<a:xfrm>` carries the absolute position/size;
+                // `chOff="0,0"` + `chExt`=ext gives a 1:1 child coordinate space, so children use
+                // coordinates relative to the group origin. Children reuse the standard shape/text
+                // emitters via `genGroupChildrenXml`.
+                strSlideXml += '<p:grpSp>';
+                strSlideXml += `<p:nvGrpSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName || `Group ${idx + 1}`}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>`;
+                strSlideXml += `<p:grpSpPr><a:xfrm${locationAttr}>`;
+                strSlideXml += `<a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/>`;
+                strSlideXml += `<a:chOff x="0" y="0"/><a:chExt cx="${cx}" cy="${cy}"/>`;
+                strSlideXml += '</a:xfrm></p:grpSpPr>';
+                strSlideXml += genGroupChildrenXml(slide, slideItemObj._grpObjects, idx);
+                strSlideXml += '</p:grpSp>';
+                break;
             default:
                 strSlideXml += '';
                 break;
@@ -6058,6 +6192,47 @@ function slideObjectToXml(slide) {
     strSlideXml += '</p:cSld>';
     // LAST: Return
     return strSlideXml;
+}
+/**
+ * Feature 6: Render a shape group's child objects as the inner markup of a `<p:grpSp>`.
+ * Reuses the full slide emitter (`slideObjectToXml`) on the same slide with its object list
+ * temporarily swapped to the group's children (and slide-number footer suppressed), then
+ * extracts just the `<p:spTree>` child markup (everything after the root `</p:grpSpPr>` up to
+ * `</p:spTree>`). Child `<p:cNvPr>` ids are offset to stay unique within the slide part so
+ * PowerPoint does not flag the file for repair.
+ * @param {PresSlide | SlideLayout} slide - parent slide (provides layout/rels/presLayout)
+ * @param {ISlideObject[]} grpObjects - the group's child slide objects
+ * @param {number} groupIdx - the group's index within the slide (used to namespace child ids)
+ * @return {string} child markup to nest inside `<p:grpSp>`
+ */
+function genGroupChildrenXml(slide, grpObjects, groupIdx) {
+    if (!grpObjects || grpObjects.length === 0)
+        return '';
+    // Temporarily render the children through the normal slide pipeline. Background is emitted
+    // before `<p:spTree>` (outside the extracted region) so it is harmless; the slide-number
+    // footer is emitted inside `<p:spTree>`, so suppress it during the recursive render.
+    const savedObjects = slide._slideObjects;
+    const savedSlideNum = slide._slideNumberProps;
+    slide._slideObjects = grpObjects;
+    slide._slideNumberProps = null;
+    let fullXml;
+    try {
+        fullXml = slideObjectToXml(slide);
+    }
+    finally {
+        slide._slideObjects = savedObjects;
+        slide._slideNumberProps = savedSlideNum;
+    }
+    const startMarker = '</p:grpSpPr>';
+    const startIdx = fullXml.indexOf(startMarker);
+    const endIdx = fullXml.lastIndexOf('</p:spTree>');
+    if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx)
+        return '';
+    let childXml = fullXml.substring(startIdx + startMarker.length, endIdx);
+    // Keep child cNvPr ids unique within the slide part (avoid PowerPoint "needs repair").
+    const idBase = (groupIdx + 1) * 1000;
+    childXml = childXml.replace(/<p:cNvPr id="(\d+)"/g, (_m, n) => `<p:cNvPr id="${idBase + Number(n)}"`);
+    return childXml;
 }
 /**
  * Transforms slide relations to XML string.
@@ -7394,7 +7569,7 @@ function makeXmlViewProps() {
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
  */
-const VERSION = '4.0.1';
+const VERSION = '4.1.1';
 class PptxGenJS {
     set layout(value) {
         const newLayout = this.LAYOUTS[value];
