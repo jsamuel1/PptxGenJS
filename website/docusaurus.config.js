@@ -7,14 +7,13 @@ const darkTheme = themes.dracula;
 export default {
 	title: "PptxGenJS",
 	tagline: "Create JavaScript PowerPoint Presentations",
-	url: "https://gitbrent.github.io",
+	url: "https://jsamuel1.github.io",
 	baseUrl: "/PptxGenJS/",
-	organizationName: "PptxGenJS",
+	organizationName: "jsamuel1",
 	projectName: "PptxGenJS",
 	baseUrlIssueBanner: true,
-	url: "https://gitbrent.github.io",
 	customFields: {
-		repoUrl: "https://github.com/gitbrent/PptxGenJS",
+		repoUrl: "https://github.com/jsamuel1/PptxGenJS",
 	},
 	onBrokenLinks: "throw",
 	onBrokenMarkdownLinks: "warn",
@@ -30,6 +29,7 @@ export default {
 					showLastUpdateTime: true,
 					path: "./docs",
 					sidebarPath: require.resolve("./sidebars.js"),
+					editUrl: "https://github.com/jsamuel1/PptxGenJS/edit/master/website/",
 				},
 				/*
 				blog: {
@@ -40,10 +40,6 @@ export default {
 				*/
 				theme: {
 					customCss: require.resolve("./src/css/custom.css"),
-				},
-				gtag: {
-					trackingID: 'G-4F7ZC3PH3Y',
-					anonymizeIP: true,
 				},
 			}),
 		],
@@ -67,7 +63,7 @@ export default {
 		],
 		announcementBar: {
 			id: "supportus",
-			content: '⭐️  If you like PptxGenJS, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/gitbrent/PptxGenJS">GitHub</a>! ⭐️',
+			content: '⭐️  If you like PptxGenJS, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/jsamuel1/PptxGenJS">GitHub</a>! ⭐️',
 		},
 		prism: {
 			theme: lightTheme,
@@ -108,7 +104,7 @@ export default {
 					"aria-label": "html-to-pptx",
 				},
 				{
-					href: "https://github.com/gitbrent/PptxGenJS/releases",
+					href: "https://github.com/jsamuel1/PptxGenJS/releases",
 					label: "Latest Release",
 					position: "left",
 					"aria-label": "latest release",
@@ -122,26 +118,26 @@ export default {
 					"aria-label": "sponsor us with a donation",
 				},
 				{
-					href: "https://www.npmjs.com/package/pptxgenjs",
+					href: "https://www.npmjs.com/package/@jsamuel1/pptxgenjs",
 					position: "right",
 					className: "header-npm-link",
 					"aria-label": "NPM homepage",
 				},
 				{
-					href: "https://github.com/gitbrent/PptxGenJS",
+					href: "https://github.com/jsamuel1/PptxGenJS",
 					position: "right",
 					className: "header-github-link",
 					"aria-label": "GitHub repository",
 				},
 				*/
 				{
-					href: "https://www.npmjs.com/package/pptxgenjs",
+					href: "https://www.npmjs.com/package/@jsamuel1/pptxgenjs",
 					label: "npm",
 					position: "right",
 					"aria-label": "npm home page",
 				},
 				{
-					href: "https://github.com/gitbrent/PptxGenJS/",
+					href: "https://github.com/jsamuel1/PptxGenJS/",
 					label: "GitHub",
 					position: "right",
 					"aria-label": "GitHub repository",
@@ -186,7 +182,7 @@ export default {
 					items: [
 						{
 							label: "GitHub Project",
-							href: "https://github.com/gitbrent/pptxgenjs",
+							href: "https://github.com/jsamuel1/PptxGenJS",
 						},
 						{
 							label: "Social Media",
@@ -212,7 +208,7 @@ export default {
 			logo: {
 				alt: "PptxGenJS Logo",
 				src: "img/pptxgenjs-footer.png",
-				href: "https://github.com/gitbrent/PptxGenJS",
+				href: "https://github.com/jsamuel1/PptxGenJS",
 			},
 		},
 	},
