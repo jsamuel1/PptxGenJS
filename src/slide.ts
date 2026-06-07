@@ -6,6 +6,7 @@ import { CHART_NAME, SHAPE_NAME } from './core-enums'
 import {
 	AddSlideProps,
 	BackgroundProps,
+	CalloutProps,
 	HexColor,
 	IChartMulti,
 	IChartOpts,
@@ -231,6 +232,18 @@ export default class Slide {
 		// TypeScript => `pptxgen.shapes.RECTANGLE` [string] "rect" ... shapeName = 'rect'
 		// let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
 		genObj.addShapeDefinition(this, shapeName, options)
+		return this
+	}
+
+	/**
+	 * Add a rounded-rectangle callout/badge to Slide (Feature 7).
+	 * Sugar over `addShape('roundRect', …)` with centred text and an `adj`
+	 * corner-radius derived from `cornerRadius` (inches).
+	 * @param {CalloutProps} options - callout options
+	 * @return {Slide} this Slide
+	 */
+	addCallout(options: CalloutProps): Slide {
+		genObj.addCalloutDefinition(this, options)
 		return this
 	}
 

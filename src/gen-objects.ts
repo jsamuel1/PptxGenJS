@@ -27,6 +27,7 @@ import {
 import {
 	AddSlideProps,
 	BackgroundProps,
+	CalloutProps,
 	IChartMulti,
 	IChartOptsLib,
 	IOptsChartData,
@@ -735,6 +736,43 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
 
 	// LAST: Add object to slide
 	target._slideObjects.push(newObject)
+}
+
+/**
+ * Feature 7: Adds a rounded-rectangle callout/badge to a slide definition.
+ * Thin sugar over `addTextDefinition` with `shape:'roundRect'`, centred text, and a
+ * corner-radius `adj` value computed from `cornerRadius` (inches) per:
+ *   `adj = Math.round((cornerRadius / (h / 2)) * 50000)`.
+ * @param {PresSlide} target slide object that the callout should be added to
+ * @param {CalloutProps} opts callout options
+ */
+export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): void {
+	const options = typeof opts === 'object' ? opts : ({} as CalloutProps)
+	const h = options.h !== undefined ? Number(options.h) : 0.4
+	const w = options.w !== undefined ? options.w : 1.5
+	const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.1
+	// Map inches -> OOXML `adj` (percentage of half-shortest-side × 1000). Guard divide-by-zero.
+	const calloutAdj = h > 0 ? Math.round((cornerRadius / (h / 2)) * 50000) : 0
+
+	const fill = options.fill !== undefined ? options.fill : '7C3AED'
+
+	const textOpts: TextPropsOptions = {
+		shape: SHAPE_TYPE.ROUNDED_RECTANGLE,
+		x: options.x !== undefined ? options.x : 1,
+		y: options.y !== undefined ? options.y : 1,
+		w,
+		h,
+		fill: typeof fill === 'string' ? { color: fill } : fill,
+		color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
+		fontSize: options.fontSize !== undefined ? options.fontSize : 12,
+		bold: options.fontBold !== undefined ? options.fontBold : true,
+		align: options.align || 'center',
+		valign: options.valign || 'middle',
+		_calloutAdj: calloutAdj,
+	}
+	if (options.objectName) textOpts.objectName = options.objectName
+
+	addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false)
 }
 
 /**

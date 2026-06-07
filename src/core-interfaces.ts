@@ -756,6 +756,35 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	shapeName?: string
 }
 
+/**
+ * Feature 7 — Rounded-rectangle callout/badge sugar.
+ * Convenience wrapper over `addShape('roundRect', …)` with centred text and an
+ * `adj` corner-radius derived from `cornerRadius` (inches).
+ * @since v4.1.0
+ */
+export interface CalloutProps extends PositionProps, ObjectNameProps {
+	/** Callout text (single run, centred by default). */
+	text: string
+	/** Background fill (hex color or fill props). @default '7C3AED' */
+	fill?: ShapeFillProps | GradientFillProps | HexColor
+	/** Text color (hex). @default 'FFFFFF' */
+	fontColor?: HexColor
+	/** Font size (points). @default 12 */
+	fontSize?: number
+	/** Bold text? @default true */
+	fontBold?: boolean
+	/**
+	 * Corner radius in inches — mapped to the OOXML `adj` value via
+	 * `adj = Math.round((cornerRadius / (h / 2)) * 50000)`.
+	 * @default 0.1
+	 */
+	cornerRadius?: number
+	/** Horizontal text alignment. @default 'center' */
+	align?: HAlign
+	/** Vertical text alignment. @default 'middle' */
+	valign?: VAlign
+}
+
 // tables =========================================================================================
 
 export interface TableToSlidesProps extends TableProps {
@@ -1028,6 +1057,8 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	counter?: CounterProps
 	/** @internal Delay (ms) after which this counter frame hides itself (all frames but the last). */
 	_counterExit?: number
+	/** @internal Pre-computed `roundRect` corner-radius `adj` value (Feature 7 `addCallout`); emitted verbatim as `<a:gd name="adj" fmla="val N"/>`. */
+	_calloutAdj?: number
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
 		autoFit?: boolean
