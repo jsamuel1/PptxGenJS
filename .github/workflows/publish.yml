@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to publish (e.g. v4.1.1)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -14,8 +20,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Resolve the ref to publish: the dispatched tag input, or the pushed tag.
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -37,7 +55,7 @@ jobs:
 
       - name: Verify tag matches package.json version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${TAG_REF#v}"
           PKG_VERSION="$(node -p "require('./package.json').version")"
           echo "Tag version:     $TAG_VERSION"
           echo "package.json:    $PKG_VERSION"
@@ -45,6 +63,8 @@ jobs:
             echo "::error::Tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
             exit 1
           fi
+        env:
+          TAG_REF: ${{ steps.tag.outputs.ref }}
 
       - name: Build and test
         run: npm test
@@ -53,8 +73,10 @@ jobs:
       # Provenance is generated automatically under trusted publishing.
       - name: Publish to npm
         run: |
-          if [[ "$GITHUB_REF_NAME" == *-beta* || "$GITHUB_REF_NAME" == *-alpha* || "$GITHUB_REF_NAME" == *-rc* ]]; then
+          if [[ "$TAG_REF" == *-beta* || "$TAG_REF" == *-alpha* || "$TAG_REF" == *-rc* ]]; then
             npm publish --access public --tag beta
           else
             npm publish --access public
           fi
+        env:
+          TAG_REF: ${{ steps.tag.outputs.ref }}
