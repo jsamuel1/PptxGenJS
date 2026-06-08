@@ -83,6 +83,7 @@ import {
 	IPresentationProps,
 	KinsokuProps,
 	CustomShowProps,
+	PhotoAlbumProps,
 	LayoutGridProps,
 	LayoutGridResult,
 	PresLayout,
@@ -232,6 +233,20 @@ export default class PptxGenJS implements IPresentationProps {
 
 	public get kinsoku(): KinsokuProps {
 		return this._kinsoku
+	}
+
+	/**
+	 * Presentation-level photo album metadata.
+	 * Emits `<p:photoAlbum>` into `presentation.xml` when set (default-off).
+	 * @type {PhotoAlbumProps}
+	 */
+	private _photoAlbum: PhotoAlbumProps
+	public set photoAlbum(value: PhotoAlbumProps) {
+		this._photoAlbum = value
+	}
+
+	public get photoAlbum(): PhotoAlbumProps {
+		return this._photoAlbum
 	}
 
 	/**

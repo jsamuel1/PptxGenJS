@@ -129,6 +129,37 @@ pptx.kinsoku = {
 };
 ```
 
+## Photo Album
+
+### Photo Album Options
+
+Mark a deck as a PowerPoint photo album by setting the `photoAlbum` presentation
+property. This emits a `<p:photoAlbum>` metadata element in `presentation.xml` so
+editors expose their album layout/frame controls. The image slides are still
+authored normally — this property only records the album metadata.
+
+| Option         | Type    | Default | Description                                                                 |
+| :------------- | :------ | :------ | :-------------------------------------------------------------------------- |
+| `blackWhite`   | boolean | `false` | render album images in black & white (`bw` attribute)                       |
+| `showCaptions` | boolean | `false` | show captions below album images (`showCaptions` attribute)                 |
+| `layout`       | string  | (unset) | album page layout: `fitToSlide`, `1pic`, `2pic`, `4pic`, `1picTitle`, `2picTitle`, `4picTitle` |
+| `frame`        | string  | (unset) | image frame shape: `frameStyle1` … `frameStyle7`                            |
+
+`blackWhite` and `showCaptions` are always emitted; `layout` and `frame` are
+emitted only when set (their schema defaults apply otherwise). Default-off: when
+`photoAlbum` is not set, no `<p:photoAlbum>` element is emitted.
+
+### Photo Album Examples
+
+```javascript
+pptx.photoAlbum = {
+  blackWhite: false,
+  showCaptions: true,
+  layout: "fitToSlide",
+  frame: "frameStyle1",
+};
+```
+
 ## Default Font
 
 ### Default Font Options

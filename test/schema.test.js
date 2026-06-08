@@ -664,6 +664,46 @@ module.exports = [
 		}
 	},
 	{
+		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.photoAlbum = { blackWhite: false, showCaptions: true, layout: 'fitToSlide', frame: 'frameStyle1' }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presXml = await readEntry(zip, 'ppt/presentation.xml')
+			// Raw-emission: exact attribute mapping (boolean -> "0"/"1", layout/frame verbatim)
+			assert(/<p:photoAlbum bw="0" showCaptions="1" layout="fitToSlide" frame="frameStyle1"\/>/.test(presXml), 'photo-album: expected <p:photoAlbum bw="0" showCaptions="1" layout="fitToSlide" frame="frameStyle1"/>')
+			// Child-order (CT_Presentation): <p:photoAlbum> must sit BEFORE <p:defaultTextStyle> (after custShowLst/notesSz)
+			assert(presXml.indexOf('<p:photoAlbum') < presXml.indexOf('<p:defaultTextStyle>'), 'photo-album: <p:photoAlbum> must come before <p:defaultTextStyle>')
+			// Co-set with kinsoku: photoAlbum precedes kinsoku per canonical order
+			const { zip: zipBoth } = await build(p => {
+				p.photoAlbum = { showCaptions: true }
+				p.kinsoku = { lang: 'ja-JP' }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presBoth = await readEntry(zipBoth, 'ppt/presentation.xml')
+			assert(presBoth.indexOf('<p:photoAlbum') < presBoth.indexOf('<p:kinsoku'), 'photo-album: <p:photoAlbum> must precede <p:kinsoku>')
+			// Optional-attr proof: no layout/frame -> emit only bw + showCaptions, NO layout=/frame=
+			assert(/<p:photoAlbum bw="0" showCaptions="1"\/>/.test(presBoth), 'photo-album: omitted layout/frame must NOT be emitted')
+			assert(!/<p:photoAlbum[^>]*layout=/.test(presBoth), 'photo-album: layout attr must be absent when unset')
+			assert(!/<p:photoAlbum[^>]*frame=/.test(presBoth), 'photo-album: frame attr must be absent when unset')
+			// blackWhite:true maps bw="1"
+			const { zip: zipBw } = await build(p => {
+				p.photoAlbum = { blackWhite: true }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presBw = await readEntry(zipBw, 'ppt/presentation.xml')
+			assert(/<p:photoAlbum bw="1" showCaptions="0"\/>/.test(presBw), 'photo-album: blackWhite:true must map to bw="1"')
+			// Default-off invariant: a deck with NO photoAlbum config must emit NO <p:photoAlbum>
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presDefault = await readEntry(zip2, 'ppt/presentation.xml')
+			assert(!/<p:photoAlbum\b/.test(presDefault), 'photo-album: default (no config) presentation.xml must NOT emit <p:photoAlbum>')
+			await expectNoSchemaErrors(buf, 'photo-album')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

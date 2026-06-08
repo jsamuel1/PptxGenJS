@@ -2423,6 +2423,11 @@ export interface PresentationProps {
 	 * Default-off: when unset/empty, no `<p:custShowLst>` element is emitted.
 	 */
 	customShows?: CustomShowProps[]
+	/**
+	 * Photo album metadata emitted as `<p:photoAlbum>` in `presentation.xml`.
+	 * Default-off: when unset, no `<p:photoAlbum>` element is emitted.
+	 */
+	photoAlbum?: PhotoAlbumProps
 }
 /**
  * Kinsoku — East-Asian line-break rules (`<p:kinsoku>` in `presentation.xml`).
@@ -2454,6 +2459,33 @@ export interface CustomShowProps {
 	name: string
 	/** Slides included in the show, in presentation order. Each must already be added to the deck. */
 	slides: PresSlide[]
+}
+/**
+ * Photo album metadata (`<p:photoAlbum>` in `presentation.xml`).
+ * Records the deck as a PowerPoint photo album so editors expose album controls.
+ * Image slides are still authored normally — this element is metadata only.
+ */
+export interface PhotoAlbumProps {
+	/**
+	 * Render album images in black & white (`bw` attribute).
+	 * @default false
+	 */
+	blackWhite?: boolean
+	/**
+	 * Show captions below album images (`showCaptions` attribute).
+	 * @default false
+	 */
+	showCaptions?: boolean
+	/**
+	 * Album page layout (`layout` attribute, `ST_PhotoAlbumLayout`).
+	 * Omitted when unset (schema default applies).
+	 */
+	layout?: 'fitToSlide' | '1pic' | '2pic' | '4pic' | '1picTitle' | '2picTitle' | '4picTitle'
+	/**
+	 * Image frame shape (`frame` attribute, `ST_PhotoAlbumFrameShape`).
+	 * Omitted when unset (schema default applies).
+	 */
+	frame?: 'frameStyle1' | 'frameStyle2' | 'frameStyle3' | 'frameStyle4' | 'frameStyle5' | 'frameStyle6' | 'frameStyle7'
 }
 // PRIVATE interface
 export interface IPresentationProps extends PresentationProps {

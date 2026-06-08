@@ -1,6 +1,7 @@
 # Feature: Photo Album (`p:photoAlbum`)
 
-> **Status:** Proposed
+> **Status:** Implemented
+> **Implemented:** `pptx.photoAlbum = { blackWhite?, showCaptions?, layout?, frame? }` → `<p:photoAlbum>` in `presentation.xml` (gen-xml STEP 4a-bis, after `<p:custShowLst>` / before `<p:kinsoku>` per CT_Presentation order; `bw`/`showCaptions` always emitted as `"0"`/`"1"`, `layout`/`frame` emitted only when set; default-off). Schema fixture `photo album (pptx.photoAlbum -> p:photoAlbum)`.
 > **Priority:** Low — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §1 Presentation container — "Photo album"
 

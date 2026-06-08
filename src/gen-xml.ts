@@ -2574,6 +2574,18 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 		strXml += '</p:custShowLst>'
 	}
 
+	// STEP 4a-bis: Add photo album metadata — default-off.
+	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+	// <p:photoAlbum> after <p:custShowLst> and before <p:kinsoku>.
+	// `bw`/`showCaptions` are emitted always (boolean -> "0"/"1"); `layout`/`frame`
+	// have schema defaults so they are emitted only when explicitly provided.
+	if (pres.photoAlbum) {
+		let albumAttrs = `bw="${pres.photoAlbum.blackWhite ? '1' : '0'}" showCaptions="${pres.photoAlbum.showCaptions ? '1' : '0'}"`
+		if (pres.photoAlbum.layout) albumAttrs += ` layout="${pres.photoAlbum.layout}"`
+		if (pres.photoAlbum.frame) albumAttrs += ` frame="${pres.photoAlbum.frame}"`
+		strXml += `<p:photoAlbum ${albumAttrs}/>`
+	}
+
 	// STEP 4b: Add kinsoku (East-Asian line-break rules) — default-off.
 	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
 	// <p:kinsoku> after <p:notesSz> and immediately before <p:defaultTextStyle>.
