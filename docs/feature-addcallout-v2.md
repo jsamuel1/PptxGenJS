@@ -1,7 +1,9 @@
 # Feature: addCallout() v2 — Attribution, Accent Bar, Rich Text
 
-> **Status:** Proposed (extends the implemented `addCallout()`)
-> **Target:** `src/gen-objects.ts` (`addCalloutDefinition`), `src/core-interfaces.ts` (`CalloutProps`), tests `test/feature-callout.test.js`
+> **Status:** Implemented (v4.1.7) — `addCallout()` gains a v2 group path (accent bar +
+> attribution + italic/fontFace + multi-run body + padding). The v1 single-rounded-rect path is
+> byte-identical when neither `accentBar` nor `attribution` is supplied.
+> **Target:** `src/gen-objects.ts` (`addCalloutDefinition`), `src/core-interfaces.ts` (`CalloutProps`), tests `test/feature-callout.test.js` + `test/schema.test.js`
 > **Priority:** Medium — quote/callout blocks currently force manual composition
 
 ## Problem

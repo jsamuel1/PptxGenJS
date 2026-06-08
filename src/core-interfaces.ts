@@ -1016,26 +1016,60 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
  * @since v4.1.0
  */
 export interface CalloutProps extends PositionProps, ObjectNameProps {
-	/** Callout text (single run, centred by default). */
-	text: string
+	/**
+	 * Callout text. A string renders a single run; a `TextProps[]` renders a multi-run body
+	 * (e.g. a bold keyword followed by normal continuation). Multi-run is only honoured by the
+	 * v2 group path (when `accentBar` or `attribution` is present).
+	 */
+	text: string | TextProps[]
 	/** Background fill (hex color or fill props). @default '7C3AED' */
 	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
-	/** Text color (hex). @default 'FFFFFF' */
+	/** Text color (hex). @default 'FFFFFF' (v1) / 'FFFFFF' body (v2) */
 	fontColor?: HexColor
 	/** Font size (points). @default 12 */
 	fontSize?: number
-	/** Bold text? @default true */
+	/** Body font face. v2 only (threaded into the v1 path when set, undefined → unchanged). */
+	fontFace?: string
+	/** Bold text? @default true (v1) / false (v2 body — quote bodies are not bold) */
 	fontBold?: boolean
+	/** Italic body text? @default false */
+	fontItalic?: boolean
 	/**
 	 * Corner radius in inches — mapped to the OOXML `adj` value via
 	 * `adj = Math.round((cornerRadius / (h / 2)) * 50000)`.
 	 * @default 0.1
 	 */
 	cornerRadius?: number
-	/** Horizontal text alignment. @default 'center' */
+	/** Horizontal text alignment. @default 'center' (v1) / 'left' (v2 blockquote motif) */
 	align?: HAlign
-	/** Vertical text alignment. @default 'middle' */
+	/** Vertical text alignment. @default 'middle' (v1) / 'top' (v2) */
 	valign?: VAlign
+	/**
+	 * NEW (v2): source/attribution line rendered below the body (smaller, muted). Presence of
+	 * this OR `accentBar` switches the callout to the v2 group path.
+	 */
+	attribution?: string
+	/**
+	 * NEW (v2): left-edge vertical accent bar (blockquote motif). Solid hex or gradient.
+	 * Presence switches the callout to the v2 group path.
+	 */
+	accentBar?: {
+		/** Bar color — hex string or gradient fill. @default '7C3AED' */
+		color?: HexColor | GradientFillProps
+		/** Bar width in inches. @default 0.03 */
+		width?: number
+	}
+	/** NEW (v2): attribution line styling. */
+	attributionFont?: {
+		/** Attribution font size (points). @default 9 */
+		size?: number
+		/** Attribution text color (hex). @default '94A3B8' */
+		color?: HexColor
+		/** Italic attribution? */
+		italic?: boolean
+	}
+	/** NEW (v2): inner padding in inches — a single number (all sides) or per-side object. @default 0.15 l/r, 0.1 t/b */
+	padding?: number | { l?: number, r?: number, t?: number, b?: number }
 }
 
 /**

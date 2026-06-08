@@ -873,6 +873,55 @@ module.exports = [
 		}
 	},
 	{
+		name: 'addCallout v2 (accent bar + attribution + gradient bar)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				// solid accent bar + attribution + italic body
+				s.addCallout({
+					x: 0.5, y: 0.5, w: 8, h: 1.2,
+					text: 'The dispatcher is the game changer.',
+					attribution: '— Internal power user feedback',
+					fill: '1E1A2B', fontColor: 'D4D0DE', fontItalic: true, align: 'left',
+					accentBar: { color: '7C3AED', width: 0.04 },
+					attributionFont: { size: 9, color: '64748B' },
+					padding: { l: 0.25, r: 0.2, t: 0.15, b: 0.15 },
+				})
+				// gradient accent bar
+				s.addCallout({
+					x: 0.5, y: 2, w: 8, h: 1, text: 'Gradient bar callout',
+					accentBar: { color: { type: 'gradient', stops: [{ position: 0, color: '7C3AED' }, { position: 100, color: '38BDF8' }], direction: 90 } },
+				})
+			})
+			// Baseline: the v2 callout composes already-validated primitives (group + roundRect +
+			// filled rect + text boxes) — the deck is schema-clean.
+			await expectNoSchemaErrors(buf, 'callout-v2')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): the accent bar is the only
+			// `prst="rect"` shape WITH a fill (body/attribution text frames carry <a:noFill/>).
+			// A regress-to-no-bar or a solid<->gradient flip fails these — the validator can't
+			// catch a ST_FillProperties choice semantically.
+			const solidRe = /prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill>/g
+			const gradRe = /prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:gradFill/g
+			assert((slideXml.match(solidRe) || []).length === 1, 'callout-v2: expected exactly 1 solid-filled accent rect; got: ' + (slideXml.match(solidRe) || []).length)
+			assert((slideXml.match(gradRe) || []).length === 1, 'callout-v2: expected exactly 1 gradient-filled accent rect; got: ' + (slideXml.match(gradRe) || []).length)
+			// the v2 callouts are groups
+			assert((slideXml.match(/<p:grpSp>/g) || []).length === 2, 'callout-v2: expected 2 callout groups')
+			// attribution run present + dropped-attribution guard
+			assert(slideXml.indexOf('<a:t>— Internal power user feedback</a:t>') !== -1, 'callout-v2: expected attribution run')
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on the callout XML —
+			// corrupt the accent rect preset geometry to an invalid ST_ShapeType enum.
+			const badSlide = slideXml.replace('prst="rect"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'callout-v2: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'callout-v2: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T15:00:27.324Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T15:23:09.162Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -2809,28 +2809,97 @@ function addShapeDefinition(target, shapeName, opts) {
 function addCalloutDefinition(target, opts) {
     const options = typeof opts === 'object' ? opts : {};
     const h = options.h !== undefined ? Number(options.h) : 0.4;
-    const w = options.w !== undefined ? options.w : 1.5;
+    const w = options.w !== undefined ? Number(options.w) : 1.5;
     const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.1;
-    // Map inches -> OOXML `adj` (percentage of half-shortest-side × 1000). Guard divide-by-zero.
-    const calloutAdj = h > 0 ? Math.round((cornerRadius / (h / 2)) * 50000) : 0;
     const fill = options.fill !== undefined ? options.fill : '7C3AED';
-    const textOpts = {
-        shape: SHAPE_TYPE.ROUNDED_RECTANGLE,
-        x: options.x !== undefined ? options.x : 1,
-        y: options.y !== undefined ? options.y : 1,
-        w,
-        h,
+    // Body text may be a string (single run) or a TextProps[] (multi-run). Normalise once.
+    const bodyText = typeof options.text === 'string' ? [{ text: options.text || '', options: null }] : options.text;
+    // v2 group path is entered ONLY when an accent bar or an attribution line is requested.
+    // Otherwise the v1 single-roundRect path runs unchanged (byte-identical for v1 callers).
+    const isV2 = !!(options.accentBar || options.attribution);
+    if (!isV2) {
+        // ── v1 path (structurally UNCHANGED) — optional fontFace/fontItalic threaded in (undefined → identical) ──
+        // Map inches -> OOXML `adj` (percentage of half-shortest-side × 1000). Guard divide-by-zero.
+        const calloutAdj = h > 0 ? Math.round((cornerRadius / (h / 2)) * 50000) : 0;
+        const textOpts = {
+            shape: SHAPE_TYPE.ROUNDED_RECTANGLE,
+            x: options.x !== undefined ? options.x : 1,
+            y: options.y !== undefined ? options.y : 1,
+            w,
+            h,
+            fill: typeof fill === 'string' ? { color: fill } : fill,
+            color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
+            fontSize: options.fontSize !== undefined ? options.fontSize : 12,
+            bold: options.fontBold !== undefined ? options.fontBold : true,
+            align: options.align || 'center',
+            valign: options.valign || 'middle',
+            _calloutAdj: calloutAdj,
+        };
+        if (options.fontFace !== undefined)
+            textOpts.fontFace = options.fontFace;
+        if (options.fontItalic !== undefined)
+            textOpts.italic = options.fontItalic;
+        if (options.objectName)
+            textOpts.objectName = options.objectName;
+        addTextDefinition(target, bodyText, textOpts, false);
+        return;
+    }
+    // ── v2 group path — blockquote/callout motif (group + bg roundRect + accent bar + body + attribution) ──
+    const x = options.x !== undefined ? Number(options.x) : 1;
+    const y = options.y !== undefined ? Number(options.y) : 1;
+    const pad = options.padding;
+    const padL = typeof pad === 'number' ? pad : (pad && pad.l !== undefined ? pad.l : 0.15);
+    const padR = typeof pad === 'number' ? pad : (pad && pad.r !== undefined ? pad.r : 0.15);
+    const padT = typeof pad === 'number' ? pad : (pad && pad.t !== undefined ? pad.t : 0.1);
+    const padB = typeof pad === 'number' ? pad : (pad && pad.b !== undefined ? pad.b : 0.1);
+    const align = options.align || 'left'; // v2 motif is left-aligned (v1 stays 'center')
+    const group = addGroupDefinition(target, { x, y, w, h, objectName: options.objectName });
+    // 1) Background roundRect
+    group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+        x: 0, y: 0, w, h,
         fill: typeof fill === 'string' ? { color: fill } : fill,
+        rectRadius: cornerRadius,
+    });
+    // 2) Optional left accent bar (SLICE-4 pattern: inset vertically by cornerRadius, drawn behind text)
+    let barW = 0;
+    if (options.accentBar) {
+        barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03;
+        const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '7C3AED';
+        group.addShape(SHAPE_TYPE.RECTANGLE, {
+            x: 0, y: cornerRadius, w: barW, h: Math.max(0, h - 2 * cornerRadius),
+            fill: typeof barColor === 'string' ? { color: barColor } : barColor,
+            line: { type: 'none' },
+        });
+    }
+    // 3) Body text box — inset by accent-bar width + left padding (group-relative coords)
+    const leftInset = barW + padL;
+    const bodyX = leftInset;
+    const bodyW = Math.max(0.1, w - leftInset - padR);
+    const attrSize = options.attributionFont && options.attributionFont.size !== undefined ? options.attributionFont.size : 9;
+    const attrH = options.attribution ? Math.max(0.2, attrSize / 72 + 0.08) : 0;
+    const bodyY = padT;
+    const bodyH = Math.max(0.1, h - padT - padB - attrH);
+    group.addText(bodyText, {
+        x: bodyX, y: bodyY, w: bodyW, h: bodyH,
         color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
         fontSize: options.fontSize !== undefined ? options.fontSize : 12,
-        bold: options.fontBold !== undefined ? options.fontBold : true,
-        align: options.align || 'center',
-        valign: options.valign || 'middle',
-        _calloutAdj: calloutAdj,
-    };
-    if (options.objectName)
-        textOpts.objectName = options.objectName;
-    addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false);
+        bold: options.fontBold !== undefined ? options.fontBold : false,
+        italic: options.fontItalic,
+        fontFace: options.fontFace,
+        align,
+        valign: options.valign || 'top',
+    });
+    // 4) Optional attribution line below the body (smaller, muted)
+    if (options.attribution) {
+        group.addText(options.attribution, {
+            x: bodyX, y: Math.max(0, h - padB - attrH), w: bodyW, h: attrH,
+            color: options.attributionFont && options.attributionFont.color !== undefined ? options.attributionFont.color : '94A3B8',
+            fontSize: attrSize,
+            italic: options.attributionFont ? options.attributionFont.italic : undefined,
+            align,
+            valign: 'top',
+        });
+    }
 }
 /**
  * Adds a structured "card" to a slide definition (docs/feature-card-helper.md).
