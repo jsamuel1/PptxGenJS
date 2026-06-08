@@ -23,7 +23,8 @@ capabilities into the library as first-class, schema-validated APIs.
 | Feature | API | Status |
 |---------|-----|--------|
 | **Slide transitions** | `slide.transition = { type, duration?, direction? }` | ✅ Done |
-| **Shape entrance animations** | `animation: { type, duration?, delay?, trigger?, direction? }` | ✅ Done (appear, fadeIn) |
+| **Shape entrance animations** | `animation: { type, duration?, delay?, trigger?, direction? }` | ✅ Done (appear, fadeIn, flyIn, zoomIn) |
+| **Shape emphasis animations** | `animation: { type: 'pulse' \| 'spin' \| 'grow' \| 'colorPulse', spinDegrees?, growScale?, color? }` | ✅ Done |
 | **Animation build steps** | `trigger: 'afterPrevious' \| 'withPrevious' \| 'onClick'` | ✅ Done |
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
 | **Gradient fills** | `fill: { type: 'gradient', stops[], direction? }` | ✅ Done |
@@ -110,6 +111,32 @@ slide.addText('Body text', {
   animation: { type: 'appear', trigger: 'afterPrevious' }
 })
 // ^ Appears AFTER the title+subtitle step completes
+```
+
+### Emphasis animations
+
+Emphasis effects draw attention to an **already-visible** object (no entrance
+"reveal" — they animate in place):
+
+```ts
+slide.addText('Important', {
+  x: 1, y: 1, w: 4, h: 1,
+  animation: { type: 'spin', spinDegrees: 720 }   // rotate 720°
+})
+slide.addShape('rect', {
+  x: 1, y: 3, w: 2, h: 1, fill: { color: 'FF0000' },
+  animation: { type: 'grow', growScale: 2 }        // scale to 200%
+})
+slide.addText('Flash', {
+  x: 4, y: 1, w: 4, h: 1,
+  animation: { type: 'colorPulse', color: 'FF00FF' } // tint to magenta
+})
+slide.addText('Pulse', {
+  x: 4, y: 3, w: 4, h: 1,
+  animation: { type: 'pulse' }                     // opacity dip + recover
+})
+// Emphasis types: 'pulse' | 'spin' | 'grow' | 'colorPulse'
+// (emit presetClass="emph"; share the same trigger/group/stagger semantics)
 ```
 
 ### Gradient fill

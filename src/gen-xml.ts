@@ -1758,6 +1758,13 @@ export function genXmlTransition (trans?: TransitionProps): string {
 }
 
 /**
+ * Emphasis animation types draw attention to an already-visible object (`presetClass="emph"`).
+ * They must NOT emit the entrance visibility `<p:set>` (the object is already shown).
+ */
+const EMPHASIS_TYPES = new Set<string>(['pulse', 'spin', 'grow', 'colorPulse'])
+const isEmphasisAnim = (type: string): boolean => EMPHASIS_TYPES.has(type)
+
+/**
  * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
  * @param {AnimationProps} anim - the animation options
  * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
@@ -1766,16 +1773,20 @@ export function genXmlTransition (trans?: TransitionProps): string {
  */
 function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => number): string {
 	const dur = typeof anim.duration === 'number' ? anim.duration : 500
-	// ALL types emit the visibility <p:set> (instant show)
-	let payload =
-		'<p:set>' +
-		'<p:cBhvr>' +
-		`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
-		`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
-		'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
-		'</p:cBhvr>' +
-		'<p:to><p:strVal val="visible"/></p:to>' +
-		'</p:set>'
+	// Entrance types emit a leading visibility <p:set> (instant show); emphasis types
+	// target an already-visible object and MUST NOT emit it.
+	let payload = ''
+	if (!isEmphasisAnim(anim.type)) {
+		payload =
+			'<p:set>' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+			'</p:cBhvr>' +
+			'<p:to><p:strVal val="visible"/></p:to>' +
+			'</p:set>'
+	}
 
 	// fadeIn ADDS a fade <p:animEffect>; appear = visibility-only (flyIn/zoomIn add motion below)
 	if (anim.type === 'fadeIn') {
@@ -1834,6 +1845,64 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 		})
 	}
 
+	// --- Emphasis effects (presetClass="emph") --------------------------------
+	// spin -> <p:animRot by> (60000ths of a degree: 360° = 21600000), animating "r"
+	if (anim.type === 'spin') {
+		const by = Math.round((typeof anim.spinDegrees === 'number' ? anim.spinDegrees : 360) * 60000)
+		payload +=
+			`<p:animRot by="${by}">` +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'<p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst>' +
+			'</p:cBhvr>' +
+			'</p:animRot>'
+	}
+
+	// grow -> <p:animScale> with <p:by x/y> (100000ths: 1.5× = 150000), animating ScaleX/ScaleY
+	if (anim.type === 'grow') {
+		const scale = Math.round((typeof anim.growScale === 'number' ? anim.growScale : 1.5) * 100000)
+		payload +=
+			'<p:animScale>' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'</p:cBhvr>' +
+			`<p:by x="${scale}" y="${scale}"/>` +
+			'</p:animScale>'
+	}
+
+	// colorPulse -> <p:animClr clrSpc="rgb"> targeting style.color, <p:to> the target srgbClr
+	if (anim.type === 'colorPulse') {
+		const color = (typeof anim.color === 'string' ? anim.color : '000000').replace('#', '').toUpperCase()
+		payload +=
+			'<p:animClr clrSpc="rgb">' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'<p:attrNameLst><p:attrName>style.color</p:attrName></p:attrNameLst>' +
+			'</p:cBhvr>' +
+			`<p:to><a:srgbClr val="${color}"/></p:to>` +
+			'</p:animClr>'
+	}
+
+	// pulse -> <p:anim> on style.opacity dipping 100000 -> 0 -> 100000 (fade out + back in)
+	if (anim.type === 'pulse') {
+		payload +=
+			'<p:anim calcmode="lin" valueType="num">' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst>' +
+			'</p:cBhvr>' +
+			'<p:tavLst>' +
+			'<p:tav tm="0"><p:val><p:fltVal val="100000"/></p:val></p:tav>' +
+			'<p:tav tm="50000"><p:val><p:fltVal val="0"/></p:val></p:tav>' +
+			'<p:tav tm="100000"><p:val><p:fltVal val="100000"/></p:val></p:tav>' +
+			'</p:tavLst>' +
+			'</p:anim>'
+	}
+
 	return payload
 }
 
@@ -1858,7 +1927,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const nextId = (): number => idCounter++
 
 	// presetID labels the effect in the PowerPoint UI
-	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23 }
+	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2 }
 	// trigger -> build-step wrapper nodeType
 	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
@@ -1910,6 +1979,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const renderMember = (entry: Entry, memberDelay: number): string => {
 		const { anim, spid, exitMs } = entry
 		const presetID = presetMap[anim.type] ?? 1
+		const presetClass = isEmphasisAnim(anim.type) ? 'emph' : 'entr'
 		const effectId = nextId()
 		// Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
 		// Isolated here so genXmlAnimPayload stays scoped to the public animation types.
@@ -1936,7 +2006,7 @@ function genXmlTiming (slide: PresSlide): string {
 		// members of a step play in parallel relative to the step's start.
 		return (
 			'<p:par>' +
-			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="withEffect">` +
+			`<p:cTn id="${effectId}" presetID="${presetID}" presetClass="${presetClass}" presetSubtype="0" fill="hold" grpId="0" nodeType="withEffect">` +
 			`<p:stCondLst><p:cond delay="${memberDelay}"/></p:stCondLst>` +
 			'<p:childTnLst>' +
 			genXmlAnimPayload(anim, spid, nextId) +

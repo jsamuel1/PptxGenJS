@@ -1,6 +1,12 @@
 # Feature: Emphasis Animations (`p:animClr`, `p:animScale`, `p:animRot`)
 
-> **Status:** Proposed
+> **Status:** Implemented
+> **Implemented:** `AnimationType` + emphasis props (`spinDegrees`/`growScale`/`color`) in
+> `src/core-interfaces.ts`; `EMPHASIS_TYPES`/`isEmphasisAnim`, `presetClass="emph"`,
+> gated visibility `<p:set>`, and the spin/grow/colorPulse/pulse payload branches in
+> `src/gen-xml.ts` (`genXmlAnimPayload`/`renderMember`). Tests: `animation-emphasis`
+> fixture in `test/schema.test.js` (schema-valid + raw-emission regression-catch). Demo:
+> `demos/modules/demo_animation.mjs` (`genSlide_EmphasisAnimations`).
 > **Priority:** High — Phase 1 (matrix `❌ Missing` → `✅`); reuses the existing timing engine
 > **Matrix row:** §5 Transitions & timing — "Emphasis effects"
 

@@ -222,6 +222,30 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide with emphasis animations (spin/grow/colorPulse/pulse)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'spin', spinDegrees: 720 } })
+				s.addShape('rect', { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00' }, animation: { type: 'grow', growScale: 2 } })
+				s.addText('flash', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'colorPulse', color: 'FF00FF', duration: 600 } })
+				s.addText('pulse', { x: 1, y: 4, w: 4, h: 1, animation: { type: 'pulse' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Regression-catch: emphasis members must carry presetClass="emph" (not the hardcoded "entr")
+			assert(/presetClass="emph"/.test(xml), 'emphasis: expected presetClass="emph" in timing block')
+			assert(!/presetClass="entr"/.test(xml), 'emphasis: must NOT emit presetClass="entr" for emphasis-only slide')
+			// Each effect emits its distinguishing payload element
+			assert(/<p:animRot by="43200000"/.test(xml), 'spin: expected <p:animRot by="43200000"> (720° × 60000)')
+			assert(/<p:animScale><p:cBhvr>[\s\S]*?<p:by x="200000" y="200000"\/>/.test(xml), 'grow: expected <p:animScale> with <p:by x="200000" y="200000">')
+			assert(/<p:animClr clrSpc="rgb">[\s\S]*?<p:to><a:srgbClr val="FF00FF"\/>/.test(xml), 'colorPulse: expected <p:animClr> with target srgbClr val="FF00FF"')
+			assert(/<p:attrName>style.opacity<\/p:attrName>/.test(xml), 'pulse: expected <p:anim> on style.opacity')
+			// Emphasis targets an already-visible object: no leading visibility <p:set>
+			assert(!/<p:strVal val="visible"\/>/.test(xml), 'emphasis: must NOT emit the entrance visibility <p:set>')
+			await expectNoSchemaErrors(buf, 'animation-emphasis')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

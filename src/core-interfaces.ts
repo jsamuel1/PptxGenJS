@@ -2115,10 +2115,10 @@ export interface TransitionProps {
 	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
 	direction?: TransitionDirection
 }
-export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn'
+export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse'
 export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 export interface AnimationProps {
-	/** Entrance effect. */
+	/** Entrance (`appear`/`fadeIn`/`flyIn`/`zoomIn`) or emphasis (`pulse`/`spin`/`grow`/`colorPulse`) effect. */
 	type: AnimationType
 	/** Effect duration in ms. @default 500 */
 	duration?: number
@@ -2142,6 +2142,21 @@ export interface AnimationProps {
 	 * @example slide.addText('Card 1', { animation: { type: 'appear', group: 3, stagger: 100 } })
 	 */
 	stagger?: number
+	/**
+	 * Rotation amount in degrees for the `spin` emphasis effect (emitted as `<p:animRot by>`). @default 360
+	 * @example slide.addText('Spin', { animation: { type: 'spin', spinDegrees: 720 } })
+	 */
+	spinDegrees?: number
+	/**
+	 * Target scale multiplier for the `grow` emphasis effect (emitted as `<p:animScale><p:by>`). @default 1.5 (150%)
+	 * @example slide.addShape('rect', { animation: { type: 'grow', growScale: 2 } })
+	 */
+	growScale?: number
+	/**
+	 * Target color (6-hex, no `#`) for the `colorPulse` emphasis effect (emitted as `<p:animClr><p:to>`). @default '000000'
+	 * @example slide.addText('Flash', { animation: { type: 'colorPulse', color: 'FF0000' } })
+	 */
+	color?: string
 }
 /**
  * Number-counter sugar for `addText`. Expands into N stacked text frames at the

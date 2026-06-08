@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, emphasis/exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -129,7 +129,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Entrance: `fadeIn` | `p:animEffect filter="fade"` | ✅ Done | |
 | Entrance: `flyIn` | `p:anim` on `ppt_x/ppt_y` | ✅ Done | directional |
 | Entrance: `zoomIn` | two `p:anim` on `ppt_w`/`ppt_h` | ✅ Done | scales 0 → full; `presetID=23`; tested |
-| Emphasis effects | `p:animClr`, `p:animScale`, `p:animRot` | ❌ Missing | pulse/spin/grow/color |
+| Emphasis effects | `p:animClr`, `p:animScale`, `p:animRot` | ✅ Done | pulse/spin/grow/colorPulse; `presetClass="emph"`; tested |
 | Exit effects | `p:animEffect`/`p:set` (out) | ❌ Missing | counterpart to entrance; infra exists |
 | Motion paths | `p:animMotion` | ❌ Missing | |
 | Counter (odometer) sugar | stacked `appear` frames | ✅ Done | fork sugar |
