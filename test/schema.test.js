@@ -1039,6 +1039,71 @@ module.exports = [
 		}
 	},
 	{
+		name: 'handout master (defineHandoutMaster -> part + rel + Override + handoutMasterIdLst)',
+		fn: async () => {
+			// Multi-slide deck so N affects the rId arithmetic (handoutMasterRid = N+7 with no fonts/comments).
+			const { buf, zip } = await build(p => {
+				p.addSlide().addText('one', { x: 1, y: 1, w: 4, h: 1 })
+				p.addSlide().addText('two', { x: 1, y: 1, w: 4, h: 1 })
+				p.defineHandoutMaster({ background: 'FFF7ED', headerFooter: { header: 'Internal', footer: 'Confidential', dateTime: true, slideNumber: true } })
+			})
+			// Baseline: the whole package validates clean.
+			await expectNoSchemaErrors(buf, 'handout-master')
+
+			const presXml = await readEntry(zip, 'ppt/presentation.xml')
+			const relsXml = await readEntry(zip, 'ppt/_rels/presentation.xml.rels')
+			const ct = await readEntry(zip, '[Content_Types].xml')
+
+			// (i) CT_Presentation child order: handoutMasterIdLst AFTER notesMasterIdLst, BEFORE sldIdLst.
+			const iNotes = presXml.indexOf('</p:notesMasterIdLst>')
+			const iHandout = presXml.indexOf('<p:handoutMasterIdLst>')
+			const iSld = presXml.indexOf('<p:sldIdLst>')
+			assert(iNotes !== -1 && iHandout !== -1 && iSld !== -1, 'handout: idLst elements missing')
+			assert(iNotes < iHandout && iHandout < iSld, 'handout: idLst ordering wrong (need notes < handout < sld)')
+
+			// (ii) The r:id RESOLVES to a unique handoutMaster Relationship (cross-entity invariant — the
+			// XSD validator will NOT catch a dangling r:id since it is a plain string, so assert explicitly).
+			const m = presXml.match(/<p:handoutMasterId r:id="(rId\d+)"\/>/)
+			assert(m, 'handout: handoutMasterId element missing')
+			const rid = m[1]
+			assert(rid === 'rId9', 'handout: expected rId9 for a 2-slide deck (N+7); got ' + rid)
+			const relRe = new RegExp('<Relationship Id="' + rid + '" Type="[^"]*relationships/handoutMaster" Target="handoutMasters/handoutMaster1.xml"/>')
+			assert(relRe.test(relsXml), 'handout: rel for ' + rid + ' not found in presentation.xml.rels')
+			assert((relsXml.match(new RegExp('Id="' + rid + '"', 'g')) || []).length === 1, 'handout: r:id must be unique in rels')
+
+			// Existing fixed rels are unchanged vs a no-handout deck (theme/tableStyles ids preserved).
+			const { zip: zipNo } = await build(p => {
+				p.addSlide().addText('one', { x: 1, y: 1, w: 4, h: 1 })
+				p.addSlide().addText('two', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const relsNo = await readEntry(zipNo, 'ppt/_rels/presentation.xml.rels')
+			const themeRel = relsNo.match(/<Relationship Id="(rId\d+)" Type="[^"]*relationships\/theme"/)
+			assert(themeRel && relsXml.indexOf(`Id="${themeRel[1]}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"`) !== -1,
+				'handout: existing theme rId must be unchanged by appending the handout rel')
+
+			// (iii) the handoutMaster1.xml part exists and parses; (iv) Content_Types Override present.
+			const handoutXml = await readEntry(zip, 'ppt/handoutMasters/handoutMaster1.xml')
+			assert(handoutXml.indexOf('<p:handoutMaster') !== -1 && handoutXml.indexOf('</p:handoutMaster>') !== -1, 'handout: part malformed')
+			assert(handoutXml.indexOf('<p:hf sldNum="1" hdr="1" ftr="1" dt="1"/>') !== -1, 'handout: hf flags wrong')
+			assert(handoutXml.indexOf('<a:srgbClr val="FFF7ED"/>') !== -1, 'handout: background fill missing')
+			assert(ct.indexOf('PartName="/ppt/handoutMasters/handoutMaster1.xml"') !== -1, 'handout: Content_Types Override missing')
+
+			// DEFAULT-OFF: a deck without defineHandoutMaster emits NONE of these.
+			assert(relsNo.indexOf('relationships/handoutMaster') === -1, 'handout: default-off deck must have no handout rel')
+			const presNo = await readEntry(zipNo, 'ppt/presentation.xml')
+			assert(presNo.indexOf('handoutMasterIdLst') === -1, 'handout: default-off deck must have no idLst')
+
+			// Validator regression-catch: prove the validator is engaged — corrupt the handout part's
+			// content (invalid child element) and confirm errors surface.
+			const badHandout = handoutXml.replace('<p:cSld>', '<p:cSld><p:notAValidChild/>')
+			assert(badHandout !== handoutXml, 'handout: mutation precondition')
+			zip.file('ppt/handoutMasters/handoutMaster1.xml', badHandout)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'handout: validator should flag an invalid child in the handout part (regression-catch)')
+		}
+	},
+	{
 		name: 'separator helper (thin horizontal/vertical rect rule + opacity alpha)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

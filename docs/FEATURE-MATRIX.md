@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | SmartArt, motion animations, handout master, ink |
+| ❌ Missing | SmartArt, motion animations, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -67,7 +67,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Notes master | `p:notesMasterIdLst` | ✅ Done | |
 | Sections | `p:sectionLst` (ext) | ✅ Done | `addSection()` |
 | Default text style | `p:defaultTextStyle` | ✅ Done | |
-| Handout master | `p:handoutMasterIdLst` | ❌ Missing | |
+| Handout master | `p:handoutMasterIdLst` | ✅ Done | branded print layout via `pptx.defineHandoutMaster({ background, headerFooter })` |
 | Custom shows | `p:custShowLst` | ✅ Done | subset slideshows via `pptx.addCustomShow()` |
 | Photo album | `p:photoAlbum` | ✅ Done | `pptx.photoAlbum = { blackWhite?, showCaptions?, layout?, frame? }` → `<p:photoAlbum>` in `presentation.xml` (bw/showCaptions always emitted, layout/frame optional, default-off) |
 | Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ✅ Done | `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` packages `.ttf`/`.otf` faces (default-off) |
@@ -143,7 +143,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Date/time placeholder | `a:fld type="datetime"` | ✅ Done | |
 | Footer text placeholder | `p:hf` + `ph type="ftr"` | ✅ Done | `defineSlideMaster({ headerFooter })` → derived layout `<p:hf>` + footer/date placeholders |
 | Per-slide hf show/hide | `p:hf` attributes | ✅ Done | `slide.headerFooter = { footer, dateTime }` → per-slide ftr/dt placeholders (footer+date only; `<p:hf>` invalid on `CT_Slide` so slidenum toggle is a no-op — use `slide.slideNumber`) |
-| Notes/handout headers | notes `p:hf` | ⚠️ Notes done; handout n/a | `pptx.notesMaster = { header, footer, slideNumber, dateTime }` → derived `<p:hf>` + hdr/ftr placeholder text in `notesMaster1.xml`. Handout master has no writer (out of scope) |
+| Notes/handout headers | notes `p:hf` | ✅ Done | `pptx.notesMaster = { header, footer, slideNumber, dateTime }` → derived `<p:hf>` + hdr/ftr placeholder text in `notesMaster1.xml`. Handout master header/footer via `pptx.defineHandoutMaster({ headerFooter })` → `<p:hf>` in `handoutMaster1.xml` |
 
 ---
 
@@ -155,7 +155,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — SmartArt, handout master, hover links, **ink** (niche but tractable).
+5. **Then everything else** — SmartArt, hover links, **ink** (niche but tractable).
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package

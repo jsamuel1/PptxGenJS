@@ -85,6 +85,7 @@ import {
 	CustomShowProps,
 	PhotoAlbumProps,
 	EmbedFontProps,
+	HandoutMasterProps,
 	LayoutGridProps,
 	LayoutGridResult,
 	PresLayout,
@@ -248,6 +249,18 @@ export default class PptxGenJS implements IPresentationProps {
 
 	public get photoAlbum(): PhotoAlbumProps {
 		return this._photoAlbum
+	}
+
+	/**
+	 * Presentation-level handout master.
+	 * Emits a `/ppt/handoutMasters/handoutMaster1.xml` part + `<p:handoutMasterIdLst>` into
+	 * `presentation.xml` (plus presentation rel + Content_Types Override) when set (default-off).
+	 * Populate via `defineHandoutMaster()`.
+	 * @type {HandoutMasterProps}
+	 */
+	private _handoutMaster: HandoutMasterProps
+	public get handoutMaster(): HandoutMasterProps {
+		return this._handoutMaster
 	}
 
 	/**
@@ -644,11 +657,11 @@ export default class PptxGenJS implements IPresentationProps {
 			// Only scaffold ppt/comments when at least one slide has review comments.
 			const hasComments = this.slides.some(s => (s._comments || []).length > 0)
 			if (hasComments) zip.folder('ppt/comments')
-			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts)) // TODO: pass only `this` like below! 20200206
+			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts, !!this._handoutMaster)) // TODO: pass only `this` like below! 20200206
 			zip.file('_rels/.rels', genXml.makeXmlRootRels())
 			zip.file('docProps/app.xml', genXml.makeXmlApp(this.slides, this.company)) // TODO: pass only `this` like below! 20200206
 			zip.file('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
-			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this.slides, this.embeddedFonts))
+			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this.slides, this.embeddedFonts, !!this._handoutMaster))
 			// Write embedded-font binary parts (`font${i+1}.fntdata`) referenced by the font rels above.
 			fontFaces.forEach(face => {
 				zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true })
@@ -683,6 +696,11 @@ export default class PptxGenJS implements IPresentationProps {
 			zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this.masterSlide, this.slideLayouts))
 			zip.file('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster(this._notesMaster))
 			zip.file('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
+			// Handout master (default-off): write the part + its theme rels only when defined.
+			if (this._handoutMaster) {
+				zip.file('ppt/handoutMasters/handoutMaster1.xml', genXml.makeXmlHandoutMaster(this._handoutMaster))
+				zip.file('ppt/handoutMasters/_rels/handoutMaster1.xml.rels', genXml.makeXmlHandoutMasterRel())
+			}
 
 			// D: Create all Rels (images, media, chart data)
 			this.slideLayouts.forEach(layout => {
@@ -817,6 +835,24 @@ export default class PptxGenJS implements IPresentationProps {
 		}
 
 		this._customShows.push({ name: show.name, slides: show.slides })
+	}
+
+	/**
+	 * Define a handout master — the layout PowerPoint uses when printing multiple slides per page.
+	 * Lets a deck carry branded handout headers/footers. When set, a
+	 * `/ppt/handoutMasters/handoutMaster1.xml` part is packaged and a `<p:handoutMasterIdLst>` is
+	 * emitted into `presentation.xml` (plus the matching presentation rel + Content_Types Override).
+	 * Default-off: decks that never call this are byte-identical to before.
+	 *
+	 * @param {HandoutMasterProps} props - handout master config (background + header/footer)
+	 * @example pptx.defineHandoutMaster({ background:'FFFFFF', headerFooter:{ footer:'Confidential', slideNumber:true } });
+	 */
+	defineHandoutMaster(props: HandoutMasterProps): void {
+		if (!props || typeof props !== 'object') {
+			console.warn('defineHandoutMaster requires a props object')
+			return
+		}
+		this._handoutMaster = props
 	}
 
 	/**

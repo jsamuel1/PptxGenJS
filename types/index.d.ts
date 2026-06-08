@@ -121,6 +121,15 @@ declare class PptxGenJS {
 	 */
 	embedFont(font: PptxGenJS.EmbedFontProps): void
 	/**
+	 * Define a handout master — the layout PowerPoint uses when printing multiple slides per page.
+	 * Lets a deck carry branded handout headers/footers. When set, a
+	 * `/ppt/handoutMasters/handoutMaster1.xml` part is packaged and `<p:handoutMasterIdLst>` is
+	 * emitted into `presentation.xml`. Default-off: decks that never call this are unchanged.
+	 * @param {HandoutMasterProps} props handout master config (background + header/footer)
+	 * @example pptx.defineHandoutMaster({ background:'FFFFFF', headerFooter:{ footer:'Confidential', slideNumber:true } });
+	 */
+	defineHandoutMaster(props: PptxGenJS.HandoutMasterProps): void
+	/**
 	 * Add a new Slide to Presentation
 	 * @param {AddSlideProps} props slide options
 	 * @returns {Slide} the new Slide
@@ -2563,6 +2572,28 @@ declare namespace PptxGenJS {
 		italic?: string
 		/** Bold-italic face — path or data. */
 		boldItalic?: string
+	}
+	/**
+	 * Handout master configuration — the layout PowerPoint uses when printing multiple slides per page.
+	 * Consumed by `pptx.defineHandoutMaster()`.
+	 */
+	export interface HandoutMasterProps {
+		/**
+		 * Background fill color (hex, e.g. `'FFFFFF'`) for the handout master.
+		 * Omitted → inherits the theme background reference.
+		 */
+		background?: string
+		/** Header/footer configuration for the handout master (`<p:hf>` + header/footer text). */
+		headerFooter?: {
+			/** Header text (top of the handout page). */
+			header?: string
+			/** Footer text (bottom of the handout page). */
+			footer?: string
+			/** Show an auto-updating date/time field. */
+			dateTime?: boolean
+			/** Show the slide-number field. */
+			slideNumber?: boolean
+		}
 	}
 	/**
 	 * A single slide review comment, authored via `slide.addComment({...})`.

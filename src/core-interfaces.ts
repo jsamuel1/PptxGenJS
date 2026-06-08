@@ -2606,6 +2606,29 @@ export interface PresentationProps {
 	 * Default-off: when unset/empty, no font parts, rels, `embeddedFontLst`, or attribute are emitted.
 	 */
 	embeddedFonts?: EmbedFontProps[]
+	/**
+	 * Handout master — the layout used when printing multiple slides per page.
+	 * Emitted as a `/ppt/handoutMasters/handoutMaster1.xml` part + `<p:handoutMasterIdLst>` in
+	 * `presentation.xml` (plus presentation rel + Content_Types Override) when set via
+	 * `defineHandoutMaster()`. Default-off: when unset, none of those are emitted.
+	 */
+	handoutMaster?: HandoutMasterProps
+}
+/**
+ * Handout master configuration — the layout PowerPoint uses when printing multiple slides per page.
+ * Lets a deck carry branded handout headers/footers. Consumed by `pptx.defineHandoutMaster()`.
+ */
+export interface HandoutMasterProps {
+	/**
+	 * Background fill color (hex, e.g. `'FFFFFF'`) for the handout master `<p:bg>`.
+	 * Omitted → inherits the theme background reference (`<p:bgRef idx="1001">`).
+	 */
+	background?: HexColor
+	/**
+	 * Header/footer configuration for the handout master (`<p:hf>` + header/footer placeholder text).
+	 * Reuses the same shape as the notes-master header/footer (see `feature-header-footer.md`).
+	 */
+	headerFooter?: HeaderFooterProps
 }
 /**
  * Embedded font — a single typeface family with one or more faces to embed in the package.

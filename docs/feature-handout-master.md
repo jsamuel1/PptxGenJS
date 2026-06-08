@@ -1,6 +1,6 @@
 # Feature: Handout Master (`p:handoutMasterIdLst`)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Low — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §1 Presentation container — "Handout master"
 

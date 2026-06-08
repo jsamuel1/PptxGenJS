@@ -1,8 +1,8 @@
 # Feature: First-Class Header / Footer Configuration (`p:hf`)
 
-> **Status:** Implemented — master/layout config (slice 1.5) + per-slide override (slice 1.6) + notes-master header/footer (slice 1.7) done; handout-master out-of-scope (no handout-master writer)
+> **Status:** Implemented — master/layout config (slice 1.5) + per-slide override (slice 1.6) + notes-master header/footer (slice 1.7) done; handout-master header/footer now supported via `pptx.defineHandoutMaster()` (see `feature-handout-master.md`)
 > **Priority:** Medium — Phase 1 (matrix `⚠️ Partial`/`❌` → `✅`)
-> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (✅ Done), "Notes/handout headers" (⚠️ Notes done via slice 1.7; handout out-of-scope)
+> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (✅ Done), "Notes/handout headers" (✅ Notes via slice 1.7; handout via `defineHandoutMaster`)
 >
 > **Implemented:** `HeaderFooterProps` (`src/core-interfaces.ts`) + `headerFooter`
 > on `SlideMasterProps`; `createSlideMaster` STEP-4 stash (`src/gen-objects.ts`);
@@ -22,8 +22,9 @@
 > child order, before `<p:notesStyle>`) and fills the existing empty hdr/ftr
 > placeholder text. The notes master DOES support a header, so `hdr` is live.
 > Default-off emits a byte-identical `notesMaster1.xml`. Tested by the
-> `header-footer-notes-master` schema fixture. Handout-master headers remain
-> out-of-scope (no `makeXmlHandoutMaster` writer exists).
+> `header-footer-notes-master` schema fixture. Handout-master headers/footers are
+> now supported by the `makeXmlHandoutMaster` writer (`pptx.defineHandoutMaster()`,
+> see `feature-handout-master.md`).
 
 ## Problem
 

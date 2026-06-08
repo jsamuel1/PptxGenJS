@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T18:15:43.755Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T18:46:10.787Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -6294,6 +6294,21 @@ function flattenEmbeddedFontFaces(fonts) {
     return faces;
 }
 /**
+ * Relationship id (in `presentation.xml.rels`) for the handout master, when one is defined.
+ * The handout-master rel is appended LAST — after the fixed rels, all embedded-font rels, and the
+ * (optional) commentAuthors rel — so existing font/comment rId arithmetic and default-off byte
+ * output stay untouched. BOTH `makeXmlPresentation` (the `<p:handoutMasterId r:id>` value) and
+ * `makeXmlPresentationRels` (the `<Relationship Id>`) MUST use this single helper so the id resolves
+ * (the cross-entity invariant — cf. the embedded-font r:id lesson).
+ * @param {PresSlide[]} slides - presentation slides
+ * @param {EmbedFontProps[]} embeddedFonts - embedded fonts (optional)
+ */
+function handoutMasterRid(slides, embeddedFonts) {
+    const faces = flattenEmbeddedFontFaces(embeddedFonts);
+    const hasComments = slides.some(s => (s._comments || []).length > 0);
+    return embeddedFontBaseRid(slides.length) + faces.length + (hasComments ? 1 : 0);
+}
+/**
  * Format a comment date as the OOXML `dt` value (ISO-8601, no fractional seconds).
  * Accepts a `Date`, an ISO/parseable string, or `undefined` (→ now). Invalid strings fall back to now.
  * @param {Date|string} date - comment timestamp (optional)
@@ -7926,7 +7941,7 @@ function genXmlPlaceholder(placeholderObj) {
  * @param {PresSlide} masterSlide - master slide
  * @returns XML
  */
-function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts) {
+function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts, hasHandoutMaster) {
     let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF;
     strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">';
     strXml += '<Default Extension="xml" ContentType="application/xml"/>';
@@ -7965,6 +7980,10 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts) {
     // STEP 2: Add presentation and slide master(s)/slide(s)
     strXml += '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>';
     strXml += '<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>';
+    // Handout master (default-off): emit the Override only when a handout master is defined.
+    if (hasHandoutMaster) {
+        strXml += '<Override PartName="/ppt/handoutMasters/handoutMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml"/>';
+    }
     // Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
     // rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
     strXml += '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>';
@@ -8091,7 +8110,7 @@ function makeXmlCore(title, subject, author, revision) {
  * @param {PresSlide[]} slides - Presenation Slides
  * @returns XML
  */
-function makeXmlPresentationRels(slides, embeddedFonts) {
+function makeXmlPresentationRels(slides, embeddedFonts, hasHandoutMaster) {
     let intRelNum = 1;
     let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF;
     strXml += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
@@ -8122,6 +8141,12 @@ function makeXmlPresentationRels(slides, embeddedFonts) {
     if (slides.some(s => (s._comments || []).length > 0)) {
         const commentAuthorsRid = embeddedFontBaseRid(slides.length) + faces.length;
         strXml += `<Relationship Id="rId${commentAuthorsRid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors" Target="commentAuthors.xml"/>`;
+    }
+    // Handout master (default-off): a single `handoutMaster` rel, appended LAST so the fixed,
+    // font, and comment rId arithmetic above is untouched. The id MUST match the
+    // `<p:handoutMasterId r:id>` emitted by `makeXmlPresentation` — both use `handoutMasterRid()`.
+    if (hasHandoutMaster) {
+        strXml += `<Relationship Id="rId${handoutMasterRid(slides, embeddedFonts)}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/handoutMaster" Target="handoutMasters/handoutMaster1.xml"/>`;
     }
     strXml += '</Relationships>';
     return strXml;
@@ -8800,6 +8825,48 @@ function makeXmlNotesMasterRel() {
 		</Relationships>`;
 }
 /**
+ * Generate XML for the Handout Master (`handoutMasters/handoutMaster1.xml`).
+ * The handout master is the layout PowerPoint uses when printing multiple slides per page.
+ * CT_HandoutMaster child order: `cSld, clrMap, hf?` (no `notesStyle`). Default-off — this part is
+ * only written when `defineHandoutMaster()` was called, so existing decks stay byte-identical.
+ * @param {HandoutMasterProps} props - handout master config (background + header/footer) (optional)
+ * @returns {string} XML
+ */
+function makeXmlHandoutMaster(props) {
+    let hfXml = '';
+    let hdrTextXml = '<a:p><a:endParaRPr lang="en-US"/></a:p>';
+    let ftrTextXml = '<a:p><a:endParaRPr lang="en-US"/></a:p>';
+    const hf = props === null || props === void 0 ? void 0 : props.headerFooter;
+    if (hf) {
+        const sldNum = hf.slideNumber ? 1 : 0;
+        const hdr = typeof hf.header === 'string' && hf.header.length > 0 ? 1 : 0;
+        const ftr = typeof hf.footer === 'string' && hf.footer.length > 0 ? 1 : 0;
+        const dt = hf.dateTime ? 1 : 0;
+        // CT_HandoutMaster child order: cSld, clrMap, hf? — inject `<p:hf>` AFTER `</p:clrMap>`.
+        hfXml = `<p:hf sldNum="${sldNum}" hdr="${hdr}" ftr="${ftr}" dt="${dt}"/>`;
+        if (hdr)
+            hdrTextXml = `<a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(hf.header)}</a:t></a:r></a:p>`;
+        if (ftr)
+            ftrTextXml = `<a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(hf.footer)}</a:t></a:r></a:p>`;
+    }
+    // Background: explicit hex solid fill when provided, else the theme background reference.
+    const bgXml = typeof (props === null || props === void 0 ? void 0 : props.background) === 'string' && props.background.length > 0
+        ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${encodeXmlEntities(props.background)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`
+        : '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>';
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:handoutMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld>${bgXml}<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Header Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="hdr" sz="quarter"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle>${hdrTextXml}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Date Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="dt" idx="1"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{5282F153-3F37-0F45-9E97-73ACFA13230C}" type="datetimeFigureOut"><a:rPr lang="en-US"/><a:t>7/23/19</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Footer Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="ftr" sz="quarter" idx="2"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle>${ftrTextXml}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="5" name="Slide Number Placeholder 4"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="3"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{CE5E9CC1-C706-0F49-92D6-E571CC5EEA8F}" type="slidenum"><a:rPr lang="en-US"/><a:t>‹#›</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>${hfXml}</p:handoutMaster>`;
+}
+/**
+ * Creates `ppt/handoutMasters/_rels/handoutMaster1.xml.rels`.
+ * The handout master references the shared `theme2.xml` part (the notes master references the same),
+ * mirroring the notesMaster rels so the `<p:clrMap>` resolves against a backing theme.
+ * @returns {string} XML
+ */
+function makeXmlHandoutMasterRel() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
+		</Relationships>`;
+}
+/**
  * For the passed slide number, resolves name of a layout that is used for.
  * @param {PresSlide[]} slides - srray of slides
  * @param {SlideLayout[]} slideLayouts - array of slideLayouts
@@ -8850,6 +8917,12 @@ function makeXmlPresentation(pres) {
     // OpenXmlValidator as Sch_UnexpectedElementContentExpectingComplex.
     // (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
     strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`;
+    // STEP 2b: Add Handout Master (default-off). CT_Presentation child order places
+    // <p:handoutMasterIdLst> AFTER notesMasterIdLst and BEFORE sldIdLst. The r:id MUST match
+    // the handoutMaster `<Relationship>` in presentation.xml.rels — both use `handoutMasterRid()`.
+    if (pres.handoutMaster) {
+        strXml += `<p:handoutMasterIdLst><p:handoutMasterId r:id="rId${handoutMasterRid(pres.slides, pres.embeddedFonts)}"/></p:handoutMasterIdLst>`;
+    }
     // STEP 3: Add all Slides (SPEC: tag 3 under <presentation>)
     strXml += '<p:sldIdLst>';
     pres.slides.forEach(slide => (strXml += `<p:sldId id="${slide._slideId}" r:id="rId${slide._rId}"/>`));
@@ -9065,6 +9138,9 @@ class PptxGenJS {
     }
     get photoAlbum() {
         return this._photoAlbum;
+    }
+    get handoutMaster() {
+        return this._handoutMaster;
     }
     get embeddedFonts() {
         return this._embeddedFonts;
@@ -9328,11 +9404,11 @@ class PptxGenJS {
                 const hasComments = this.slides.some(s => (s._comments || []).length > 0);
                 if (hasComments)
                     zip.folder('ppt/comments');
-                zip.file('[Content_Types].xml', makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts)); // TODO: pass only `this` like below! 20200206
+                zip.file('[Content_Types].xml', makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts, !!this._handoutMaster)); // TODO: pass only `this` like below! 20200206
                 zip.file('_rels/.rels', makeXmlRootRels());
                 zip.file('docProps/app.xml', makeXmlApp(this.slides, this.company)); // TODO: pass only `this` like below! 20200206
                 zip.file('docProps/core.xml', makeXmlCore(this.title, this.subject, this.author, this.revision)); // TODO: pass only `this` like below! 20200206
-                zip.file('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this.slides, this.embeddedFonts));
+                zip.file('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this.slides, this.embeddedFonts, !!this._handoutMaster));
                 // Write embedded-font binary parts (`font${i+1}.fntdata`) referenced by the font rels above.
                 fontFaces.forEach(face => {
                     zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true });
@@ -9367,6 +9443,11 @@ class PptxGenJS {
                 zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', makeXmlMasterRel(this.masterSlide, this.slideLayouts));
                 zip.file('ppt/notesMasters/notesMaster1.xml', makeXmlNotesMaster(this._notesMaster));
                 zip.file('ppt/notesMasters/_rels/notesMaster1.xml.rels', makeXmlNotesMasterRel());
+                // Handout master (default-off): write the part + its theme rels only when defined.
+                if (this._handoutMaster) {
+                    zip.file('ppt/handoutMasters/handoutMaster1.xml', makeXmlHandoutMaster(this._handoutMaster));
+                    zip.file('ppt/handoutMasters/_rels/handoutMaster1.xml.rels', makeXmlHandoutMasterRel());
+                }
                 // D: Create all Rels (images, media, chart data)
                 this.slideLayouts.forEach(layout => {
                     this.createChartMediaRels(layout, zip, arrChartPromises);
@@ -9566,6 +9647,23 @@ class PptxGenJS {
             return;
         }
         this._customShows.push({ name: show.name, slides: show.slides });
+    }
+    /**
+     * Define a handout master — the layout PowerPoint uses when printing multiple slides per page.
+     * Lets a deck carry branded handout headers/footers. When set, a
+     * `/ppt/handoutMasters/handoutMaster1.xml` part is packaged and a `<p:handoutMasterIdLst>` is
+     * emitted into `presentation.xml` (plus the matching presentation rel + Content_Types Override).
+     * Default-off: decks that never call this are byte-identical to before.
+     *
+     * @param {HandoutMasterProps} props - handout master config (background + header/footer)
+     * @example pptx.defineHandoutMaster({ background:'FFFFFF', headerFooter:{ footer:'Confidential', slideNumber:true } });
+     */
+    defineHandoutMaster(props) {
+        if (!props || typeof props !== 'object') {
+            console.warn('defineHandoutMaster requires a props object');
+            return;
+        }
+        this._handoutMaster = props;
     }
     /**
      * Embed a TrueType/OpenType font family in the presentation so decks render with the

@@ -210,3 +210,36 @@ pptx.embedFont({
 });
 ```
 
+
+## Handout Master
+
+### Handout Master Options
+
+Define a handout master — the layout PowerPoint uses when printing multiple
+slides per page — so a deck can carry branded handout headers/footers. Call
+`pptx.defineHandoutMaster(...)` once. This packages a
+`/ppt/handoutMasters/handoutMaster1.xml` part and emits a `<p:handoutMasterIdLst>`
+element in `presentation.xml`.
+
+| Option         | Type   | Required | Description                                                            |
+| :------------- | :----- | :------- | :--------------------------------------------------------------------- |
+| `background`   | string | no       | background fill color (hex, e.g. `"FFFFFF"`); omitted → theme default  |
+| `headerFooter` | object | no       | `{ header?, footer?, dateTime?, slideNumber? }` handout header/footer  |
+
+Default-off: when `defineHandoutMaster()` is not called, no handout part,
+relationship, `[Content_Types].xml` Override, or `<p:handoutMasterIdLst>`
+element is emitted.
+
+### Handout Master Examples
+
+```javascript
+pptx.defineHandoutMaster({
+  background: "FFFFFF",
+  headerFooter: {
+    header: "Internal",
+    footer: "Confidential",
+    dateTime: true,
+    slideNumber: true,
+  },
+});
+```
