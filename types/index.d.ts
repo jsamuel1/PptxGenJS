@@ -1077,6 +1077,32 @@ declare namespace PptxGenJS {
 		 */
 		alpha?: number
 	}
+	/**
+	 * A single colour stop within a gradient fill.
+	 */
+	export interface GradientStop {
+		/** Stop position as a percentage 0–100. */
+		position: number
+		/** Hex colour (no leading '#') or ThemeColor. */
+		color: Color
+		/** Optional per-stop alpha 0–100 (100 = opaque). */
+		transparency?: number
+	}
+	/**
+	 * Gradient fill properties. Accepted anywhere a solid fill is, and (as a text `color`)
+	 * for a run-level gradient that fills the glyphs themselves.
+	 */
+	export interface GradientFillProps {
+		type: 'gradient'
+		/** 'horizontal' (0°), 'vertical' (90°), 'diagonal' (45°), or an angle in degrees. */
+		direction?: 'horizontal' | 'vertical' | 'diagonal' | number
+		stops: GradientStop[]
+		/**
+		 * Rotate gradient with the shape.
+		 * @default true
+		 */
+		rotWithShape?: boolean
+	}
 	export interface ShapeLineProps extends ShapeFillProps {
 		/**
 		 * Line width (pt)
@@ -1225,12 +1251,14 @@ declare namespace PptxGenJS {
 		}
 		/**
 		 * Text color
-		 * - `HexColor` or `ThemeColor`
+		 * - `HexColor` or `ThemeColor` for a solid fill
+		 * - a `GradientFillProps` object for a run-level gradient that fills the GLYPHS themselves
 		 * - MS-PPT > Format Shape > Text Options > Text Fill & Outline > Text Fill > Color
 		 * @example 'FF0000' // hex color (red)
 		 * @example pptx.SchemeColor.text1 // Theme color (Text1)
+		 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient glyph fill
 		 */
-		color?: Color
+		color?: Color | GradientFillProps
 		/**
 		 * Font face name
 		 * @example 'Arial' // Arial font

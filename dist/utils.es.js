@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T14:01:56.098Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T14:21:39.820Z */
 /**
  * PptxGenJS — Theme Extraction utility (docs/feature-theme-extraction.md)
  *

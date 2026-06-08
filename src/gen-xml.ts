@@ -34,6 +34,8 @@ import {
 	AnimationProps,
 	HeaderFooterProps,
 	EmbedFontProps,
+	GradientFillProps,
+	Color,
 } from './core-interfaces'
 import {
 	convertRotationDegrees,
@@ -1363,7 +1365,15 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 		if (opts.outline && typeof opts.outline === 'object') {
 			runProps += `<a:ln w="${valToPts(opts.outline.size || 0.75)}">${genXmlColorSelection(opts.outline.color || 'FFFFFF')}</a:ln>`
 		}
-		if (opts.color) runProps += genXmlColorSelection({ color: opts.color, transparency: opts.transparency })
+		if (opts.color) {
+			// A gradient `color` object fills the GLYPHS via a run-level `<a:gradFill>` (same
+			// EG_FillProperties slot as `<a:solidFill>`); a plain Color keeps the solid path unchanged.
+			if (typeof opts.color === 'object' && (opts.color as GradientFillProps).type === 'gradient') {
+				runProps += genXmlColorSelection(opts.color as GradientFillProps)
+			} else {
+				runProps += genXmlColorSelection({ color: opts.color as Color, transparency: opts.transparency })
+			}
+		}
 		if (opts.highlight) runProps += `<a:highlight>${createColorElement(opts.highlight)}</a:highlight>`
 		if (typeof opts.underline === 'object' && opts.underline.color) runProps += `<a:uFill>${genXmlColorSelection(opts.underline.color)}</a:uFill>`
 		if (opts.glow) runProps += `<a:effectLst>${createGlowElement(opts.glow, DEF_TEXT_GLOW)}</a:effectLst>`

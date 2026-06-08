@@ -747,6 +747,47 @@ module.exports = [
 		}
 	},
 	{
+		name: 'text gradient glyph fill (addText color:{type:gradient} -> run-level a:gradFill)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.addSlide().addText('Gradient glyphs', {
+					x: 1, y: 1, w: 6, h: 1,
+					color: { type: 'gradient', direction: 'horizontal', stops: [{ position: 0, color: 'FF0000' }, { position: 100, color: '0000FF' }] }
+				})
+			})
+			// Baseline: the emitted run-level gradient is schema-clean
+			await expectNoSchemaErrors(buf, 'text-gradient')
+
+			// Exact-emission regression-catch: the run's <a:rPr> must carry <a:gradFill> (2 stops + <a:lin>)
+			// and MUST NOT carry <a:solidFill>. If genXmlTextRunProperties regressed to solid-only, this fails.
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const rPr = slideXml.match(/<a:rPr[^>]*>(.*?)<\/a:rPr>/s)[1]
+			assert(
+				rPr.includes('<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill>'),
+				'text-gradient: expected exact run-level gradFill emission; got: ' + rPr
+			)
+			assert(!rPr.includes('<a:solidFill>'), 'text-gradient: gradient run must NOT also emit <a:solidFill>; got: ' + rPr)
+
+			// Default-off: a plain string color keeps the solid path (no gradFill)
+			const { zip: zipSolid } = await build(p => {
+				p.addSlide().addText('Solid', { x: 1, y: 1, w: 6, h: 1, color: 'FF0000' })
+			})
+			const solidRPr = (await readEntry(zipSolid, 'ppt/slides/slide1.xml')).match(/<a:rPr[^>]*>(.*?)<\/a:rPr>/s)[1]
+			assert(solidRPr.includes('<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>'), 'text-gradient: string color must emit solidFill')
+			assert(!solidRPr.includes('<a:gradFill'), 'text-gradient: string color must NOT emit gradFill')
+
+			// Validator regression-catch (per RUNNER mem-1): a malformed run-level gradFill with an
+			// out-of-range stop position (ST_PositiveFixedPercentage max=100000) must be FLAGGED by
+			// the OOXMLValidator — proving the schema fixture actually guards the gradFill we emit.
+			const badSlide = slideXml.replace('<a:gs pos="100000">', '<a:gs pos="500000">')
+			assert(badSlide !== slideXml, 'text-gradient: mutation precondition (found a stop pos to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'text-gradient: validator should flag an out-of-range gradient stop pos (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

@@ -581,12 +581,15 @@ export interface TextBaseProps {
 	}
 	/**
 	 * Text color
-	 * - `HexColor` or `ThemeColor`
+	 * - `HexColor` or `ThemeColor` for a solid fill
+	 * - a `GradientFillProps` object for a run-level gradient that fills the GLYPHS themselves
+	 *   (emitted as `<a:gradFill>` inside the run's `<a:rPr>`, not the text-box background)
 	 * - MS-PPT > Format Shape > Text Options > Text Fill & Outline > Text Fill > Color
 	 * @example 'FF0000' // hex color (red)
 	 * @example pptx.SchemeColor.text1 // Theme color (Text1)
+	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient glyph fill
 	 */
-	color?: Color
+	color?: Color | GradientFillProps
 	/**
 	 * Font face name
 	 * @example 'Arial' // Arial font
@@ -2021,6 +2024,8 @@ export interface IChartPropsLegend {
 	legendPos?: 'b' | 'l' | 'r' | 't' | 'tr'
 }
 export interface IChartPropsTitle extends TextBaseProps {
+	/** Chart title color (solid only — narrows `TextBaseProps.color` back to `Color` so `IChartOpts` can also extend `OptsChartGridLine`). */
+	color?: Color
 	title?: string
 	titleAlign?: string
 	titleBold?: boolean

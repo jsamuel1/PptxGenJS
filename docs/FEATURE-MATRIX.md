@@ -101,6 +101,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |---------|-------|--------|-------|
 | Solid fill | `a:solidFill` | ✅ Done | |
 | Gradient fill | `a:gradFill` | ✅ Done | multi-stop, linear/radial, per-stop alpha |
+| Gradient text (glyph) fill | `a:gradFill` in `a:rPr` | ✅ Done | `addText({ color:{ type:'gradient', stops:[…] } })` → run-level gradient fills the glyphs (not the text-box background) |
 | No fill | `a:noFill` | ✅ Done | |
 | Pattern fill | `a:pattFill` | ✅ Done | preset hatch patterns (54 `ST_PresetPatternVal`) on shapes |
 | Picture/blip fill (shapes) | `a:blipFill` on `p:sp` | ✅ Done | image-fill a shape (`type:'image'`, stretch/tile, transparency) |
