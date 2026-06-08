@@ -9,7 +9,7 @@
 //
 // Run with: npm run schema-test
 
-const { build, assert, readEntry } = require('./helpers')
+const { build, assert, readEntry, listEntries } = require('./helpers')
 const { validateBuf } = require('./validator')
 
 async function expectNoSchemaErrors (buf, label) {
@@ -320,6 +320,335 @@ module.exports = [
 			assert(cy > 0, `negative-height line: expected cy > 0, got ${cy} (xfrm: ${xfrm})`)
 			assert(/<a:xfrm[^>]*\bflipV="1"/.test(xfrm), `negative-height line: expected flipV="1" on xfrm (xfrm: ${xfrm})`)
 			await expectNoSchemaErrors(buf, 'line-negative-height')
+		}
+	},
+	{
+		name: 'rect shape with negative width normalizes to positive cx + flipH',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.addSlide().addShape('rect', { x: 5, y: 2, w: -2, h: 1, fill: { color: '7C3AED' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// The first <a:xfrm> belongs to the spTree group (has chOff/chExt); select the shape's xfrm.
+			const xfrm = (xml.match(/<a:xfrm[^>]*>(?:(?!<\/a:xfrm>).)*?<\/a:xfrm>/gs) || []).find(x => !x.includes('chOff')) || ''
+			const cx = Number((xfrm.match(/<a:ext\s+cx="(-?\d+)"/) || [])[1])
+			assert(cx > 0, `negative-width rect: expected cx > 0, got ${cx} (xfrm: ${xfrm})`)
+			assert(/<a:xfrm[^>]*\bflipH="1"/.test(xfrm), `negative-width rect: expected flipH="1" on xfrm (xfrm: ${xfrm})`)
+			await expectNoSchemaErrors(buf, 'rect-negative-width')
+		}
+	},
+	{
+		name: 'image with negative height normalizes to positive cy + flipV',
+		fn: async () => {
+			const b64 =
+				'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf, zip } = await build(p => {
+				p.addSlide().addImage({ data: 'image/png;base64,' + b64, x: 1, y: 4, w: 2, h: -1.5 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const xfrm = (xml.match(/<a:xfrm[^>]*>(?:(?!<\/a:xfrm>).)*?<\/a:xfrm>/gs) || []).find(x => !x.includes('chOff')) || ''
+			const cy = Number((xfrm.match(/<a:ext\s+cx="-?\d+"\s+cy="(-?\d+)"/) || [])[1])
+			assert(cy > 0, `negative-height image: expected cy > 0, got ${cy} (xfrm: ${xfrm})`)
+			assert(/<a:xfrm[^>]*\bflipV="1"/.test(xfrm), `negative-height image: expected flipV="1" on xfrm (xfrm: ${xfrm})`)
+			await expectNoSchemaErrors(buf, 'image-negative-height')
+		}
+	},
+	{
+		name: 'shape shadow with out-of-range angle/opacity clamps to valid ST_PositiveFixedAngle + alpha',
+		fn: async () => {
+			// angle=-45 (<0) and opacity=1.5 (>1) are both out of range; correctShadowOptions
+			// (gen-utils) must reset them to the defaults 270° / 0.75 before emit. Without the
+			// clamp the emit produces dir="-2700000" (negative ST_PositiveFixedAngle) and
+			// alpha val="150000" (>100000 ST_PositiveFixedPercentage) — both schema-invalid.
+			const { buf, zip } = await build(p => {
+				p.addSlide().addShape('rect', {
+					x: 1, y: 1, w: 4, h: 1,
+					fill: { color: '00B0B9' },
+					shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', angle: -45, opacity: 1.5 }
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const shdw = (xml.match(/<a:outerShdw[^>]*>/) || [])[0] || ''
+			const dir = Number((shdw.match(/\bdir="(-?\d+)"/) || [])[1])
+			// ST_PositiveFixedAngle: 0 .. 21600000 (60000ths of a degree, 0-360°)
+			assert(dir >= 0 && dir <= 21600000, `shadow angle: expected dir in 0..21600000, got ${dir} (shdw: ${shdw})`)
+			assert(dir === 16200000, `shadow angle: expected out-of-range -45 to clamp to 270° (16200000), got ${dir}`)
+			const alpha = Number((xml.match(/<a:outerShdw[\s\S]*?<a:alpha\s+val="(-?\d+)"/) || [])[1])
+			// ST_PositiveFixedPercentage: 0 .. 100000
+			assert(alpha >= 0 && alpha <= 100000, `shadow opacity: expected alpha in 0..100000, got ${alpha}`)
+			assert(alpha === 75000, `shadow opacity: expected out-of-range 1.5 to clamp to 0.75 (75000), got ${alpha}`)
+			await expectNoSchemaErrors(buf, 'shadow-out-of-range-clamp')
+		}
+	},
+	{
+		name: 'bar chart (single series, multi category)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.BAR, [
+					{ name: 'Sales', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 26, 18, 31] }
+				], { x: 1, y: 1, w: 6, h: 3 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-bar')
+		}
+	},
+	{
+		name: 'line chart (multi series)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.LINE, [
+					{ name: 'North', labels: ['Jan', 'Feb', 'Mar'], values: [10, 20, 15] },
+					{ name: 'South', labels: ['Jan', 'Feb', 'Mar'], values: [5, 12, 22] }
+				], { x: 1, y: 1, w: 6, h: 3 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-line')
+		}
+	},
+	{
+		name: 'pie chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.PIE, [
+					{ name: 'Share', labels: ['A', 'B', 'C'], values: [40, 35, 25] }
+				], { x: 1, y: 1, w: 5, h: 4 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-pie')
+		}
+	},
+	{
+		name: 'doughnut chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.DOUGHNUT, [
+					{ name: 'Share', labels: ['A', 'B', 'C', 'D'], values: [10, 20, 30, 40] }
+				], { x: 1, y: 1, w: 5, h: 4, holeSize: 60 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-doughnut')
+		}
+	},
+	{
+		name: 'area chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.AREA, [
+					{ name: 'Traffic', labels: ['Mon', 'Tue', 'Wed', 'Thu'], values: [3, 7, 5, 9] }
+				], { x: 1, y: 1, w: 6, h: 3 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-area')
+		}
+	},
+	{
+		name: 'radar chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.RADAR, [
+					{ name: 'Skill', labels: ['Speed', 'Power', 'Range', 'Agility', 'Stamina'], values: [4, 5, 3, 4, 2] }
+				], { x: 1, y: 1, w: 5, h: 4 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-radar')
+		}
+	},
+	{
+		name: 'bar3D chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.BAR3D, [
+					{ name: 'Units', labels: ['X', 'Y', 'Z'], values: [8, 14, 6] }
+				], { x: 1, y: 1, w: 6, h: 3 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-bar3d')
+		}
+	},
+	{
+		name: 'scatter (XY) chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.SCATTER, [
+					{ name: 'X-Axis', values: [0, 1, 2, 3, 4, 5] },
+					{ name: 'Y-Value 1', values: [90, 80, 70, 85, 75, 92] },
+					{ name: 'Y-Value 2', values: [21, 32, 40, 49, 31, 29] }
+				], { x: 1, y: 1, w: 6, h: 3, showLabel: true })
+			})
+			await expectNoSchemaErrors(buf, 'chart-scatter')
+		}
+	},
+	{
+		name: 'bubble chart',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.BUBBLE, [
+					{ name: 'X-Axis', values: [0.3, 0.6, 0.9, 1.2, 1.5, 1.7] },
+					{ name: 'Y-Value 1', values: [1.3, 9, 7.5, 2.5, 7.5, 3], sizes: [1, 4, 2, 3, 7, 4] },
+					{ name: 'Y-Value 2', values: [5.0, 3, 2.0, 7.0, 2.0, 9], sizes: [9, 7, 9, 2, 4, 8] }
+				], { x: 1, y: 1, w: 6, h: 3 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-bubble')
+		}
+	},
+	{
+		name: 'bar chart with explicit value-axis min/max',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart(p.charts.BAR, [
+					{ name: 'Score', labels: ['A', 'B', 'C'], values: [20, 55, 80] }
+				], { x: 1, y: 1, w: 6, h: 3, valAxisMinVal: 0, valAxisMaxVal: 100, valAxisMajorUnit: 20 })
+			})
+			await expectNoSchemaErrors(buf, 'chart-bar-axis-minmax')
+		}
+	},
+	{
+		name: 'multi-type combo chart (bar + secondary line)',
+		fn: async () => {
+			const { buf } = await build(p => {
+				p.addSlide().addChart([
+					{ type: p.charts.BAR, data: [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }], options: {} },
+					{ type: p.charts.LINE, data: [{ name: 'Growth', labels: ['Q1', 'Q2', 'Q3'], values: [1, 2, 3] }], options: { secondaryValAxis: true, secondaryCatAxis: true } }
+				], { x: 1, y: 1, w: 6, h: 3, valAxes: [{ showValAxisTitle: false }, { showValAxisTitle: false }], catAxes: [{}, {}] })
+			})
+			await expectNoSchemaErrors(buf, 'chart-combo')
+		}
+	},
+	{
+		name: 'bar3D chart out-of-range v3DRotY/v3DPerspective clamp to valid ST_RotY/ST_Perspective',
+		fn: async () => {
+			// v3DRotY=400 (>360) and v3DPerspective=300 (>240) are out of range; the chart
+			// option clamp (gen-objects.ts:296,298) must reset both to the default 30 before
+			// the bar3d emit (gen-charts.ts:586). Without the clamp, <c:rotY val="400"/>
+			// (>ST_RotY max 360) and <c:perspective val="300"/> (>ST_Perspective max 240)
+			// are both schema-invalid. Clamp bounds == schema bounds exactly.
+			const { buf, zip } = await build(p => {
+				p.addSlide().addChart(p.charts.BAR3D, [
+					{ name: 'Units', labels: ['X', 'Y', 'Z'], values: [8, 14, 6] }
+				], { x: 1, y: 1, w: 6, h: 3, v3DRotY: 400, v3DPerspective: 300 })
+			})
+			// chartId is a module-global counter, so the entry is NOT necessarily chart1.xml;
+			// locate the single chart entry generically.
+			const chartPath = listEntries(zip).find(e => /^ppt\/charts\/chart\d+\.xml$/.test(e))
+			assert(chartPath, `bar3D chart: expected a ppt/charts/chartN.xml entry (got: ${listEntries(zip).filter(e => e.includes('chart')).join(', ')})`)
+			const xml = await readEntry(zip, chartPath)
+			const view3D = (xml.match(/<c:view3D>[\s\S]*?<\/c:view3D>/) || [])[0] || ''
+			const rotY = Number((view3D.match(/<c:rotY\s+val="(-?\d+)"/) || [])[1])
+			// ST_RotY: 0 .. 360
+			assert(rotY >= 0 && rotY <= 360, `v3DRotY: expected rotY in 0..360, got ${rotY} (view3D: ${view3D})`)
+			assert(rotY === 30, `v3DRotY: expected out-of-range 400 to clamp to default 30, got ${rotY}`)
+			const persp = Number((view3D.match(/<c:perspective\s+val="(-?\d+)"/) || [])[1])
+			// ST_Perspective: 0 .. 240
+			assert(persp >= 0 && persp <= 240, `v3DPerspective: expected perspective in 0..240, got ${persp} (view3D: ${view3D})`)
+			assert(persp === 30, `v3DPerspective: expected out-of-range 300 to clamp to default 30, got ${persp}`)
+			await expectNoSchemaErrors(buf, 'chart-bar3d-view3d-clamp')
+		}
+	},
+	{
+		name: 'chart layout out-of-range x/y/w/h are deleted so defaults are emitted',
+		fn: async () => {
+			// layout { x:2, y:-1, w:5, h:1.5 } is fully out of range (0..1). createChartObject
+			// (gen-objects.ts:260-269) iterates ['x','y','w','h'] and DELETEs any value that is
+			// NaN/<0/>1, so the emit (gen-charts.ts:596-599: <c:x val="${layout.x||0}"/> etc.)
+			// falls back to the defaults x/y -> 0, w/h -> 1.
+			// SCHEMA CAVEAT: c:x/c:y/c:w/c:h in CT_ManualLayout are CT_Double (val = unbounded
+			// xsd:double), so an out-of-range value like x=2 is SCHEMA-VALID. Schema cannot
+			// catch this regression (like GAP-3 rotation). The PRIMARY catch is the explicit
+			// exact-value assert below; expectNoSchemaErrors is a secondary sanity check.
+			const { buf, zip } = await build(p => {
+				p.addSlide().addChart(p.charts.BAR, [
+					{ name: 'Units', labels: ['X', 'Y', 'Z'], values: [8, 14, 6] }
+				], { x: 1, y: 1, w: 6, h: 3, layout: { x: 2, y: -1, w: 5, h: 1.5 } })
+			})
+			// chartId is a module-global counter, so the entry is NOT necessarily chart1.xml;
+			// locate the single chart entry generically.
+			const chartPath = listEntries(zip).find(e => /^ppt\/charts\/chart\d+\.xml$/.test(e))
+			assert(chartPath, `chart layout: expected a ppt/charts/chartN.xml entry (got: ${listEntries(zip).filter(e => e.includes('chart')).join(', ')})`)
+			const xml = await readEntry(zip, chartPath)
+			const manualLayout = (xml.match(/<c:manualLayout>[\s\S]*?<\/c:manualLayout>/) || [])[0] || ''
+			assert(manualLayout, `chart layout: expected a <c:manualLayout> block (chart xml: ${xml.slice(0, 400)})`)
+			const x = Number((manualLayout.match(/<c:x\s+val="(-?[\d.]+)"/) || [])[1])
+			const y = Number((manualLayout.match(/<c:y\s+val="(-?[\d.]+)"/) || [])[1])
+			const w = Number((manualLayout.match(/<c:w\s+val="(-?[\d.]+)"/) || [])[1])
+			const h = Number((manualLayout.match(/<c:h\s+val="(-?[\d.]+)"/) || [])[1])
+			// EXACT-VALUE regression-catch: out-of-range input was deleted -> defaults emitted.
+			// If the delete safeguard regressed, the emit would be x=2, y=-1, w=5, h=1.5.
+			assert(x === 0, `chart layout x: expected out-of-range 2 to be deleted -> default 0, got ${x} (manualLayout: ${manualLayout})`)
+			assert(y === 0, `chart layout y: expected out-of-range -1 to be deleted -> default 0, got ${y} (manualLayout: ${manualLayout})`)
+			assert(w === 1, `chart layout w: expected out-of-range 5 to be deleted -> default 1, got ${w} (manualLayout: ${manualLayout})`)
+			assert(h === 1, `chart layout h: expected out-of-range 1.5 to be deleted -> default 1, got ${h} (manualLayout: ${manualLayout})`)
+			await expectNoSchemaErrors(buf, 'chart-layout-default')
+		}
+	},
+	{
+		// GAP-7 (BUG-EXPOSURE / xfail-style): doughnut holeSize is TYPE-checked only,
+		// NOT range-clamped. gen-charts.ts:1636 emits
+		//   <c:holeSize val="${typeof opts.holeSize === 'number' ? opts.holeSize : '50'}"/>
+		// so holeSize:500 is emitted verbatim as <c:holeSize val="500"/>. The schema type
+		// c:holeSize = ST_HoleSize is a restriction of xsd:unsignedByte (max 255; doughnut
+		// restriction 10-90), so val="500" is DEFINITIVELY schema-invalid -> a clean
+		// schema-backed catch (unlike the CT_Double exact-value paths in GAP-3/GAP-6).
+		//
+		// This fixture asserts the COMPLIANT outcome (expectNoSchemaErrors), which FAILS
+		// TODAY because the emitted value violates ST_HoleSize. That failure is the intended
+		// signal: it documents the real compliance bug (a doughnut "type" that does NOT
+		// produce zero-error output) and will flip to PASS only when source adds a holeSize
+		// range clamp (then guards against re-regression). Per harness rules false fails are
+		// acceptable; false passes are not. DO NOT add a source clamp here (test loop).
+		name: 'doughnut chart out-of-range holeSize emits schema-invalid <c:holeSize> (BUG-EXPOSURE: expected to FAIL until clamped)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.addSlide().addChart(p.charts.DOUGHNUT, [
+					{ name: 'Share', labels: ['A', 'B', 'C', 'D'], values: [10, 20, 30, 40] }
+				], { x: 1, y: 1, w: 5, h: 4, holeSize: 500 })
+			})
+			// Record the exact invalid emission the validator rejects. chartId is a
+			// module-global counter, so locate the single chart entry generically (mem-7).
+			const chartPath = listEntries(zip).find(e => /^ppt\/charts\/chart\d+\.xml$/.test(e))
+			assert(chartPath, `holeSize: expected a ppt/charts/chartN.xml entry (got: ${listEntries(zip).filter(e => e.includes('chart')).join(', ')})`)
+			const xml = await readEntry(zip, chartPath)
+			const holeVal = (xml.match(/<c:holeSize\s+val="(-?[\d.]+)"/) || [])[1]
+			// Proof the unclamped value reached the XML verbatim (drives the schema failure).
+			assert(holeVal === '500', `holeSize: expected unclamped raw emission <c:holeSize val="500"/>, got val="${holeVal}" (chart xml: ${xml.slice(0, 400)})`)
+			// COMPLIANT-outcome assertion: FAILS today (val=500 violates ST_HoleSize) and
+			// flips to PASS only when source clamps holeSize into the valid range.
+			await expectNoSchemaErrors(buf, 'chart-doughnut-holesize-oob')
+		}
+	},
+	{
+		// GAP-8 (BUG-EXPOSURE / xfail-style): gradient stop position/transparency are
+		// NOT range-clamped. genXmlGradientFill (gen-utils.ts) emits
+		//   pos  = Math.round((stop.position || 0) * 1000)        -> <a:gs pos="...">
+		//   alpha = Math.round(stop.transparency * 1000)          -> <a:alpha val="..."/>
+		// with no 0-100 guard, so { position: 150, transparency: 150 } is emitted verbatim
+		// as pos="150000" and <a:alpha val="150000"/>. Both a:gs@pos and a:alpha@val are
+		// ST_PositiveFixedPercentage (0..100000), so 150000 is DEFINITIVELY schema-invalid
+		// -> a clean schema-backed catch on a NON-chart type (gradient fill), directly
+		// advancing the objective's "across ALL types".
+		//
+		// This fixture asserts the COMPLIANT outcome (expectNoSchemaErrors), which FAILS
+		// TODAY because the emitted values violate ST_PositiveFixedPercentage. That failure
+		// is the intended signal: it documents the real compliance bug (a gradient "type"
+		// that does NOT produce zero-error output for out-of-range stops) and will flip to
+		// PASS only when source clamps position/transparency into the valid range (then
+		// guards against re-regression). Per harness rules false fails are acceptable; false
+		// passes are not. DO NOT add a source clamp here (test loop).
+		name: 'gradient stop out-of-range position/transparency emits schema-invalid <a:gs>/<a:alpha> (BUG-EXPOSURE: expected to FAIL until clamped)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 1,
+					fill: {
+						type: 'gradient', direction: 'horizontal',
+						stops: [
+							{ position: 0, color: '7C3AED' },
+							{ position: 150, color: '38BDF8', transparency: 150 }
+						]
+					}
+				})
+			})
+			// Slides are deterministic ppt/slides/slide1.xml (NOT the module-global chart counter).
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Proof the unclamped values reached the XML verbatim (drive the schema failure).
+			assert(/<a:gs\s+pos="150000"/.test(xml), `gradient pos: expected unclamped raw emission <a:gs pos="150000">, slide xml: ${xml.slice(0, 600)}`)
+			assert(/<a:alpha\s+val="150000"\/>/.test(xml), `gradient alpha: expected unclamped raw emission <a:alpha val="150000"/>, slide xml: ${xml.slice(0, 600)}`)
+			// COMPLIANT-outcome assertion: FAILS today (pos/val=150000 violates
+			// ST_PositiveFixedPercentage max 100000) and flips to PASS only when source clamps.
+			await expectNoSchemaErrors(buf, 'gradient-stop-oob')
 		}
 	}
 ]

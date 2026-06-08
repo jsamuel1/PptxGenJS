@@ -1129,9 +1129,14 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 				const value = from + i
 				const frameOpts: TextPropsOptions = { ...opts }
 				delete frameOpts.counter
-				// Sequential entrance: first frame immediately, each later frame one step after the previous.
-				frameOpts.animation = { type: 'appear', trigger: 'afterPrevious', delay: i === 0 ? 0 : stepMs }
-				// Every frame except the last hides itself one step after appearing -> count-up effect.
+				// Odometer entrance: ALL frames live in ONE parallel build step (`withPrevious`),
+				// each appearing at a CUMULATIVE delay from the container start (frame 0 -> 0,
+				// frame 1 -> stepMs, frame 2 -> 2*stepMs, ...). `afterPrevious` would split each
+				// frame into a separate build step in genXmlTiming, breaking the count-up; using
+				// `withPrevious` keeps them in one group so the staggered delays drive the odometer.
+				frameOpts.animation = { type: 'appear', trigger: 'withPrevious', delay: i * stepMs }
+				// Every frame except the last hides itself one step after IT appears (the exit delay
+				// is relative to each frame's own appearance), so frame N+1 masks frame N -> count-up.
 				if (i < frameCount - 1) frameOpts._counterExit = stepMs
 				else delete frameOpts._counterExit
 				addTextDefinition(target, [{ text: `${value}${suffix}`, options: null }], frameOpts, isPlaceholder)

@@ -80,12 +80,23 @@ module.exports = [
 		}
 	},
 	{
-		name: 'beats: odometer counter 1→7 (afterPrevious, 180ms) → 7 separate build steps',
+		name: 'beats: odometer counter 1→7 (withPrevious, 180ms) → ONE parallel build step with cumulative delays',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addText('', { x: 1, y: 1, w: 4, h: 1, counter: { from: 1, to: 7, suffix: '×', stepMs: 180 } }))
-			assert(stepWrapperCount(xml) === 7, 'odometer must expand to 7 sequential build steps; got ' + stepWrapperCount(xml) + ': ' + xml)
-			assert((xml.match(/fill="hold" nodeType="afterEffect"/g) || []).length === 7, 'all 7 frames must be afterEffect steps; got: ' + xml)
+			// Odometer frames live in ONE parallel build step (withPrevious), NOT 7 separate steps.
+			// afterPrevious would split each frame into its own step and break the count-up.
+			assert(stepWrapperCount(xml) === 1, 'odometer must expand to ONE build step; got ' + stepWrapperCount(xml) + ': ' + xml)
+			assert((xml.match(/fill="hold" nodeType="withEffect"/g) || []).length === 1, 'the single step wrapper must be withEffect; got: ' + xml)
+			// 7 frames, each its own entrance member, all withEffect inside the one step.
 			assert(memberCount(xml) === 7, 'expected 7 member effect nodes (one per frame); got: ' + xml)
+			assert((xml.match(/grpId="0" nodeType="withEffect"/g) || []).length === 7, 'all 7 frames must be withEffect members; got: ' + xml)
+			// Members appear at CUMULATIVE delays from the container start: 0,180,360,540,720,900,1080.
+			;[0, 180, 360, 540, 720, 900, 1080].forEach(d => {
+				assert(xml.includes(`grpId="0" nodeType="withEffect"><p:stCondLst><p:cond delay="${d}"/>`),
+					`expected an odometer frame at cumulative delay="${d}"; got: ` + xml)
+			})
+			// 6 of 7 frames carry an exit (hide) block; the last frame stays visible.
+			assert((xml.match(/<p:strVal val="hidden"\/>/g) || []).length === 6, 'expected 6 frame-exit (hidden) blocks; got: ' + xml)
 		}
 	},
 	{
