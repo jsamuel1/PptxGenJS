@@ -1,7 +1,8 @@
 # Feature Enhancements: Converter-Identified Gaps
 
-> **Status:** Proposed  
+> **Status:** Partially Implemented  
 > **Created:** 2026-06-08  
+> **Progress:** §1 `addCard` enhancements ✅ Implemented (v4.1.7) · §2 `addCallout` enhancements ✅ Implemented (v4.1.7) · §3 theme-extraction equivalence ✅ Implemented (v4.1.7) · §4 separator helper + count badge ⏳ remaining · parseCards deep CSS-cascade colour follow-up ⏳ remaining  
 > **Context:** Gaps identified during `html-to-pptx` skill conversion of a 14-slide scroll-snap presentation. The converter currently bypasses `addCard` and `addCallout` and uses manual shape composition because these APIs lack features needed for faithful HTML→PPTX rendering.  
 > **Goal:** Close these gaps so the converter can adopt the native helpers, reducing boilerplate from ~60 lines/card to ~6 lines while maintaining or improving fidelity.  
 > **Principle:** Where native library functionality exists and can do the job well, the converter SHOULD adopt it rather than reimplementing with manual shapes. This reduces maintenance surface, ensures OOXML correctness, and means future library improvements automatically benefit all converters.
@@ -191,6 +192,13 @@ When `accentBar` is absent (current behaviour preserved):
 ---
 
 ## 3. Theme Extraction Utility — Equivalence with Converter
+
+> **§3 Status:** ✅ Implemented (v4.1.7). `extractThemeFromCSS` now parses `rgb()`/`rgba()`, resolves
+> `var(--name)` refs, computes derived colours (`cardLine`/`cardFill`/`barStops`), extracts the
+> extended palette (`bgMid`/`bgLight`/`bgDeep`/`coral`/`gray100/300/500`), supports `forcePreset`, and
+> attaches `presetName`/`vars` metadata. The new options (`forcePreset`, `derivedColors`,
+> `resolveVarRefs`, `parseRgb`, `barGradientVar`) and palette fields are additive and default-on.
+> See `docs/feature-theme-extraction.md` for the full reference.
 
 ### 3.1 Current Gap
 

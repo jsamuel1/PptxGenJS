@@ -93,7 +93,39 @@ const theme = extractThemeFromCSS(cssString, {
 
 - Regex-based CSS parsing won't handle nested `@media` blocks or `@import`
 - Only extracts from CSS text, not computed styles (no browser required)
-- Hex and named colours supported; `rgb()`/`hsl()` need conversion
+- Hex and `rgb()`/`rgba()` colours are converted to hex; `hsl()` and named colours are returned as-is
+
+## v2 — converter-equivalence (v4.1.7)
+
+`extractThemeFromCSS` reproduces the html-to-pptx converter's `buildTheme()`. The following are
+additive and default-on, so existing hex-input extraction is unchanged.
+
+New `ExtractThemeOptions`:
+
+```ts
+interface ExtractThemeOptions {
+  presets?: Record<string, Partial<ThemePalette>>
+  defaultPreset?: string
+  forcePreset?: string       // bypass CSS, use this preset only; unknown name → defaultPreset (no throw)
+  derivedColors?: boolean    // compute cardLine/cardFill/barStops (@default true)
+  resolveVarRefs?: boolean   // resolve var(--name) in values (@default true)
+  parseRgb?: boolean         // convert rgb()/rgba() → hex (@default true)
+  barGradientVar?: string    // var name for the gradient bar (@default '--bar-gradient')
+}
+```
+
+New `ThemePalette` fields:
+
+- **Extended (extracted, preset-defaulted):** `bgMid`, `bgLight`, `bgDeep`, `coral`, `gray100`, `gray300`, `gray500` (mapped from `--bg-mid`, `--bg-light`/`--bg-hover`, `--bg-deep`, `--coral`/`--secondary-accent`, `--gray-100/300/500`).
+- **Derived (computed when `derivedColors`):** `cardLine = mix(accent, bg, 0.72)`, `cardFill = mix(bgMid, bg, 0.4)`, `barStops: string[]` (from `--bar-gradient` `var()` refs when ≥2, else `[accent, accentSoft, sky]`).
+- **Metadata:** `presetName` (`'extracted'` when ≥1 var matched, a preset name when `forcePreset` is used, else the fallback) and `vars` (the raw parsed `--name: value` map, bare-name keyed).
+
+```ts
+const theme = extractThemeFromCSS(css, { forcePreset: argv.theme, derivedColors: true })
+// theme.cardLine, theme.barStops, theme.bgMid, theme.presetName, theme.vars now populated
+```
+
+> Note: `--bg-deep` now maps to the dedicated `bgDeep` slot (previously aliased to `bg`).
 
 ## Test cases
 

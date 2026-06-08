@@ -22,7 +22,25 @@ export interface ThemePalette {
 	green: string
 	orange: string
 	red: string
-	[key: string]: string
+	/** Extended palette (converter-equivalence) — extracted, with preset defaults. */
+	bgMid: string
+	bgLight: string
+	bgDeep: string
+	coral: string
+	gray100: string
+	gray300: string
+	gray500: string
+	/** Derived colour — subtle card border: `mix(accent, bg, 0.72)`. Present when `derivedColors`. */
+	cardLine?: string
+	/** Derived colour — card background blend: `mix(bgMid, bg, 0.4)`. Present when `derivedColors`. */
+	cardFill?: string
+	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, sky]`. */
+	barStops?: string[]
+	/** Which preset/source produced the palette (`'extracted'`, a preset name, or the fallback). */
+	presetName?: string
+	/** Raw parsed CSS custom properties (bare-name keyed, no leading `--`). */
+	vars?: Record<string, string>
+	[key: string]: string | string[] | Record<string, string> | undefined
 }
 
 /** Options for `extractThemeFromCSS`. */
@@ -31,6 +49,16 @@ export interface ExtractThemeOptions {
 	presets?: Record<string, Partial<ThemePalette>>
 	/** Which preset to use as the base/fallback. @default 'dark' */
 	defaultPreset?: string
+	/** Bypass CSS extraction and use this preset only (still computes derived colours). Unknown name falls back to `defaultPreset` (no throw). */
+	forcePreset?: string
+	/** Compute derived colours (`cardLine`/`cardFill`/`barStops`). @default true */
+	derivedColors?: boolean
+	/** Resolve `var(--name)` references in values against the parsed vars. @default true */
+	resolveVarRefs?: boolean
+	/** Convert `rgb()`/`rgba()` values to 6-digit hex. @default true */
+	parseRgb?: boolean
+	/** CSS var name for the gradient bar used by `barStops`. @default '--bar-gradient' */
+	barGradientVar?: string
 }
 
 /**

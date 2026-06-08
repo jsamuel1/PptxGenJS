@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T17:07:07.202Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T17:30:54.104Z */
 /**
  * PptxGenJS — Theme Extraction utility (docs/feature-theme-extraction.md)
  *
@@ -7,6 +7,12 @@
  * Pure, dependency-free, regex-based parsing — no DOM and no browser required, so it runs
  * in Node.js. This is an OPTIONAL utility (imported from `@jsamuel1/pptxgenjs/utils`), not
  * part of the main `PptxGenJS` class, keeping the core library focused on OOXML generation.
+ *
+ * v2 (converter-equivalence, docs/feature-enhancements-converter-gaps.md §3): adds
+ * `rgb()`/`rgba()` parsing, `var()` resolution, derived colours (`cardLine`/`cardFill`/
+ * `barStops`), an extended palette (`bgMid`/`bgLight`/`bgDeep`/`coral`/`gray100/300/500`),
+ * a `forcePreset` override, and `presetName`/`vars` metadata. All additions are ADDITIVE and
+ * default-on; the core slot mapping is unchanged.
  */
 /** Built-in dark preset (matches docs/feature-theme-extraction.md). */
 const DARK_PRESET = {
@@ -21,6 +27,14 @@ const DARK_PRESET = {
     green: '10B981',
     orange: 'FF9900',
     red: 'EF4444',
+    // Extended (converter-equivalence)
+    bgMid: '1E1E2A',
+    bgLight: '2A2A38',
+    bgDeep: '0C0C12',
+    coral: 'FB7185',
+    gray100: 'E4E4ED',
+    gray300: 'A0A0B0',
+    gray500: '64646E',
 };
 /** Built-in light preset. */
 const LIGHT_PRESET = {
@@ -35,6 +49,14 @@ const LIGHT_PRESET = {
     green: '059669',
     orange: 'EA580C',
     red: 'DC2626',
+    // Extended (converter-equivalence)
+    bgMid: 'F0F0F4',
+    bgLight: 'FAFAFC',
+    bgDeep: 'E8E8EE',
+    coral: 'F43F5E',
+    gray100: '2A2A32',
+    gray300: '5A5A6A',
+    gray500: '8A8A9A',
 };
 /**
  * Exact CSS-variable-name → theme-slot map. Names are matched exactly (NOT by substring) so
@@ -42,7 +64,7 @@ const LIGHT_PRESET = {
  */
 const VAR_TO_SLOT = {
     // bg
-    bg: 'bg', 'color-bg': 'bg', background: 'bg', 'bg-deep': 'bg',
+    bg: 'bg', 'color-bg': 'bg', background: 'bg',
     // bgSecondary
     'bg-card': 'bgSecondary', card: 'bgSecondary', 'color-bg-secondary': 'bgSecondary', 'bg-surface': 'bgSecondary',
     // accent
@@ -63,11 +85,42 @@ const VAR_TO_SLOT = {
     red: 'red', error: 'red', danger: 'red',
     // font
     font: 'font', 'font-family': 'font',
+    // extended (converter-equivalence)
+    'bg-mid': 'bgMid',
+    'bg-light': 'bgLight', 'bg-hover': 'bgLight',
+    'bg-deep': 'bgDeep',
+    coral: 'coral', 'secondary-accent': 'coral',
+    'gray-100': 'gray100', 'gray-300': 'gray300', 'gray-500': 'gray500',
 };
 /** Slots whose value is a colour (vs. a font family) — used to decide value normalisation. */
-const COLOR_SLOTS = new Set(['bg', 'bgSecondary', 'accent', 'accentSoft', 'text', 'textSecondary', 'sky', 'green', 'orange', 'red']);
-/** Normalise a colour value to a 6-digit hex (no `#`). 3-digit hex is expanded; non-hex returned as-is. */
-function normalizeColor$1(raw) {
+const COLOR_SLOTS = new Set([
+    'bg', 'bgSecondary', 'accent', 'accentSoft', 'text', 'textSecondary', 'sky', 'green', 'orange', 'red',
+    'bgMid', 'bgLight', 'bgDeep', 'coral', 'gray100', 'gray300', 'gray500',
+]);
+/** Parse an `rgb()`/`rgba()` value to a 6-digit hex (upper-case, no `#`). Returns null on non-match. */
+function rgbToHex(value) {
+    const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m)
+        return null;
+    return [m[1], m[2], m[3]]
+        .map(n => Math.min(255, Math.max(0, parseInt(n, 10))).toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+}
+/** Resolve `var(--name)` references against the parsed vars map (bare-name keyed). Recursive with a depth cap (clamp-don't-crash on cyclic refs). */
+function resolveVar(value, vars, depth = 0) {
+    if (typeof value !== 'string' || depth > 16 || value.indexOf('var(') === -1)
+        return value;
+    const replaced = value.replace(/var\(\s*--([\w-]+)\s*(?:,[^)]*)?\)/g, (_match, name) => {
+        const v = vars[String(name).trim().toLowerCase()];
+        return v !== undefined && v !== null ? v : '';
+    });
+    if (replaced === value)
+        return replaced;
+    return resolveVar(replaced, vars, depth + 1);
+}
+/** Normalise a colour value to a 6-digit hex (no `#`). 3-digit hex expanded; `rgb()/rgba()` parsed when enabled; otherwise returned trimmed. */
+function normalizeColor$1(raw, parseRgb = true) {
     let v = raw.trim().replace(/^#/, '');
     // Expand 3-digit shorthand (#abc -> AABBCC)
     if (/^[0-9a-fA-F]{3}$/.test(v))
@@ -75,8 +128,50 @@ function normalizeColor$1(raw) {
     // Uppercase 6/8-digit hex for consistency with the rest of the library
     if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v))
         return v.toUpperCase();
-    // rgb()/hsl()/named colours are returned trimmed but unconverted (documented limitation)
+    // rgb()/rgba() → hex (converter-equivalence)
+    if (parseRgb) {
+        const hex = rgbToHex(raw);
+        if (hex)
+            return hex;
+    }
+    // hsl()/named colours are returned trimmed but unconverted (documented limitation)
     return v;
+}
+/** Mix two hex colours per channel: `round(a*(1-weight) + b*weight)` (weight is the SECOND colour's weight). Mirrors the converter's `mix`. */
+function mixColors(a, b, weight) {
+    const norm = (h) => {
+        const x = normalizeColor$1(h);
+        return /^[0-9A-F]{6}$/.test(x) ? x.match(/.{2}/g).map(p => parseInt(p, 16)) : null;
+    };
+    const pa = norm(a);
+    const pb = norm(b);
+    if (!pa || !pb) {
+        const fallback = pa ? a : pb ? b : '000000';
+        return normalizeColor$1(fallback);
+    }
+    return pa
+        .map((v, i) => Math.round(v * (1 - weight) + pb[i] * weight).toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+}
+/** Derive gradient-bar stops from the `--bar-gradient` var (≥2 `var()` refs → resolved colours), else `[accent, accentSoft, sky]`. */
+function deriveBarStops(vars, palette, barVarName, resolveVarRefs, parseRgb) {
+    const barKey = String(barVarName).replace(/^--/, '').toLowerCase();
+    const barVal = vars[barKey] || '';
+    const refs = [...barVal.matchAll(/var\(\s*--([\w-]+)\s*\)/g)].map(m => m[1]);
+    if (refs.length >= 2) {
+        const stops = refs
+            .map(name => {
+            let val = vars[String(name).trim().toLowerCase()] || '';
+            if (resolveVarRefs)
+                val = resolveVar(val, vars);
+            return val ? normalizeColor$1(val, parseRgb) : '';
+        })
+            .filter(Boolean);
+        if (stops.length >= 2)
+            return stops;
+    }
+    return [palette.accent, palette.accentSoft, palette.sky];
 }
 /** Normalise a font-family value: strip surrounding quotes and take the first family. */
 function normalizeFont(raw) {
@@ -116,30 +211,55 @@ function parseCssVars(css) {
 }
 /**
  * Parse CSS `:root` custom properties into a theme palette, falling back to a preset for any
- * slot not present in the CSS.
+ * slot not present in the CSS. v2 additionally resolves `var()` references, parses `rgb()/rgba()`,
+ * computes derived colours (`cardLine`/`cardFill`/`barStops`), and attaches `presetName`/`vars`.
  * @param {string} css - CSS text (or any text containing `--name: value;` declarations)
- * @param {ExtractThemeOptions} [options] - presets + which preset to fall back to
+ * @param {ExtractThemeOptions} [options] - presets, fallback, and the v2 converter-equivalence flags
  * @returns {ThemePalette} the resolved palette (always complete — preset fills the gaps)
  * @example
  * const theme = extractThemeFromCSS(':root{ --bg:#121218; --purple:#7C3AED; }')
- * // => { bg: '121218', accent: '7C3AED', ... }
+ * // => { bg: '121218', accent: '7C3AED', cardLine: '301D54', barStops: [...], presetName: 'extracted', ... }
  */
 function extractThemeFromCSS(css, options = {}) {
     const presets = Object.assign({ dark: DARK_PRESET, light: LIGHT_PRESET }, (options.presets || {}));
-    const presetName = options.defaultPreset || 'dark';
-    const base = presets[presetName] || DARK_PRESET;
-    // Start from a complete palette (dark) then layer the chosen preset so the result is always whole
-    const theme = Object.assign(Object.assign({}, DARK_PRESET), base);
-    if (typeof css === 'string' && css.length > 0) {
-        const vars = parseCssVars(css);
+    const fallbackName = options.defaultPreset && presets[options.defaultPreset] ? options.defaultPreset : 'dark';
+    const derivedColors = options.derivedColors !== false;
+    const resolveVarRefs = options.resolveVarRefs !== false;
+    const parseRgb = options.parseRgb !== false;
+    const barGradientVar = options.barGradientVar || '--bar-gradient';
+    const vars = (typeof css === 'string' && css.length > 0) ? parseCssVars(css) : {};
+    let theme;
+    let presetName;
+    const forced = options.forcePreset;
+    if (forced && presets[forced]) {
+        // forcePreset: bypass CSS extraction, use the named preset only
+        theme = Object.assign(Object.assign({}, DARK_PRESET), presets[forced]);
+        presetName = forced;
+    }
+    else {
+        // Start from a complete palette (dark) then layer the chosen fallback preset so the result is always whole
+        const base = presets[fallbackName] || DARK_PRESET;
+        theme = Object.assign(Object.assign({}, DARK_PRESET), base);
+        let matched = 0;
         Object.keys(vars).forEach(name => {
             const slot = VAR_TO_SLOT[name];
             if (!slot)
                 return;
-            const value = vars[name];
-            theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor$1(value);
+            matched++;
+            let value = vars[name];
+            if (resolveVarRefs)
+                value = resolveVar(value, vars);
+            theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor$1(value, parseRgb);
         });
+        presetName = matched > 0 ? 'extracted' : fallbackName;
     }
+    if (derivedColors) {
+        theme.cardLine = mixColors(theme.accent, theme.bg, 0.72);
+        theme.cardFill = mixColors(theme.bgMid, theme.bg, 0.4);
+        theme.barStops = deriveBarStops(vars, theme, barGradientVar, resolveVarRefs, parseRgb);
+    }
+    theme.presetName = presetName;
+    theme.vars = vars;
     return theme;
 }
 
