@@ -807,6 +807,12 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '<c:radarStyle val="' + opts.radarStyle + '"/>'
 			}
 
+			// `c:grouping` is a required first child of CT_LineChart (EG_LineChartShared, minOccurs=1)
+			// and must precede `c:varyColors`. Without it, line/combo charts fail schema validation.
+			if (chartType === CHART_TYPE.LINE) {
+				strXml += '<c:grouping val="standard"/>'
+			}
+
 			strXml += '<c:varyColors val="0"/>'
 
 			// 2: "Series" block for every data row
@@ -889,6 +895,21 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '  <c:invertIfNegative val="0"/>'
 				}
 
+				// 'c:marker' tag: `lineDataSymbol`
+				// NOTE: CT_LineSer requires `marker` to precede `dLbls` (sequence: …spPr, marker?, dPt*, dLbls?…),
+				// so this block must be emitted before the `c:dLbls` block below or line/combo charts fail schema validation.
+				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
+					strXml += '<c:marker>'
+					strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>'
+					if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
+					strXml += '  <c:spPr>'
+					strXml += `    <a:solidFill>${createColorElement(opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex])}</a:solidFill>`
+					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += '    <a:effectLst/>'
+					strXml += '  </c:spPr>'
+					strXml += '</c:marker>'
+				}
+
 				// Data Labels per series
 				// NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
 				if (chartType !== CHART_TYPE.RADAR) {
@@ -908,19 +929,6 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
 					strXml += `<c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
 					strXml += '</c:dLbls>'
-				}
-
-				// 'c:marker' tag: `lineDataSymbol`
-				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
-					strXml += '<c:marker>'
-					strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>'
-					if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
-					strXml += '  <c:spPr>'
-					strXml += `    <a:solidFill>${createColorElement(opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex])}</a:solidFill>`
-					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
-					strXml += '    <a:effectLst/>'
-					strXml += '  </c:spPr>'
-					strXml += '</c:marker>'
 				}
 
 				// Allow users with a single data set to pass their own array of colors (check for this using != ours)
