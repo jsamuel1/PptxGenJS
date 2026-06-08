@@ -21,6 +21,7 @@
 	},
 	"main": "dist/pptxgen.cjs.js",
 	"module": "dist/pptxgen.es.js",
+	"sideEffects": false,
 	"files": [
 		"dist",
 		"types"
