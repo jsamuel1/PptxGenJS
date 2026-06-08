@@ -8,3 +8,5 @@
  */
 export { extractThemeFromCSS } from './utils/extract-theme'
 export type { ThemePalette, ExtractThemeOptions } from './utils/extract-theme'
+export { parseSvg } from './utils/parse-svg'
+export type { SvgPart, ParseSvgOptions } from './utils/parse-svg'

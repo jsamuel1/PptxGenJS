@@ -1,9 +1,15 @@
 # Feature: SVG Normalisation Utility — `parseSvg()`
 
-> **Status:** Proposed
-> **Target:** `@jsamuel1/pptxgenjs/utils` (next minor)
-> **Implements (when built):** `src/utils/parse-svg.ts`; exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`SvgPart`, `ParseSvgOptions`); tests `test/feature-parse-svg.test.js`
+> **Status:** Implemented (v4.1.7)
+> **Target:** `@jsamuel1/pptxgenjs/utils`
+> **Implemented in:** `src/utils/parse-svg.ts`; exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`SvgPart`, `ParseSvgOptions`); tests `test/feature-parse-svg.test.js`
 > **Priority:** High — removes the single largest block of custom rendering code from every SVG-aware converter
+>
+> **Implementation notes:** The reader is **dependency-free** (regex element/attribute extraction,
+> mirroring `src/utils/extract-theme.ts`) — cheerio was deliberately NOT added, to preserve the
+> library's zero-runtime-dependency invariant. Gradients are matched by `id` attribute (not tag
+> selector) so they resolve regardless of tag-name casing. The normalised `d` is verified to
+> round-trip through `addShape('custGeom')` → OOXML schema validation in the test suite.
 
 ## Problem
 
