@@ -603,24 +603,18 @@ module.exports = [
 		}
 	},
 	{
-		// GAP-8 (BUG-EXPOSURE / xfail-style): gradient stop position/transparency are
-		// NOT range-clamped. genXmlGradientFill (gen-utils.ts) emits
-		//   pos  = Math.round((stop.position || 0) * 1000)        -> <a:gs pos="...">
-		//   alpha = Math.round(stop.transparency * 1000)          -> <a:alpha val="..."/>
-		// with no 0-100 guard, so { position: 150, transparency: 150 } is emitted verbatim
-		// as pos="150000" and <a:alpha val="150000"/>. Both a:gs@pos and a:alpha@val are
-		// ST_PositiveFixedPercentage (0..100000), so 150000 is DEFINITIVELY schema-invalid
-		// -> a clean schema-backed catch on a NON-chart type (gradient fill), directly
-		// advancing the objective's "across ALL types".
-		//
-		// This fixture asserts the COMPLIANT outcome (expectNoSchemaErrors), which FAILS
-		// TODAY because the emitted values violate ST_PositiveFixedPercentage. That failure
-		// is the intended signal: it documents the real compliance bug (a gradient "type"
-		// that does NOT produce zero-error output for out-of-range stops) and will flip to
-		// PASS only when source clamps position/transparency into the valid range (then
-		// guards against re-regression). Per harness rules false fails are acceptable; false
-		// passes are not. DO NOT add a source clamp here (test loop).
-		name: 'gradient stop out-of-range position/transparency emits schema-invalid <a:gs>/<a:alpha> (BUG-EXPOSURE: expected to FAIL until clamped)',
+		// GAP-8 (REGRESSION GUARD): gradient stop position/transparency are clamped into
+		// [0,100] before the ×1000 scale in genXmlGradientFill (gen-utils.ts):
+		//   pos   = Math.round(Math.max(0, Math.min(100, stop.position || 0)) * 1000)
+		//   alpha = Math.round(Math.max(0, Math.min(100, stop.transparency)) * 1000)
+		// Both a:gs@pos and a:alpha@val are ST_PositiveFixedPercentage (0..100000), so an
+		// out-of-range input like { position: 150, transparency: 150 } is clamped to
+		// pos="100000" and <a:alpha val="100000"/> rather than the schema-invalid 150000.
+		// This guards a NON-chart type (gradient fill), advancing the objective's "across
+		// ALL types". The fixture asserts BOTH the clamped raw emission (re-regression
+		// guard) AND schema validity — if the source clamp is removed, the raw 150000
+		// re-appears and these asserts (and expectNoSchemaErrors) fail again.
+		name: 'gradient stop out-of-range position/transparency clamped into ST_PositiveFixedPercentage [0,100]',
 		fn: async () => {
 			const { buf, zip } = await build(p => {
 				const s = p.addSlide()
@@ -637,11 +631,10 @@ module.exports = [
 			})
 			// Slides are deterministic ppt/slides/slide1.xml (NOT the module-global chart counter).
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			// Proof the unclamped values reached the XML verbatim (drive the schema failure).
-			assert(/<a:gs\s+pos="150000"/.test(xml), `gradient pos: expected unclamped raw emission <a:gs pos="150000">, slide xml: ${xml.slice(0, 600)}`)
-			assert(/<a:alpha\s+val="150000"\/>/.test(xml), `gradient alpha: expected unclamped raw emission <a:alpha val="150000"/>, slide xml: ${xml.slice(0, 600)}`)
-			// COMPLIANT-outcome assertion: FAILS today (pos/val=150000 violates
-			// ST_PositiveFixedPercentage max 100000) and flips to PASS only when source clamps.
+			// Proof the out-of-range values were clamped to the ST_PositiveFixedPercentage max (regression guard).
+			assert(/<a:gs\s+pos="100000"/.test(xml), `gradient pos: expected clamped raw emission <a:gs pos="100000">, slide xml: ${xml.slice(0, 600)}`)
+			assert(/<a:alpha\s+val="100000"\/>/.test(xml), `gradient alpha: expected clamped raw emission <a:alpha val="100000"/>, slide xml: ${xml.slice(0, 600)}`)
+			// COMPLIANT-outcome assertion: passes now that pos/transparency are clamped into [0,100].
 			await expectNoSchemaErrors(buf, 'gradient-stop-oob')
 		}
 	}

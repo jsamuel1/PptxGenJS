@@ -243,11 +243,14 @@ export function genXmlGradientFill (props: GradientFillProps): string {
 
 	const gsList = stops
 		.map(stop => {
-			// position 0–100 → `pos` in thousandths of a percent (× 1000)
-			const pos = Math.round((stop.position || 0) * 1000)
+			// position 0–100 → `pos` in thousandths of a percent (× 1000).
+			// `pos` is ST_PositiveFixedPercentage [0,100000]; clamp the 0–100 input
+			// before scaling so out-of-range stops stay schema-valid (clamp-don't-crash).
+			const pos = Math.round(Math.max(0, Math.min(100, stop.position || 0)) * 1000)
 			// Per-stop transparency uses PROMPT.md direct mapping (100 = opaque → 100000; 40 → 40000).
 			// NOTE: this differs from the solid-fill path which inverts via `(100 - transparency) * 1000`.
-			const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(stop.transparency * 1000)}"/>` : ''
+			// `a:alpha@val` is also ST_PositiveFixedPercentage [0,100000]; clamp into [0,100] first.
+			const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(Math.max(0, Math.min(100, stop.transparency)) * 1000)}"/>` : ''
 			return `<a:gs pos="${pos}">${createColorElement(stop.color, inner)}</a:gs>`
 		})
 		.join('')
