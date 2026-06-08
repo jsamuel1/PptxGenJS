@@ -2252,10 +2252,10 @@ export interface TransitionProps {
 	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
 	direction?: TransitionDirection
 }
-export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut'
+export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut' | 'motionPath'
 export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 export interface AnimationProps {
-	/** Entrance (`appear`/`fadeIn`/`flyIn`/`zoomIn`), emphasis (`pulse`/`spin`/`grow`/`colorPulse`), or exit (`disappear`/`fadeOut`/`flyOut`/`zoomOut`) effect. */
+	/** Entrance (`appear`/`fadeIn`/`flyIn`/`zoomIn`), emphasis (`pulse`/`spin`/`grow`/`colorPulse`), exit (`disappear`/`fadeOut`/`flyOut`/`zoomOut`), or motion-path (`motionPath`) effect. */
 	type: AnimationType
 	/** Effect duration in ms. @default 500 */
 	duration?: number
@@ -2294,6 +2294,15 @@ export interface AnimationProps {
 	 * @example slide.addText('Flash', { animation: { type: 'colorPulse', color: 'FF0000' } })
 	 */
 	color?: string
+	/**
+	 * Motion path for the `motionPath` effect: an SVG-like command string in **normalized
+	 * 0–1 slide coordinates** (origin at the object's start position). Supported commands:
+	 * `M`/`L`/`C`/`Z` (move/line/cubic-bezier/close; lowercase relative variants accepted).
+	 * Emitted verbatim on `<p:animMotion @path>` with an appended ` E` end marker. Required
+	 * for `motionPath`; an invalid or missing path warns and omits the motion payload.
+	 * @example slide.addShape('ellipse', { animation: { type: 'motionPath', path: 'M 0 0 L 0.3 -0.1 L 0.5 0' } })
+	 */
+	path?: string
 }
 /**
  * Number-counter sugar for `addText`. Expands into N stacked text frames at the

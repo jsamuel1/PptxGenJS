@@ -26,6 +26,7 @@ capabilities into the library as first-class, schema-validated APIs.
 | **Shape entrance animations** | `animation: { type, duration?, delay?, trigger?, direction? }` | ✅ Done (appear, fadeIn, flyIn, zoomIn) |
 | **Shape emphasis animations** | `animation: { type: 'pulse' \| 'spin' \| 'grow' \| 'colorPulse', spinDegrees?, growScale?, color? }` | ✅ Done |
 | **Shape exit animations** | `animation: { type: 'disappear' \| 'fadeOut' \| 'flyOut' \| 'zoomOut', duration?, direction? }` | ✅ Done |
+| **Shape motion-path animation** | `animation: { type: 'motionPath', path, duration?, trigger? }` | ✅ Done (`<p:animMotion>`; normalized 0–1 SVG-like path) |
 | **Animation build steps** | `trigger: 'afterPrevious' \| 'withPrevious' \| 'onClick'` | ✅ Done |
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
 | **Header/footer (master config)** | `defineSlideMaster({ headerFooter: { slideNumber?, dateTime?, footer? } })` | ✅ Done (master/layout `<p:hf>` + footer/date placeholders) |
@@ -167,6 +168,28 @@ slide.addText('Gone', {
 })
 // Exit types: 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut'
 // (emit presetClass="exit"; share the same trigger/group/stagger semantics)
+```
+
+### Motion-path animation
+
+Animate an object **along a custom path** with `type: 'motionPath'`. The `path`
+is an SVG-like command string in **normalized 0–1 slide coordinates** (origin at
+the object's start position); it is emitted verbatim on `<p:animMotion>` with an
+appended ` E` end marker (it is *not* routed through the `svgPath` shape helper):
+
+```ts
+slide.addShape('ellipse', {
+  x: 1, y: 1, w: 0.5, h: 0.5, fill: { color: '7C3AED' },
+  animation: {
+    type: 'motionPath',
+    path: 'M 0 0 L 0.3 -0.1 L 0.5 0',   // M/L/C/Z commands, normalized 0–1
+    duration: 1000,
+    trigger: 'afterPrevious'
+  }
+})
+// emits presetClass="path" + <p:animMotion origin="layout"
+//   path="M 0 0 L 0.3 -0.1 L 0.5 0 E" pathEditMode="relative"> targeting ppt_x/ppt_y.
+// An invalid/missing path warns and omits the motion (no entrance <p:set>).
 ```
 
 ### Header / footer (slide master config)

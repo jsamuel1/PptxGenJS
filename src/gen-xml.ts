@@ -1853,6 +1853,17 @@ const EXIT_TYPES = new Set<string>(['disappear', 'fadeOut', 'flyOut', 'zoomOut']
 const isExitAnim = (type: string): boolean => EXIT_TYPES.has(type)
 
 /**
+ * Motion-path animation types move an already-visible object along a custom path
+ * (`presetClass="path"`). Like emphasis/exit they target a visible object and must
+ * NOT emit the entrance visibility `<p:set>`.
+ */
+const MOTION_TYPES = new Set<string>(['motionPath'])
+const isMotionAnim = (type: string): boolean => MOTION_TYPES.has(type)
+
+/** Allowed token set for a motion `path` string (also an injection guard: rejects `<`/`>`/`&`/`"`). */
+const MOTION_PATH_REGEX = /^[MLCZmlcze0-9.,+\-\s]+$/
+
+/**
  * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
  * @param {AnimationProps} anim - the animation options
  * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
@@ -1861,10 +1872,10 @@ const isExitAnim = (type: string): boolean => EXIT_TYPES.has(type)
  */
 function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => number): string {
 	const dur = typeof anim.duration === 'number' ? anim.duration : 500
-	// Entrance types emit a leading visibility <p:set> (instant show); emphasis AND exit types
-	// target an already-visible object and MUST NOT emit it.
+	// Entrance types emit a leading visibility <p:set> (instant show); emphasis, exit AND
+	// motion-path types target an already-visible object and MUST NOT emit it.
 	let payload = ''
-	if (!isEmphasisAnim(anim.type) && !isExitAnim(anim.type)) {
+	if (!isEmphasisAnim(anim.type) && !isExitAnim(anim.type) && !isMotionAnim(anim.type)) {
 		payload =
 			'<p:set>' +
 			'<p:cBhvr>' +
@@ -2060,6 +2071,28 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 		})
 	}
 
+	// --- Motion path (presetClass="path") -------------------------------------
+	// motionPath -> <p:animMotion> animating ppt_x/ppt_y along a normalized 0–1 SVG-like path.
+	// The path string is passed through VERBATIM (NOT routed through svgPathToOoxml, which builds
+	// <a:custGeom> EMU geometry) with an appended " E" end marker. Validate against an allowed
+	// token set (also an XML-attr injection guard); invalid/missing -> warn + omit the payload.
+	if (anim.type === 'motionPath') {
+		const rawPath = typeof anim.path === 'string' ? anim.path.trim() : ''
+		if (rawPath.length > 0 && MOTION_PATH_REGEX.test(rawPath)) {
+			const path = /[Ee]\s*$/.test(rawPath) ? rawPath : `${rawPath} E`
+			payload +=
+				`<p:animMotion origin="layout" path="${path}" pathEditMode="relative">` +
+				'<p:cBhvr>' +
+				`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				'<p:attrNameLst><p:attrName>ppt_x</p:attrName><p:attrName>ppt_y</p:attrName></p:attrNameLst>' +
+				'</p:cBhvr>' +
+				'</p:animMotion>'
+		} else {
+			console.warn('Warning: animation type "motionPath" requires a valid `path` (M/L/C/Z commands, normalized 0–1 coords); skipping')
+		}
+	}
+
 	return payload
 }
 
@@ -2084,7 +2117,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const nextId = (): number => idCounter++
 
 	// presetID labels the effect in the PowerPoint UI
-	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2, disappear: 1, fadeOut: 10, flyOut: 2, zoomOut: 23 }
+	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2, disappear: 1, fadeOut: 10, flyOut: 2, zoomOut: 23, motionPath: 0 }
 	// trigger -> build-step wrapper nodeType
 	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
@@ -2136,7 +2169,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const renderMember = (entry: Entry, memberDelay: number): string => {
 		const { anim, spid, exitMs } = entry
 		const presetID = presetMap[anim.type] ?? 1
-		const presetClass = isExitAnim(anim.type) ? 'exit' : isEmphasisAnim(anim.type) ? 'emph' : 'entr'
+		const presetClass = isMotionAnim(anim.type) ? 'path' : isExitAnim(anim.type) ? 'exit' : isEmphasisAnim(anim.type) ? 'emph' : 'entr'
 		const effectId = nextId()
 		// Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
 		// Isolated here so genXmlAnimPayload stays scoped to the public animation types.

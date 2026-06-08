@@ -4,7 +4,8 @@
  * DESC: Demo slides for fork-added features: slide transitions, shape entrance
  *       animations (appear/fadeIn/flyIn/zoomIn), emphasis animations
  *       (pulse/spin/grow/colorPulse), exit animations
- *       (disappear/fadeOut/flyOut/zoomOut), animation triggers/stagger,
+ *       (disappear/fadeOut/flyOut/zoomOut), motion-path animation,
+ *       animation triggers/stagger,
  *       gradient fills, and the number-counter sugar.
  * DEPS: Used by various demos (./demos/browser, ./demos/node, etc.)
  * NOTE: Transitions and entrance animations only *play* in desktop Microsoft
@@ -23,6 +24,7 @@ export function genSlides_Animation(pptx) {
 	genSlide_AnimationTypes(pptx);
 	genSlide_EmphasisAnimations(pptx);
 	genSlide_ExitAnimations(pptx);
+	genSlide_MotionPath(pptx);
 	genSlide_AnimationTriggers(pptx);
 	genSlide_Gradients(pptx);
 	genSlide_Counter(pptx);
@@ -232,6 +234,41 @@ function genSlide_ExitAnimations(pptx) {
 
 	slide.addText(
 		"animation: { type: 'fadeOut', duration: 600 }\nanimation: { type: 'flyOut', direction: 'right' }\nanimation: { type: 'zoomOut' }",
+		{ x: 0.7, y: 5.0, w: 11.8, h: 1.4, align: "center", valign: "middle", fontSize: 16, fontFace: "Courier New", color: "696969" }
+	);
+}
+
+/**
+ * SLIDE: Motion-Path Animation
+ * Animates objects along a custom path (presetClass="path") via <p:animMotion>.
+ * The path is an SVG-like command string in normalized 0–1 slide coordinates.
+ * @param {PptxGenJS} pptx
+ */
+function genSlide_MotionPath(pptx) {
+	const slide = pptx.addSlide({ sectionTitle: "Animation" });
+
+	slide.addTable([[{ text: "Motion Path: animate along a custom path", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+	slide.addNotes(`Motion paths animate an already-visible object along a normalized 0–1 path. Run as a slideshow in PowerPoint. API Docs: ${DOCS}`);
+
+	slide.addShape("ellipse", {
+		x: 1.0,
+		y: 2.0,
+		w: 0.6,
+		h: 0.6,
+		fill: { color: pptx.colors.ACCENT1 },
+		animation: { type: "motionPath", path: "M 0 0 L 0.3 -0.1 L 0.5 0", duration: 1000, trigger: "afterPrevious" },
+	});
+	slide.addShape("ellipse", {
+		x: 1.0,
+		y: 3.5,
+		w: 0.6,
+		h: 0.6,
+		fill: { color: pptx.colors.ACCENT2 },
+		animation: { type: "motionPath", path: "M 0 0 C 0.2 -0.2 0.4 0.2 0.6 0", duration: 1200, trigger: "afterPrevious" },
+	});
+
+	slide.addText(
+		"animation: { type: 'motionPath', path: 'M 0 0 L 0.3 -0.1 L 0.5 0' }\nanimation: { type: 'motionPath', path: 'M 0 0 C 0.2 -0.2 0.4 0.2 0.6 0' }",
 		{ x: 0.7, y: 5.0, w: 11.8, h: 1.4, align: "center", valign: "middle", fontSize: 16, fontFace: "Courier New", color: "696969" }
 	);
 }

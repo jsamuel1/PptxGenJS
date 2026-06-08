@@ -424,6 +424,30 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide with motion-path animation (p:animMotion)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addShape('ellipse', { x: 1, y: 1, w: 0.5, h: 0.5, fill: { color: '7C3AED' }, animation: { type: 'motionPath', path: 'M 0 0 L 0.3 -0.1 L 0.5 0', duration: 1000 } })
+				// default-off: a plain un-animated shape adds no timing/motion
+				s.addShape('rect', { x: 4, y: 3, w: 2, h: 1, fill: { color: '00FF00' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Regression-catch: motion-path members carry presetClass="path" (not entr/emph/exit)
+			assert(/presetClass="path"/.test(xml), 'motionPath: expected presetClass="path" in timing block')
+			assert(!/presetClass="entr"/.test(xml), 'motionPath: must NOT emit presetClass="entr"')
+			assert(!/presetClass="emph"/.test(xml), 'motionPath: must NOT emit presetClass="emph"')
+			assert(!/presetClass="exit"/.test(xml), 'motionPath: must NOT emit presetClass="exit"')
+			// Regression-catch: path string passed through VERBATIM with appended " E" end marker
+			assert(/<p:animMotion origin="layout" path="M 0 0 L 0.3 -0.1 L 0.5 0 E" pathEditMode="relative">/.test(xml), 'motionPath: expected verbatim path with appended E marker')
+			// Targets ppt_x/ppt_y
+			assert(/<p:attrName>ppt_x<\/p:attrName><p:attrName>ppt_y<\/p:attrName>/.test(xml), 'motionPath: expected ppt_x/ppt_y attr targets')
+			// Motion targets a visible object: no leading entrance visibility <p:set>
+			assert(!/<p:strVal val="visible"\/>/.test(xml), 'motionPath: must NOT emit the entrance visibility <p:set>')
+			await expectNoSchemaErrors(buf, 'animation-motion-path')
+		}
+	},
+	{
 		name: 'slide master header/footer (p:hf + footer/date placeholders)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

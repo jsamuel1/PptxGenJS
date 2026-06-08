@@ -1,8 +1,20 @@
 # Feature: Motion Path Animations (`p:animMotion`)
 
-> **Status:** Proposed
+> **Status:** Implemented (slice 3.1)
 > **Priority:** Medium — Phase 3 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §5 Transitions & timing — "Motion paths"
+>
+> **Implemented:** `AnimationType` += `'motionPath'` and `path?` on `AnimationProps`
+> (`src/core-interfaces.ts`); `MOTION_TYPES`/`isMotionAnim`, the `presetClass="path"`
+> ternary arm, `motionPath: 0` in `presetMap`, the widened leading-`<p:set>` guard,
+> and the `<p:animMotion>` payload branch in `src/gen-xml.ts`. Tested by the
+> `animation-motion-path` schema fixture (`test/schema.test.js`).
+>
+> **Spec correction:** the `<p:animMotion>` `path` **attribute** takes the SVG-like
+> command string **verbatim** in normalized 0–1 slide coordinates (with an appended
+> ` E` end marker) — it is **NOT** routed through `svgPathToOoxml`, which builds
+> `<a:custGeom>` EMU geometry for a shape's outline (a different mechanism). The path
+> is validated against an allowed-token regex (`/^[MLCZmlcze0-9.,+\-\s]+$/`).
 
 ## Problem
 
@@ -39,9 +51,11 @@ Inside a `<p:par>` build step (`presetClass="path"`):
 </p:animMotion>
 ```
 
-Path coordinates are normalized to the slide (the library's SVG-path parser
-from `svgPath` can be reused to validate/normalize commands; append `E` end
-marker as PowerPoint expects).
+Path coordinates are normalized to the slide and emitted **verbatim** on the
+`path` attribute (with an appended `E` end marker as PowerPoint expects). The
+string is validated against an allowed-token regex — it is **not** routed through
+`svgPathToOoxml` (that helper builds `<a:custGeom>` EMU geometry, a different
+mechanism).
 
 ## Implementation location
 
@@ -49,7 +63,8 @@ marker as PowerPoint expects).
   `path?: string` to `AnimationProps`.
 - `src/gen-xml.ts` — emit `<p:animMotion>` in the timing payload builder with
   `presetClass="path"`.
-- Reuse `svgPathToOoxml`-style parsing where helpful.
+- Pass the validated `path` string through verbatim (do **not** call
+  `svgPathToOoxml`).
 
 ## Edge cases
 

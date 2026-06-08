@@ -131,7 +131,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Entrance: `zoomIn` | two `p:anim` on `ppt_w`/`ppt_h` | ✅ Done | scales 0 → full; `presetID=23`; tested |
 | Emphasis effects | `p:animClr`, `p:animScale`, `p:animRot` | ✅ Done | pulse/spin/grow/colorPulse; `presetClass="emph"`; tested |
 | Exit effects | `p:animEffect`/`p:set`/`p:anim` (out) | ✅ Done | disappear/fadeOut/flyOut/zoomOut; `presetClass="exit"`; tested |
-| Motion paths | `p:animMotion` | ❌ Missing | |
+| Motion paths | `p:animMotion` | ✅ Done | `presetClass="path"`; verbatim 0–1 path + `E` marker; targets `ppt_x`/`ppt_y`; tested |
 | Counter (odometer) sugar | stacked `appear` frames | ✅ Done | fork sugar |
 
 ## 6. Headers / footers / placeholders
@@ -152,7 +152,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 
 1. **Finish partials first** — pattern/picture shape fills, then **emphasis + exit** animations (the timing engine already emits real build steps, so these reuse existing infrastructure).
 2. **Further shape work** — picture-fill polish.
-3. **Timing depth** — motion paths, emphasis variants, action jumps.
+3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
 5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, kinsoku, hover links, **ink** (niche but tractable).
 
