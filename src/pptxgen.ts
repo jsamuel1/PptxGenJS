@@ -106,7 +106,7 @@ import * as genTable from './gen-tables'
 import * as genXml from './gen-xml'
 import { layoutGrid as layoutGridUtil } from './gen-utils'
 
-const VERSION = '4.1.6'
+const VERSION = '4.1.7'
 
 export default class PptxGenJS implements IPresentationProps {
 	// Property getters/setters
