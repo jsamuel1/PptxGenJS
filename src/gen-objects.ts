@@ -106,6 +106,9 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayout):
 
 	// STEP 3: Add Slide Numbers (NOTE: Do this last so numbers are not covered by objects!)
 	if (props.slideNumber && typeof props.slideNumber === 'object') target._slideNumberProps = props.slideNumber
+
+	// STEP 4: Stash header/footer config (drives derived `<p:hf>` + ftr/dt placeholders on the layout)
+	if (props.headerFooter && typeof props.headerFooter === 'object') target._headerFooter = props.headerFooter
 }
 
 /**

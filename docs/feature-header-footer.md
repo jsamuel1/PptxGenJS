@@ -1,8 +1,15 @@
 # Feature: First-Class Header / Footer Configuration (`p:hf`)
 
-> **Status:** Proposed
+> **Status:** Partially Implemented — master/layout config done (slice 1.5); per-slide show/hide + notes/handout headers remain (slice 1.6)
 > **Priority:** Medium — Phase 1 (matrix `⚠️ Partial`/`❌` → `✅`)
-> **Matrix rows:** §6 — "Footer text placeholder", "Per-slide hf show/hide", "Notes/handout headers"
+> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (❌ Missing), "Notes/handout headers" (❌ Missing)
+>
+> **Implemented:** `HeaderFooterProps` (`src/core-interfaces.ts`) + `headerFooter`
+> on `SlideMasterProps`; `createSlideMaster` STEP-4 stash (`src/gen-objects.ts`);
+> derived `<p:hf>` in `makeXmlLayout` + footer/date placeholders in
+> `slideObjectToXml` STEP-4b (`src/gen-xml.ts`). Tested by the `header-footer`
+> schema fixture (`test/schema.test.js`). The master's hardcoded
+> `<p:hf sldNum="0" .../>` is intentionally left untouched.
 
 ## Problem
 

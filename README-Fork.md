@@ -28,6 +28,7 @@ capabilities into the library as first-class, schema-validated APIs.
 | **Shape exit animations** | `animation: { type: 'disappear' \| 'fadeOut' \| 'flyOut' \| 'zoomOut', duration?, direction? }` | ✅ Done |
 | **Animation build steps** | `trigger: 'afterPrevious' \| 'withPrevious' \| 'onClick'` | ✅ Done |
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
+| **Header/footer (master config)** | `defineSlideMaster({ headerFooter: { slideNumber?, dateTime?, footer? } })` | ✅ Done (master/layout `<p:hf>` + footer/date placeholders) |
 | **Gradient fills** | `fill: { type: 'gradient', stops[], direction? }` | ✅ Done |
 
 ### Bug Fixes (not yet in upstream)
@@ -164,6 +165,27 @@ slide.addText('Gone', {
 })
 // Exit types: 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut'
 // (emit presetClass="exit"; share the same trigger/group/stagger semantics)
+```
+
+### Header / footer (slide master config)
+
+Configure a footer, date, and slide-number on a slide master. This emits a
+derived `<p:hf>` plus the matching footer/date placeholders on the master's
+layout (the master's own hardcoded `<p:hf>` is left untouched):
+
+```ts
+pptx.defineSlideMaster({
+  title: 'CORPORATE',
+  headerFooter: {
+    slideNumber: true,                  // <p:hf sldNum="1">
+    dateTime: { format: 'datetime1' },  // <p:hf dt="1"> + auto-updating date field
+    // dateTime: { value: 'Q1 2026' },  // ...or literal static text instead
+    footer: 'Confidential',             // <p:hf ftr="1"> + footer placeholder text
+  },
+})
+pptx.addSlide({ masterName: 'CORPORATE' })
+// NOTE: per-slide show/hide and notes/handout headers are not yet supported
+// (`<p:hf>` is not valid on a slide — that's a separate placeholder mechanism).
 ```
 
 ### Gradient fill

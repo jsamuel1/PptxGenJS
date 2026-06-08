@@ -271,6 +271,39 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide master header/footer (p:hf + footer/date placeholders)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.defineSlideMaster({
+					title: 'HF_MASTER',
+					headerFooter: { slideNumber: true, dateTime: { format: 'datetime1' }, footer: 'Confidential' }
+				})
+				p.addSlide({ masterName: 'HF_MASTER' })
+			})
+			// The first user-defined master lands AFTER the default layout (index 0 → slideLayout1.xml),
+			// so scan all slideLayout parts for the derived <p:hf> rather than hardcoding an index.
+			const layoutPaths = listEntries(zip).filter(n => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n))
+			let hfLayout = null
+			for (const path of layoutPaths) {
+				const x = await readEntry(zip, path)
+				if (/<p:hf\b/.test(x)) { hfLayout = x; break }
+			}
+			assert(hfLayout !== null, 'header-footer: expected a slideLayout carrying a derived <p:hf>')
+			// Regression-catch: derived <p:hf> must reflect the config (sldNum/ftr/dt = 1, hdr = 0)
+			assert(/<p:hf sldNum="1" hdr="0" ftr="1" dt="1"\/>/.test(hfLayout), 'header-footer: expected <p:hf sldNum="1" hdr="0" ftr="1" dt="1"/>')
+			// Footer placeholder + its literal text must be present
+			assert(/<p:ph type="ftr" sz="quarter" idx="4"\/>/.test(hfLayout), 'header-footer: expected footer placeholder <p:ph type="ftr">')
+			assert(/<a:t>Confidential<\/a:t>/.test(hfLayout), 'header-footer: expected footer literal text "Confidential"')
+			// Date placeholder (auto field) must be present
+			assert(/<p:ph type="dt" idx="1"\/>/.test(hfLayout), 'header-footer: expected date placeholder <p:ph type="dt">')
+			assert(/type="datetime1"/.test(hfLayout), 'header-footer: expected date auto-field type="datetime1"')
+			// Default-off invariant: the default (unconfigured) layout must carry NO <p:hf>
+			const defaultLayout = await readEntry(zip, 'ppt/slideLayouts/slideLayout1.xml')
+			assert(!/<p:hf\b/.test(defaultLayout), 'header-footer: default layout must NOT emit <p:hf>')
+			await expectNoSchemaErrors(buf, 'header-footer')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

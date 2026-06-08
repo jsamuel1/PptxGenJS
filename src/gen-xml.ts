@@ -828,6 +828,43 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 		strSlideXml += '</p:txBody></p:sp>'
 	}
 
+	// STEP 4b: Header/footer placeholders (footer text + date) — gated on `_headerFooter` config.
+	// `<p:hf>` itself is emitted on the layout (see `makeXmlLayout`); here we emit the matching
+	// `<p:sp>` placeholders inside the `<p:spTree>`. Emission is fully gated so masters/slides
+	// without `headerFooter` config stay byte-identical (default-off invariant).
+	if (slide._headerFooter) {
+		const hf = slide._headerFooter
+		// Footer placeholder (ftr): emit only when a non-empty footer string is provided
+		if (typeof hf.footer === 'string' && hf.footer.length > 0) {
+			strSlideXml += '<p:sp>'
+			strSlideXml += ' <p:nvSpPr>'
+			strSlideXml += '  <p:cNvPr id="26" name="Footer Placeholder 25"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>'
+			strSlideXml += '  <p:nvPr><p:ph type="ftr" sz="quarter" idx="4"/></p:nvPr>'
+			strSlideXml += ' </p:nvSpPr>'
+			strSlideXml += ' <p:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+			strSlideXml += ` <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(hf.footer)}</a:t></a:r></a:p></p:txBody>`
+			strSlideXml += '</p:sp>'
+		}
+		// Date/time placeholder (dt): auto field by default, or literal text when `value` is set
+		if (hf.dateTime) {
+			const dtOpts = typeof hf.dateTime === 'object' ? hf.dateTime : {}
+			strSlideXml += '<p:sp>'
+			strSlideXml += ' <p:nvSpPr>'
+			strSlideXml += '  <p:cNvPr id="27" name="Date Placeholder 26"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>'
+			strSlideXml += '  <p:nvPr><p:ph type="dt" idx="1"/></p:nvPr>'
+			strSlideXml += ' </p:nvSpPr>'
+			strSlideXml += ' <p:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+			strSlideXml += ' <p:txBody><a:bodyPr/><a:lstStyle/><a:p>'
+			if (typeof dtOpts.value === 'string' && dtOpts.value.length > 0) {
+				strSlideXml += `<a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(dtOpts.value)}</a:t></a:r>`
+			} else {
+				strSlideXml += `<a:fld id="{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}" type="${dtOpts.format || 'datetimeFigureOut'}"><a:rPr lang="en-US"/><a:t></a:t></a:fld>`
+			}
+			strSlideXml += '<a:endParaRPr lang="en-US"/></a:p></p:txBody>'
+			strSlideXml += '</p:sp>'
+		}
+	}
+
 	// STEP 5: Close spTree and finalize slide XML
 	strSlideXml += '</p:spTree>'
 	strSlideXml += '</p:cSld>'
@@ -2190,10 +2227,21 @@ export function makeXmlNotesSlide (slide: PresSlide): string {
  * @return {string} XML
  */
 export function makeXmlLayout (layout: SlideLayout): string {
+	// CT_SlideLayout child order: cSld, clrMapOvr, transition?, timing?, hf?, extLst?
+	// Emit a derived `<p:hf>` only when `headerFooter` config is present, so existing layouts stay byte-identical.
+	let hfXml = ''
+	if (layout._headerFooter) {
+		const hf = layout._headerFooter
+		const sldNum = hf.slideNumber ? 1 : 0
+		const ftr = (typeof hf.footer === 'string' && hf.footer.length > 0) ? 1 : 0
+		const dt = hf.dateTime ? 1 : 0
+		// `hdr` stays 0 on slide layouts — header placeholders are notes/handout only (slice 1.6)
+		hfXml = `<p:hf sldNum="${sldNum}" hdr="0" ftr="${ftr}" dt="${dt}"/>`
+	}
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 		<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" preserve="1">
 		${slideObjectToXml(layout)}
-		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`
+		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${hfXml}</p:sldLayout>`
 }
 
 /**

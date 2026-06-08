@@ -2048,6 +2048,29 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	 */
 	margin?: Margin // TODO: convert to inches in 4.0 (valid values are 0-22)
 }
+export interface HeaderFooterProps {
+	/**
+	 * Show the slide-number field (`<p:hf sldNum="1">`).
+	 * Note: the slide-number *placeholder* itself is configured via `slideNumber` on the master/slide.
+	 */
+	slideNumber?: boolean
+	/**
+	 * Show a date/time placeholder.
+	 * - `true` → auto-updating date field (`datetimeFigureOut`)
+	 * - `{ format }` → auto-updating date field with the given `<a:fld>` type
+	 * - `{ value }` → literal (static) text instead of an auto field
+	 */
+	dateTime?: boolean | { format?: string, value?: string }
+	/**
+	 * Footer text shown in the footer placeholder. `false`/omitted → no footer placeholder.
+	 */
+	footer?: string | false
+	/**
+	 * Header text. NOTE: `<p:hf hdr>` and header placeholders are only valid on
+	 * notes/handout masters, not on slide layouts — header support is slice 1.6.
+	 */
+	header?: string | false
+}
 export interface SlideMasterProps {
 	/**
 	 * Unique name for this master
@@ -2056,6 +2079,10 @@ export interface SlideMasterProps {
 	background?: BackgroundProps
 	margin?: Margin
 	slideNumber?: SlideNumberProps
+	/**
+	 * Header/footer configuration for this master's layout (`<p:hf>` + footer/date placeholders).
+	 */
+	headerFooter?: HeaderFooterProps
 	objects?: Array< | { chart: IChartOpts }
 	| { image: ImageProps }
 	| { line: ShapeProps }
@@ -2097,6 +2124,7 @@ export interface SlideBaseProps {
 	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
 	_slideNum: number
 	_slideNumberProps?: SlideNumberProps
+	_headerFooter?: HeaderFooterProps
 	_slideObjects?: ISlideObject[]
 
 	background?: BackgroundProps
