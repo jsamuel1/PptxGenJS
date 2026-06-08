@@ -21,6 +21,7 @@ import {
 	ISlideRelMedia,
 	ImageProps,
 	MediaProps,
+	NoteParagraph,
 	PresLayout,
 	PresSlide,
 	ShapeProps,
@@ -236,10 +237,10 @@ export default class Slide {
 	/**
 	 * Add speaker notes to Slide
 	 * @docs https://gitbrent.github.io/PptxGenJS/docs/speaker-notes.html
-	 * @param {string} notes - notes to add to slide
+	 * @param {string | NoteParagraph[]} notes - notes to add to slide; a string is a single paragraph, an array authors structured talking-points (bullets + indent levels)
 	 * @return {Slide} this Slide
 	 */
-	addNotes(notes: string): Slide {
+	addNotes(notes: string | NoteParagraph[]): Slide {
 		genObj.addNotesDefinition(this, notes)
 		return this
 	}

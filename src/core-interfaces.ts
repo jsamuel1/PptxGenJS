@@ -2351,7 +2351,7 @@ export interface PresSlide extends SlideBaseProps {
 	addChart: (type: CHART_NAME | IChartMulti[], data: IOptsChartData[], options?: IChartOpts) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
-	addNotes: (notes: string) => PresSlide
+	addNotes: (notes: string | NoteParagraph[]) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | TextProps[], options?: TextPropsOptions) => PresSlide
@@ -2454,6 +2454,20 @@ export interface KinsokuProps {
  * Custom show — a named subset/ordering of slides (`<p:custShow>` in `presentation.xml`).
  * Lets a presentation define alternate slideshow sequences over the existing slides.
  */
+/**
+ * A single structured speaker-notes paragraph (talking point).
+ * Passed in an array to `slide.addNotes([...])` to author multi-paragraph,
+ * optionally-bulleted/indented speaker notes. A plain `string` argument keeps
+ * the original single-paragraph behavior (byte-identical default).
+ */
+export interface NoteParagraph {
+	/** Paragraph text. */
+	text: string
+	/** Render the paragraph as a bullet (`<a:buChar char="•"/>`). @default false */
+	bullet?: boolean
+	/** 0-based indent level, mapped to the OOXML `lvl` attribute (lvl 0 omits the attribute). @default 0 */
+	indentLevel?: number
+}
 export interface CustomShowProps {
 	/** Display name of the custom show. */
 	name: string

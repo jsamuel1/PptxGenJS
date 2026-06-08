@@ -37,6 +37,7 @@ import {
 	ImageFillProps,
 	ImageProps,
 	MediaProps,
+	NoteParagraph,
 	ObjectOptions,
 	OptsChartGridLine,
 	PresLayout,
@@ -659,14 +660,27 @@ export function addMediaDefinition(target: PresSlide, opt: MediaProps): void {
 /**
  * Adds Notes to a slide.
  * @param {PresSlide} `target` slide object
- * @param {string} `notes`
+ * @param {string | NoteParagraph[]} `notes` plain string (single paragraph) or structured talking-points
  * @since 2.3.0
  */
-export function addNotesDefinition(target: PresSlide, notes: string): void {
-	target._slideObjects.push({
-		_type: SLIDE_OBJECT_TYPES.notes,
-		text: [{ text: notes }],
-	})
+export function addNotesDefinition(target: PresSlide, notes: string | NoteParagraph[]): void {
+	if (typeof notes === 'string') {
+		// String path is UNCHANGED — single-paragraph notes, byte-identical to prior behavior (supports multi-call concat).
+		target._slideObjects.push({
+			_type: SLIDE_OBJECT_TYPES.notes,
+			text: [{ text: notes }],
+		})
+	} else {
+		// Structured path: store one notes object whose `text` carries per-paragraph `options`.
+		// The presence of an `options` key on a `text` entry is the structured discriminator (see buildNotesBodyParagraphs).
+		target._slideObjects.push({
+			_type: SLIDE_OBJECT_TYPES.notes,
+			text: (notes || []).map(para => ({
+				text: para.text,
+				options: { bullet: para.bullet, indentLevel: para.indentLevel },
+			})),
+		})
+	}
 }
 
 /**

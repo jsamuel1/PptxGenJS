@@ -2336,13 +2336,56 @@ export function makeXmlNotesMaster (headerFooter?: HeaderFooterProps): string {
 }
 
 /**
+ * Build the body-placeholder paragraph XML for a notes slide.
+ * Default-off (no structured notes): returns the EXACT original single-paragraph
+ * literal so `notesSlideN.xml` stays byte-identical for all string `addNotes` callers.
+ * Structured (any notes object authored via `addNotes(NoteParagraph[])`, detected by
+ * a `text` entry carrying an `options` key): emits one `<a:p>` per paragraph with
+ * gated `<a:pPr>` (indent `lvl` + `<a:buChar char="•"/>`).
+ * @param {PresSlide} slide - the slide object
+ * @return {string} `<a:p>…</a:p>` body XML (≥1 paragraph, per CT_TextBody)
+ */
+function buildNotesBodyParagraphs (slide: PresSlide): string {
+	// Discriminator: structured notes store per-paragraph `options`; the string path never does.
+	const hasStructured = slide._slideObjects.some(
+		data => data._type === SLIDE_OBJECT_TYPES.notes && Array.isArray(data.text) && data.text.some(t => t.options)
+	)
+
+	if (!hasStructured) {
+		// UNCHANGED original literal — byte-identical default-off.
+		return `<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p>`
+	}
+
+	const paras: string[] = []
+	slide._slideObjects.forEach(data => {
+		if (data._type !== SLIDE_OBJECT_TYPES.notes || !Array.isArray(data.text)) return
+		data.text.forEach(entry => {
+			const text = entry.text || ''
+			const opts = entry.options
+			if (opts) {
+				const lvl = typeof opts.indentLevel === 'number' && opts.indentLevel > 0 ? opts.indentLevel : 0
+				const bullet = !!opts.bullet
+				const pPr = lvl > 0 || bullet ? `<a:pPr${lvl > 0 ? ` lvl="${lvl}"` : ''}>${bullet ? '<a:buChar char="•"/>' : ''}</a:pPr>` : ''
+				paras.push(`<a:p>${pPr}<a:r><a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>`)
+			} else {
+				// A non-structured notes object encountered in the structured path → single plain paragraph.
+				paras.push(`<a:p><a:r><a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>`)
+			}
+		})
+	})
+
+	// CT_TextBody requires ≥1 `<a:p>`
+	return paras.length > 0 ? paras.join('') : '<a:p/>'
+}
+
+/**
  * Creates Notes Slide (`ppt/notesSlides/notesSlide1.xml`)
  * @param {PresSlide} slide - the slide object to transform into XML
  * @return {string} XML
  */
 export function makeXmlNotesSlide (slide: PresSlide): string {
 	return (
-		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>${buildNotesBodyParagraphs(slide)}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`
 	)
 }
 

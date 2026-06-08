@@ -704,6 +704,45 @@ module.exports = [
 		}
 	},
 	{
+		name: 'structured talking-points notes (slide.addNotes(NoteParagraph[]))',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				// slide1: structured array — bullet, bullet+indent lvl=1, plain
+				p.addSlide().addNotes([
+					{ text: 'Open with the problem', bullet: true },
+					{ text: 'Mention the 3 key metrics', bullet: true, indentLevel: 1 },
+					{ text: 'Transition to the demo' },
+				])
+				// slide2: plain string — must take the UNCHANGED byte-identical path
+				p.addSlide().addNotes('Plain string note')
+			})
+			const notes1 = await readEntry(zip, 'ppt/notesSlides/notesSlide1.xml')
+			const notes2 = await readEntry(zip, 'ppt/notesSlides/notesSlide2.xml')
+
+			// --- slide1 structured asserts ---
+			// THREE <a:p> paragraphs in the body placeholder
+			const bodyMatch = notes1.match(/<p:ph type="body" idx="1"\/>[\s\S]*?<a:lstStyle\/>([\s\S]*?)<\/p:txBody>/)
+			assert(bodyMatch, 'structured-notes: could not locate notes body placeholder in notesSlide1')
+			const body1 = bodyMatch[1]
+			assert((body1.match(/<a:p>/g) || []).length === 3, 'structured-notes: expected exactly 3 <a:p> paragraphs')
+			// bullet paragraphs carry <a:buChar char="•"/>
+			assert((body1.match(/<a:buChar char="•"\/>/g) || []).length === 2, 'structured-notes: expected 2 bullet paragraphs with <a:buChar char="•"/>')
+			// second paragraph has lvl="1"
+			assert(/<a:pPr lvl="1"><a:buChar char="•"\/><\/a:pPr><a:r><a:t>Mention the 3 key metrics<\/a:t>/.test(body1), 'structured-notes: indented bullet must emit <a:pPr lvl="1"><a:buChar char="•"/>')
+			// first paragraph: bullet, no lvl
+			assert(/<a:p><a:pPr><a:buChar char="•"\/><\/a:pPr><a:r><a:t>Open with the problem<\/a:t>/.test(body1), 'structured-notes: first bullet must have <a:pPr> with buChar and NO lvl')
+			// third paragraph: plain, NO <a:pPr>
+			assert(/<a:p><a:r><a:t>Transition to the demo<\/a:t><\/a:r><\/a:p>/.test(body1), 'structured-notes: plain paragraph must have NO <a:pPr>')
+
+			// --- slide2 string path byte-identical proof ---
+			assert(/<a:p><a:r><a:rPr lang="en-US" dirty="0"\/><a:t>Plain string note<\/a:t><\/a:r><a:endParaRPr lang="en-US" dirty="0"\/><\/a:p>/.test(notes2), 'structured-notes: plain string note must use the UNCHANGED single-paragraph literal')
+			assert(!/<a:buChar/.test(notes2), 'structured-notes: string-path notes must NOT emit any <a:buChar>')
+
+			// both notes slides schema-clean
+			await expectNoSchemaErrors(buf, 'structured-notes')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

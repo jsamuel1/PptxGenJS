@@ -1,6 +1,7 @@
 # Feature: Structured / Talking-Points Notes Export
 
-> **Status:** Proposed
+> **Status:** Implemented
+> **Implemented:** `slide.addNotes(string | NoteParagraph[])` — string keeps the original single-paragraph notes-slide body (byte-identical); an array of `{ text, bullet?, indentLevel? }` emits multiple `<a:p>` paragraphs (`<a:buChar char="•"/>` + `lvl`) into the existing `notesSlideN.xml` body placeholder via `buildNotesBodyParagraphs()`. No new ZIP parts/rels/Content_Types.
 > **Priority:** Low/Medium — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §2 Slide-level objects — "Talking-points notes export"
 
