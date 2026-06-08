@@ -1,7 +1,8 @@
 # Feature: Animation Stagger (Auto-Grouping)
 
-> **Status:** Proposed  
-> **Priority:** High — eliminates manual trigger/delay assignment in converters
+> **Status:** Implemented (v4.2.0)  
+> **Priority:** High — eliminates manual trigger/delay assignment in converters  
+> **Implemented:** `src/gen-xml.ts` (`genXmlTiming` pre-processes `group`/`stagger` → `trigger`/`delay`); `src/core-interfaces.ts` (`AnimationProps.group?`/`.stagger?`); tests `test/feature-animation-stagger.test.js`
 
 ## Problem
 
