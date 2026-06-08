@@ -117,6 +117,82 @@ module.exports = [
 		},
 	},
 	{
+		name: 'addCard: font-icon {char,fontFace} + bare (iconFill:none) → typeface run, accent color, no icon tile',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'X',
+				icon: { char: '\uf1c4', fontFace: 'Font Awesome 6 Free Solid', color: 'A78BFA' },
+				iconFill: 'none',
+			}))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('typeface="Font Awesome 6 Free Solid"') !== -1, 'expected font-icon typeface; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="A78BFA"/>') !== -1, 'expected icon accent color A78BFA; got: ' + inner)
+			// bare icon: only the background roundRect remains (no icon-container tile)
+			assert((inner.match(/prst="roundRect"/g) || []).length === 1, 'expected 1 roundRect (bg only, no icon tile); got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: bare-icon (iconFill:false) svg + iconColor → custGeom in accent color, no icon tile',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'Y',
+				icon: { svgPath: { d: 'M3 12h18', viewBox: { w: 24, h: 24 } } },
+				iconFill: false, iconColor: '10B981',
+			}))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('<a:custGeom>') !== -1, 'expected svg custGeom; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="10B981"/>') !== -1, 'expected iconColor 10B981 on glyph; got: ' + inner)
+			assert((inner.match(/prst="roundRect"/g) || []).length === 1, 'expected 1 roundRect (bg only, no icon tile); got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: iconColor overrides default glyph color on a tiled emoji icon',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'Z', icon: '★', iconColor: 'FF8800',
+			}))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('<a:srgbClr val="FF8800"/>') !== -1, 'expected glyph accent FF8800; got: ' + inner)
+			// tile still drawn (iconFill not suppressed): bg + icon container = 2 roundRects
+			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + icon tile); got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: DEFAULT-OFF — v1 emoji card (no iconColor) keeps icon tile + default glyph color E4E4ED',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'Z', icon: '🚀', iconFill: '7C3AED' }))
+			const inner = groupInner(xml)
+			// bg + icon container tile = 2 roundRects (unchanged from v1)
+			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + icon tile); got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected icon tile fill 7C3AED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="E4E4ED"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: DEFAULT-OFF — v1 svg card (no iconColor) keeps icon tile + glyph color E4E4ED',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'Z',
+				icon: { svgPath: { d: 'M 0 0 L 24 0 L 12 24 Z', viewBox: { w: 24, h: 24 } } },
+			}))
+			const inner = groupInner(xml)
+			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + icon tile); got: ' + inner)
+			assert(inner.indexOf('<a:custGeom>') !== -1, 'expected svg custGeom; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="E4E4ED"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: GUARD — font-icon object missing fontFace does not throw and renders no glyph run',
+		fn: async () => {
+			// { char } without fontFace must NOT match the font-icon arm (and must not crash)
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'G', icon: { char: '\uf1c4' } }))
+			const inner = groupInner(xml)
+			// tile still drawn (icon present), but no typeface run for the icon glyph
+			assert(inner.indexOf('typeface="undefined"') === -1, 'must not emit a font-icon run with undefined typeface; got: ' + inner)
+			assert(inner.indexOf('<a:t>G</a:t>') !== -1, 'title still rendered; got: ' + inner)
+		},
+	},
+	{
 		name: 'addCard: default-off — a deck with no card emits no <p:grpSp> from addCard',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addText('plain', { x: 1, y: 1, w: 4, h: 1 }))

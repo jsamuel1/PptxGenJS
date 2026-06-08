@@ -1069,8 +1069,14 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	title: string
 	/** Card description / body text. */
 	description?: string
-	/** Icon: an SVG path (rendered as `<a:custGeom>`) or an emoji/text string. */
-	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string
+	/**
+	 * Icon, one of:
+	 * - an SVG path object `{ svgPath: { d, viewBox } }` (rendered as `<a:custGeom>`)
+	 * - an emoji/text string
+	 * - a font-icon glyph `{ char, fontFace, color? }` (e.g. Font Awesome) — `fontFace` is
+	 *   required so the glyph renders with the correct icon font instead of tofu.
+	 */
+	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string | { char: string, fontFace: string, color?: HexColor }
 	/** Optional badge, positioned top-right. */
 	badge?: CardBadgeProps
 	/** Card background fill (hex or fill props). @default '1a1a24' */
@@ -1089,8 +1095,18 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	descFont?: CardFontProps
 	/** Icon container size (inches). @default 0.4 */
 	iconSize?: number
-	/** Icon container background fill (hex, alpha allowed). @default '7C3AED' */
-	iconFill?: HexColor
+	/**
+	 * Icon container background fill (hex, alpha allowed). Set to `'none'` or `false` to
+	 * suppress the container tile entirely (bare-icon mode — the glyph is drawn directly on
+	 * the card). @default '7C3AED'
+	 */
+	iconFill?: HexColor | 'none' | false
+	/**
+	 * Icon glyph accent colour (hex). Applies to emoji/text, SVG-path, and font-icon glyphs,
+	 * independent of the container tile — useful for bare icons. Falls back to
+	 * `titleFont.color` then `'E4E4ED'` when omitted.
+	 */
+	iconColor?: HexColor
 	/** Content alignment within the card. @default 'center' */
 	align?: 'center' | 'left'
 	/** Icon placement. @default 'top' */

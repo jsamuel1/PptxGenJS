@@ -28,7 +28,8 @@ slide.addCard({
   // Content
   title: 'Knowledge Graph',
   description: 'Personal context memory across all interactions',
-  icon?: { svgPath: { d: '...', viewBox: { w: 24, h: 24 } } },  // or emoji string
+  icon?: { svgPath: { d: '...', viewBox: { w: 24, h: 24 } } },  // or emoji string,
+                                                                // or font-icon { char, fontFace, color? }
   badge?: { text: 'NEW', fill: '10B981' },
 
   // Styling
@@ -42,7 +43,8 @@ slide.addCard({
   titleFont?: { face: 'Inter', size: 13, bold: true, color: 'E4E4ED' },
   descFont?: { face: 'Inter', size: 10, color: '8A8A9A' },
   iconSize?: 0.4,              // inches (icon container size)
-  iconFill?: '7C3AED12',      // icon background (with alpha)
+  iconFill?: '7C3AED12',      // icon background (with alpha); 'none' or false = bare icon (no tile)
+  iconColor?: 'A78BFA',       // icon glyph accent colour (independent of the tile)
 
   // Layout
   align?: 'center' | 'left',  // content alignment within card

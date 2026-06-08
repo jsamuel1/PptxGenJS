@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T14:21:39.820Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T14:43:58.786Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -2896,12 +2896,16 @@ function addCardDefinition(target, opts) {
     const descH = Math.max(0.2, h - descY - padding);
     // 3) Icon container + glyph
     if (hasIcon) {
-        const iconFill = options.iconFill !== undefined ? options.iconFill : '7C3AED';
-        group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
-            x: iconX, y: iconY, w: iconSize, h: iconSize,
-            fill: { color: iconFill }, rectRadius: cornerRadius / 2, line: { type: 'none' },
-        });
-        const glyphColor = titleFont.color || 'E4E4ED';
+        // Bare-icon mode: `iconFill: 'none' | false` suppresses the container tile
+        const tileless = options.iconFill === 'none' || options.iconFill === false;
+        const glyphColor = options.iconColor || titleFont.color || 'E4E4ED';
+        if (!tileless) {
+            const iconFill = options.iconFill !== undefined ? options.iconFill : '7C3AED';
+            group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+                x: iconX, y: iconY, w: iconSize, h: iconSize,
+                fill: { color: iconFill }, rectRadius: cornerRadius / 2, line: { type: 'none' },
+            });
+        }
         if (typeof options.icon === 'string') {
             // Emoji / text glyph centred in the container
             group.addText(options.icon, {
@@ -2909,7 +2913,15 @@ function addCardDefinition(target, opts) {
                 align: 'center', valign: 'middle', fontSize: Math.round(iconSize * 36), color: glyphColor,
             });
         }
-        else if (options.icon && typeof options.icon === 'object' && options.icon.svgPath) {
+        else if (options.icon && typeof options.icon === 'object' && 'char' in options.icon && options.icon.char && options.icon.fontFace) {
+            // Font-icon glyph (e.g. Font Awesome) — requires `fontFace` to render correctly
+            group.addText(options.icon.char, {
+                x: iconX, y: iconY, w: iconSize, h: iconSize,
+                align: 'center', valign: 'middle', fontFace: options.icon.fontFace,
+                fontSize: Math.round(iconSize * 36), color: options.icon.color || glyphColor,
+            });
+        }
+        else if (options.icon && typeof options.icon === 'object' && 'svgPath' in options.icon && options.icon.svgPath) {
             // SVG path glyph, inset within the container; emits <a:custGeom>
             const inset = iconSize * 0.22;
             group.addShape('rect', {

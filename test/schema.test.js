@@ -788,6 +788,53 @@ module.exports = [
 		}
 	},
 	{
+		name: 'addCard v2 icons (font-icon run typeface + bare-icon tile suppression)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				// font-icon + bare (no tile) + accent color
+				s.addCard({
+					x: 0.5, y: 0.5, w: 3, h: 2, title: 'Font Icon',
+					icon: { char: '\uf1c4', fontFace: 'Font Awesome 6 Free Solid', color: 'A78BFA' },
+					iconFill: 'none',
+				})
+				// bare svg icon with iconColor
+				s.addCard({
+					x: 4, y: 0.5, w: 3, h: 2, title: 'Bare SVG',
+					icon: { svgPath: { d: 'M3 12h18', viewBox: { w: 24, h: 24 } } },
+					iconFill: false, iconColor: '10B981',
+				})
+			})
+			// Baseline: cards compose only already-validated primitives (grpSp, roundRect,
+			// custGeom, text runs) — the deck is schema-clean.
+			await expectNoSchemaErrors(buf, 'card-v2-icons')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch #1 (font-icon): the glyph run must carry the icon
+			// typeface + accent color. If the font-icon arm regressed (e.g. fontFace dropped),
+			// this fails. ST_TextTypeface is a plain string, so the validator cannot catch this —
+			// hence the explicit assertion (per RUNNER mem-1).
+			assert(slideXml.indexOf('typeface="Font Awesome 6 Free Solid"') !== -1, 'card-v2: expected font-icon typeface; got: ' + slideXml)
+			assert(slideXml.indexOf('<a:srgbClr val="A78BFA"/>') !== -1, 'card-v2: expected font-icon accent A78BFA')
+			// Exact-emission regression-catch #2 (bare-icon): the two bare cards must emit exactly
+			// 2 roundRects total (one background each, NO icon-container tiles). If tile suppression
+			// regressed, this count rises to 4.
+			assert((slideXml.match(/prst="roundRect"/g) || []).length === 2, 'card-v2: expected 2 roundRects (2 bg, 0 icon tiles); got: ' + (slideXml.match(/prst="roundRect"/g) || []).length)
+			assert(slideXml.indexOf('<a:custGeom>') !== -1, 'card-v2: expected bare svg custGeom')
+			assert(slideXml.indexOf('<a:srgbClr val="10B981"/>') !== -1, 'card-v2: expected iconColor 10B981 on svg glyph')
+
+			// Validator regression-catch (per RUNNER mem-1): prove the OOXMLValidator is actually
+			// engaged on this card XML — corrupt a card child's preset geometry to an invalid
+			// ST_ShapeType enum and assert the validator flags it.
+			const badSlide = slideXml.replace('prst="roundRect"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'card-v2: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'card-v2: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {
