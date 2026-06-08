@@ -33,6 +33,7 @@ import {
 	TransitionProps,
 	AnimationProps,
 	HeaderFooterProps,
+	EmbedFontProps,
 } from './core-interfaces'
 import {
 	convertRotationDegrees,
@@ -49,6 +50,46 @@ import {
 	svgPathToOoxml,
 	valToPts,
 } from './gen-utils'
+
+/**
+ * Ordered embedded-font face keys. The OOXML child elements `<p:regular>`, `<p:bold>`,
+ * `<p:italic>`, `<p:boldItalic>` are emitted in this fixed order inside each `<p:embeddedFont>`.
+ */
+export const EMBED_FONT_FACE_KEYS: Array<keyof EmbedFontProps> = ['regular', 'bold', 'italic', 'boldItalic']
+
+/**
+ * Base relationship id (in `presentation.xml.rels`) for the first embedded-font face.
+ * The fixed presentation rels occupy: slideMaster(1), slides(2..N+1), notesMaster(N+2),
+ * presProps(N+3), viewProps(N+4), theme(N+5), tableStyles(N+6) — so font faces start at N+7.
+ * @param slideCount number of slides in the presentation
+ */
+export function embeddedFontBaseRid (slideCount: number): number {
+	return slideCount + 7
+}
+
+/**
+ * Flatten embedded fonts into an ordered list of faces (one entry per present face),
+ * each carrying its global 0-based index so part numbering (`font${i+1}.fntdata`) and
+ * relationship ids (`embeddedFontBaseRid + i`) stay consistent across all emitters.
+ * @param fonts embedded font definitions (may be undefined/empty → returns [])
+ */
+export function flattenEmbeddedFontFaces (
+	fonts?: EmbedFontProps[]
+): Array<{ index: number, key: keyof EmbedFontProps, family: string, value: string }> {
+	const faces: Array<{ index: number, key: keyof EmbedFontProps, family: string, value: string }> = []
+	if (!fonts || fonts.length === 0) return faces
+	let index = 0
+	fonts.forEach(font => {
+		EMBED_FONT_FACE_KEYS.forEach(key => {
+			const value = font[key]
+			if (typeof value === 'string' && value.length > 0) {
+				faces.push({ index, key, family: font.family, value })
+				index++
+			}
+		})
+	})
+	return faces
+}
 
 /**
  * Navigation action-jump verb map: `HyperlinkProps.action` value → the `ppaction://hlinkshowjump?jump=<verb>` verb.
@@ -1642,11 +1683,15 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
  * @param {PresSlide} masterSlide - master slide
  * @returns XML
  */
-export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout[], masterSlide?: PresSlide): string {
+export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout[], masterSlide?: PresSlide, embeddedFonts?: EmbedFontProps[]): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
 	strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+	// Embedded fonts (default-off): emit the `fntdata` Default only when at least one font is embedded.
+	if (embeddedFonts && embeddedFonts.length > 0 && flattenEmbeddedFontFaces(embeddedFonts).length > 0) {
+		strXml += '<Default Extension="fntdata" ContentType="application/x-fontdata"/>'
+	}
 
 	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
@@ -1803,7 +1848,7 @@ export function makeXmlCore (title: string, subject: string, author: string, rev
  * @param {PresSlide[]} slides - Presenation Slides
  * @returns XML
  */
-export function makeXmlPresentationRels (slides: PresSlide[]): string {
+export function makeXmlPresentationRels (slides: PresSlide[], embeddedFonts?: EmbedFontProps[]): string {
 	let intRelNum = 1
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -1817,8 +1862,21 @@ export function makeXmlPresentationRels (slides: PresSlide[]): string {
 		`<Relationship Id="rId${intRelNum + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>` +
 		`<Relationship Id="rId${intRelNum + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/>` +
 		`<Relationship Id="rId${intRelNum + 3}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>` +
-		`<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>` +
-		'</Relationships>'
+		`<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>`
+
+	// Embedded-font relationships (default-off). One `font` rel per face, numbered from
+	// `embeddedFontBaseRid(slides.length)`; the r:ids MUST match those emitted by
+	// `makeXmlPresentation` in `<p:embeddedFontLst>`, and the Targets the `font${i+1}.fntdata`
+	// parts written by the packager.
+	const faces = flattenEmbeddedFontFaces(embeddedFonts)
+	if (faces.length > 0) {
+		const baseRid = embeddedFontBaseRid(slides.length)
+		faces.forEach(face => {
+			strXml += `<Relationship Id="rId${baseRid + face.index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font${face.index + 1}.fntdata"/>`
+		})
+	}
+
+	strXml += '</Relationships>'
 
 	return strXml
 }
@@ -2577,10 +2635,12 @@ export function makeXmlTheme (pres: IPresentationProps): string {
  * @return {string} XML
  */
 export function makeXmlPresentation (pres: IPresentationProps): string {
+	const _embedFontFaces = flattenEmbeddedFontFaces(pres.embeddedFonts)
+	const _embedFontAttr = _embedFontFaces.length > 0 ? 'embedTrueTypeFonts="1" ' : ''
 	let strXml =
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
 		'<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-		`xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} saveSubsetFonts="1" autoCompressPictures="0">`
+		`xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} ${_embedFontAttr}saveSubsetFonts="1" autoCompressPictures="0">`
 
 	// STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
 	strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
@@ -2601,6 +2661,33 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	// STEP 4: Add sizes
 	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
 	strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`
+
+	// STEP 4-fonts: Add embedded fonts — default-off.
+	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+	// <p:embeddedFontLst> AFTER <p:notesSz> and BEFORE <p:custShowLst>.
+	// Each face r:id MUST match the `font` relationship in presentation.xml.rels
+	// (numbered from `embeddedFontBaseRid(slides.length)`).
+	if (_embedFontFaces.length > 0 && pres.embeddedFonts) {
+		const baseRid = embeddedFontBaseRid(pres.slides.length)
+		const faceTags: { [key: string]: string } = { regular: 'regular', bold: 'bold', italic: 'italic', boldItalic: 'boldItalic' }
+		strXml += '<p:embeddedFontLst>'
+		let flatIdx = 0
+		pres.embeddedFonts.forEach(font => {
+			let inner = ''
+			EMBED_FONT_FACE_KEYS.forEach(key => {
+				const value = font[key]
+				if (typeof value === 'string' && value.length > 0) {
+					inner += `<p:${faceTags[key as string]} r:id="rId${baseRid + flatIdx}"/>`
+					flatIdx++
+				}
+			})
+			// Skip a font with no valid faces (guard; flattenEmbeddedFontFaces already excludes it)
+			if (inner.length > 0) {
+				strXml += `<p:embeddedFont><p:font typeface="${encodeXmlEntities(font.family)}"/>${inner}</p:embeddedFont>`
+			}
+		})
+		strXml += '</p:embeddedFontLst>'
+	}
 
 	// STEP 4a: Add custom shows (named slide subsets) — default-off.
 	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places

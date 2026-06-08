@@ -172,3 +172,41 @@ Use the `headFontFace` and `bodyFontFace` properties to set the default font use
 pptx.theme = { headFontFace: "Arial Light" };
 pptx.theme = { bodyFontFace: "Arial" };
 ```
+
+## Embedded Fonts
+
+### Embedded Fonts Options
+
+Embed TrueType/OpenType font files directly inside the `.pptx` so the deck
+renders with the intended typeface even on machines that do not have the font
+installed. Call `pptx.embedFont(...)` once per font family. This packages the
+font binaries into `/ppt/fonts/*.fntdata`, emits a `<p:embeddedFontLst>` element
+in `presentation.xml`, and sets `embedTrueTypeFonts="1"`.
+
+| Option       | Type   | Required | Description                                        |
+| :----------- | :----- | :------- | :------------------------------------------------- |
+| `family`     | string | yes      | font family name (matched against your text fonts) |
+| `regular`    | string | yes      | regular (normal) face — path or data               |
+| `bold`       | string | no       | bold face — path or data                           |
+| `italic`     | string | no       | italic face — path or data                         |
+| `boldItalic` | string | no       | bold-italic face — path or data                    |
+
+Each face value is a filesystem path (Node), a base64 string, or a `data:` URI.
+Only `.ttf` and `.otf` faces are supported — any other face is skipped with a
+warning (a font with no valid `regular` face is dropped entirely). The full font
+file is embedded; subsetting is not performed, so embedding several faces will
+increase the file size. Default-off: when `embedFont()` is not called, no font
+parts, relationships, or `<p:embeddedFontLst>` element are emitted.
+
+### Embedded Fonts Examples
+
+```javascript
+pptx.embedFont({
+  family: "Inter",
+  regular: "./fonts/Inter-Regular.ttf",
+  bold: "./fonts/Inter-Bold.ttf",
+  italic: "./fonts/Inter-Italic.ttf",
+  boldItalic: "./fonts/Inter-BoldItalic.ttf",
+});
+```
+

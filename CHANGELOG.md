@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Embedded fonts — `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` embeds TrueType/OpenType font files directly in the `.pptx` so decks display with the intended typeface even on machines that don't have the font installed. Each face is a filesystem path (Node), a base64 string, or a `data:` URI; only `.ttf`/`.otf` faces are accepted (others are skipped with a warning). The full font is embedded (no subsetting). Decks that don't call it are byte-for-byte unchanged.
 - Structured / talking-points speaker notes — `slide.addNotes()` now accepts an array of paragraph objects (`{ text, bullet?, indentLevel? }`) in addition to a plain string. Each entry becomes its own paragraph in the notes slide, with optional bullets and indent levels, so you can author outlined talking points instead of one block of text. Passing a string behaves exactly as before.
 - Photo album — `pptx.photoAlbum = { blackWhite?, showCaptions?, layout?, frame? }` marks a deck as a PowerPoint photo album, with options for black-and-white rendering, captions, a per-slide picture layout, and a frame style. You still add the image slides yourself; this just records the album metadata.
 - Custom slide shows — `pptx.addCustomShow({ name, slides })` lets you define one or more named subsets of your deck (for example, a "short version" or an audience-specific cut) that play as their own slideshow inside the same file. Decks that don't use it are unaffected.

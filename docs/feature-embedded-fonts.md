@@ -1,6 +1,11 @@
 # Feature: Embedded Fonts (`p:embeddedFontLst` + `/ppt/fonts/*`)
 
-> **Status:** Proposed
+> **Status:** Implemented — `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` packages
+> TrueType/OpenType faces into `/ppt/fonts/fontN.fntdata`, emits `<p:embeddedFontLst>` in canonical
+> `CT_Presentation` order (after `<p:notesSz>`, before `<p:custShowLst>`) with `embedTrueTypeFonts="1"`,
+> and wires the `font` rels + `fntdata` Content_Types Default. Default-off; only `.ttf`/`.otf` accepted
+> (others warned + skipped). Schema fixture `embedded fonts (pptx.embedFont -> p:embeddedFontLst + /ppt/fonts/*.fntdata)`
+> in `test/schema.test.js`; regression suite `test/feature-embedded-fonts.test.js`.
 > **Priority:** High — Phase 4 (matrix `❌ Missing` → `✅`); high value for portable decks
 > **Matrix row:** §1 Presentation container — "Embedded fonts"
 

@@ -2428,6 +2428,29 @@ export interface PresentationProps {
 	 * Default-off: when unset, no `<p:photoAlbum>` element is emitted.
 	 */
 	photoAlbum?: PhotoAlbumProps
+	/**
+	 * Embedded fonts — TrueType/OpenType font faces packaged into `/ppt/fonts/*.fntdata`
+	 * and emitted as `<p:embeddedFontLst>` in `presentation.xml` (with `embedTrueTypeFonts="1"`).
+	 * Default-off: when unset/empty, no font parts, rels, `embeddedFontLst`, or attribute are emitted.
+	 */
+	embeddedFonts?: EmbedFontProps[]
+}
+/**
+ * Embedded font — a single typeface family with one or more faces to embed in the package.
+ * Each face value is either a filesystem path (Node) or a base64/data-URI string.
+ * Only TrueType (`.ttf`) / OpenType (`.otf`) faces are supported; others are warned and skipped.
+ */
+export interface EmbedFontProps {
+	/** Font family name (the `typeface` attribute, matched against `<a:latin typeface>` etc.). */
+	family: string
+	/** Regular (normal) face — path or data. Required. */
+	regular: string
+	/** Bold face — path or data. */
+	bold?: string
+	/** Italic face — path or data. */
+	italic?: string
+	/** Bold-italic face — path or data. */
+	boldItalic?: string
 }
 /**
  * Kinsoku — East-Asian line-break rules (`<p:kinsoku>` in `presentation.xml`).

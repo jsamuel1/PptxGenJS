@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.6 @ 2026-06-08T13:02:12.471Z */
+/* PptxGenJS 4.1.6 @ 2026-06-08T13:20:32.683Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -5926,6 +5926,42 @@ function getSizeFromImage (inImgUrl: string): { width: number, height: number } 
  * PptxGenJS: XML Generation
  */
 /**
+ * Ordered embedded-font face keys. The OOXML child elements `<p:regular>`, `<p:bold>`,
+ * `<p:italic>`, `<p:boldItalic>` are emitted in this fixed order inside each `<p:embeddedFont>`.
+ */
+const EMBED_FONT_FACE_KEYS = ['regular', 'bold', 'italic', 'boldItalic'];
+/**
+ * Base relationship id (in `presentation.xml.rels`) for the first embedded-font face.
+ * The fixed presentation rels occupy: slideMaster(1), slides(2..N+1), notesMaster(N+2),
+ * presProps(N+3), viewProps(N+4), theme(N+5), tableStyles(N+6) — so font faces start at N+7.
+ * @param slideCount number of slides in the presentation
+ */
+function embeddedFontBaseRid(slideCount) {
+    return slideCount + 7;
+}
+/**
+ * Flatten embedded fonts into an ordered list of faces (one entry per present face),
+ * each carrying its global 0-based index so part numbering (`font${i+1}.fntdata`) and
+ * relationship ids (`embeddedFontBaseRid + i`) stay consistent across all emitters.
+ * @param fonts embedded font definitions (may be undefined/empty → returns [])
+ */
+function flattenEmbeddedFontFaces(fonts) {
+    const faces = [];
+    if (!fonts || fonts.length === 0)
+        return faces;
+    let index = 0;
+    fonts.forEach(font => {
+        EMBED_FONT_FACE_KEYS.forEach(key => {
+            const value = font[key];
+            if (typeof value === 'string' && value.length > 0) {
+                faces.push({ index, key, family: font.family, value });
+                index++;
+            }
+        });
+    });
+    return faces;
+}
+/**
  * Navigation action-jump verb map: `HyperlinkProps.action` value → the `ppaction://hlinkshowjump?jump=<verb>` verb.
  * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
  * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
@@ -7453,11 +7489,15 @@ function genXmlPlaceholder(placeholderObj) {
  * @param {PresSlide} masterSlide - master slide
  * @returns XML
  */
-function makeXmlContTypes(slides, slideLayouts, masterSlide) {
+function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts) {
     let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF;
     strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">';
     strXml += '<Default Extension="xml" ContentType="application/xml"/>';
     strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>';
+    // Embedded fonts (default-off): emit the `fntdata` Default only when at least one font is embedded.
+    if (embeddedFonts && embeddedFonts.length > 0 && flattenEmbeddedFontFaces(embeddedFonts).length > 0) {
+        strXml += '<Default Extension="fntdata" ContentType="application/x-fontdata"/>';
+    }
     // STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
     // Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
     // Skip 'online' rels (no part written) and rels missing extn/type.
@@ -7606,7 +7646,7 @@ function makeXmlCore(title, subject, author, revision) {
  * @param {PresSlide[]} slides - Presenation Slides
  * @returns XML
  */
-function makeXmlPresentationRels(slides) {
+function makeXmlPresentationRels(slides, embeddedFonts) {
     let intRelNum = 1;
     let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF;
     strXml += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
@@ -7620,8 +7660,19 @@ function makeXmlPresentationRels(slides) {
             `<Relationship Id="rId${intRelNum + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>` +
             `<Relationship Id="rId${intRelNum + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/>` +
             `<Relationship Id="rId${intRelNum + 3}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>` +
-            `<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>` +
-            '</Relationships>';
+            `<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>`;
+    // Embedded-font relationships (default-off). One `font` rel per face, numbered from
+    // `embeddedFontBaseRid(slides.length)`; the r:ids MUST match those emitted by
+    // `makeXmlPresentation` in `<p:embeddedFontLst>`, and the Targets the `font${i+1}.fntdata`
+    // parts written by the packager.
+    const faces = flattenEmbeddedFontFaces(embeddedFonts);
+    if (faces.length > 0) {
+        const baseRid = embeddedFontBaseRid(slides.length);
+        faces.forEach(face => {
+            strXml += `<Relationship Id="rId${baseRid + face.index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font${face.index + 1}.fntdata"/>`;
+        });
+    }
+    strXml += '</Relationships>';
     return strXml;
 }
 // XML-GEN: Functions that run 1-N times (once for each Slide)
@@ -8326,9 +8377,11 @@ function makeXmlTheme(pres) {
  */
 function makeXmlPresentation(pres) {
     var _a, _b, _c;
+    const _embedFontFaces = flattenEmbeddedFontFaces(pres.embeddedFonts);
+    const _embedFontAttr = _embedFontFaces.length > 0 ? 'embedTrueTypeFonts="1" ' : '';
     let strXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
         '<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-        `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} saveSubsetFonts="1" autoCompressPictures="0">`;
+        `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} ${_embedFontAttr}saveSubsetFonts="1" autoCompressPictures="0">`;
     // STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
     strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>';
     // STEP 2: Add Notes Master (SPEC: tag 2 under <presentation>)
@@ -8345,6 +8398,32 @@ function makeXmlPresentation(pres) {
     // STEP 4: Add sizes
     strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`;
     strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`;
+    // STEP 4-fonts: Add embedded fonts — default-off.
+    // Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+    // <p:embeddedFontLst> AFTER <p:notesSz> and BEFORE <p:custShowLst>.
+    // Each face r:id MUST match the `font` relationship in presentation.xml.rels
+    // (numbered from `embeddedFontBaseRid(slides.length)`).
+    if (_embedFontFaces.length > 0 && pres.embeddedFonts) {
+        const baseRid = embeddedFontBaseRid(pres.slides.length);
+        const faceTags = { regular: 'regular', bold: 'bold', italic: 'italic', boldItalic: 'boldItalic' };
+        strXml += '<p:embeddedFontLst>';
+        let flatIdx = 0;
+        pres.embeddedFonts.forEach(font => {
+            let inner = '';
+            EMBED_FONT_FACE_KEYS.forEach(key => {
+                const value = font[key];
+                if (typeof value === 'string' && value.length > 0) {
+                    inner += `<p:${faceTags[key]} r:id="rId${baseRid + flatIdx}"/>`;
+                    flatIdx++;
+                }
+            });
+            // Skip a font with no valid faces (guard; flattenEmbeddedFontFaces already excludes it)
+            if (inner.length > 0) {
+                strXml += `<p:embeddedFont><p:font typeface="${encodeXmlEntities(font.family)}"/>${inner}</p:embeddedFont>`;
+            }
+        });
+        strXml += '</p:embeddedFontLst>';
+    }
     // STEP 4a: Add custom shows (named slide subsets) — default-off.
     // Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
     // <p:custShowLst> after <p:notesSz> and before <p:kinsoku>. Each
@@ -8528,6 +8607,9 @@ class PptxGenJS {
     get photoAlbum() {
         return this._photoAlbum;
     }
+    get embeddedFonts() {
+        return this._embeddedFonts;
+    }
     set title(value) {
         this._title = value;
     }
@@ -8695,6 +8777,44 @@ class PptxGenJS {
          * @param {WRITE_OUTPUT_TYPE} outputType - output file type
          * @return {Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array>} Promise with data or stream (node) or filename (browser)
          */
+        /**
+         * Resolve each embedded-font face to base64, writing the result into `fontData[face.index]`.
+         * Node: reads filesystem paths via `fs.readFileSync`. All runtimes: accepts `data:` URIs and
+         * raw base64 strings directly. On read failure the face is left empty (clamp, don't crash).
+         * @param {Array} faces - flattened font faces (from `flattenEmbeddedFontFaces`)
+         * @param {string[]} fontData - output array (indexed by `face.index`) to populate with base64
+         * @return {Array<Promise<string>>} per-face resolution promises
+         */
+        this.encodeEmbeddedFonts = (faces, fontData) => {
+            var _a, _b;
+            const isNode = typeof process !== 'undefined' && !!((_a = process.versions) === null || _a === void 0 ? void 0 : _a.node) && ((_b = process.release) === null || _b === void 0 ? void 0 : _b.name) === 'node';
+            const toBase64 = (value) => {
+                // data:font/ttf;base64,XXXX  → take the payload after the comma
+                if (value.startsWith('data:')) {
+                    const comma = value.indexOf(',');
+                    return comma >= 0 ? value.slice(comma + 1) : '';
+                }
+                // already-base64 string (no path separators / extension) → pass through
+                return value;
+            };
+            return faces.map((face) => __awaiter(this, void 0, void 0, function* () {
+                try {
+                    if (isNode && !face.value.startsWith('data:') && /\.(ttf|otf)$/i.test(face.value)) {
+                        const { default: fs } = yield import('node:fs');
+                        fontData[face.index] = Buffer.from(fs.readFileSync(face.value)).toString('base64');
+                    }
+                    else {
+                        fontData[face.index] = toBase64(face.value);
+                    }
+                    return 'done';
+                }
+                catch (ex) {
+                    console.warn(`embedFont: unable to read font face: "${face.value}"\n${String(ex)}`);
+                    fontData[face.index] = '';
+                    return 'error';
+                }
+            }));
+        };
         this.exportPresentation = (props) => __awaiter(this, void 0, void 0, function* () {
             const arrChartPromises = [];
             let arrMediaPromises = [];
@@ -8707,6 +8827,13 @@ class PptxGenJS {
                 arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(layout));
             });
             arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(this.masterSlide));
+            // STEP 1b: Encode embedded fonts (default-off). Resolve each face to base64 into `fontData`
+            // (indexed by the flattened face order shared with gen-xml emitters).
+            const fontFaces = flattenEmbeddedFontFaces(this.embeddedFonts);
+            const fontData = new Array(fontFaces.length).fill('');
+            if (fontFaces.length > 0) {
+                arrMediaPromises = arrMediaPromises.concat(this.encodeEmbeddedFonts(fontFaces, fontData));
+            }
             // STEP 2: Wait for Promises (if any) then generate the PPTX file
             return yield Promise.all(arrMediaPromises).then(() => __awaiter(this, void 0, void 0, function* () {
                 // A: Add empty placeholder objects to slides that don't already have them
@@ -8735,11 +8862,18 @@ class PptxGenJS {
                 zip.folder('ppt/theme');
                 zip.folder('ppt/notesMasters').folder('_rels');
                 zip.folder('ppt/notesSlides').folder('_rels');
-                zip.file('[Content_Types].xml', makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide)); // TODO: pass only `this` like below! 20200206
+                // Only scaffold ppt/fonts when at least one embedded font face is present.
+                if (fontFaces.length > 0)
+                    zip.folder('ppt/fonts');
+                zip.file('[Content_Types].xml', makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts)); // TODO: pass only `this` like below! 20200206
                 zip.file('_rels/.rels', makeXmlRootRels());
                 zip.file('docProps/app.xml', makeXmlApp(this.slides, this.company)); // TODO: pass only `this` like below! 20200206
                 zip.file('docProps/core.xml', makeXmlCore(this.title, this.subject, this.author, this.revision)); // TODO: pass only `this` like below! 20200206
-                zip.file('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this.slides));
+                zip.file('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this.slides, this.embeddedFonts));
+                // Write embedded-font binary parts (`font${i+1}.fntdata`) referenced by the font rels above.
+                fontFaces.forEach(face => {
+                    zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true });
+                });
                 zip.file('ppt/theme/theme1.xml', makeXmlTheme(this));
                 // emit a separate theme2.xml part so notesMaster1.xml.rels resolves
                 zip.file('ppt/theme/theme2.xml', makeXmlTheme(this));
@@ -8832,6 +8966,7 @@ class PptxGenJS {
         this._slides = [];
         this._sections = [];
         this._customShows = [];
+        this._embeddedFonts = [];
         this._masterSlide = {
             addChart: null,
             addImage: null,
@@ -8960,6 +9095,60 @@ class PptxGenJS {
             return;
         }
         this._customShows.push({ name: show.name, slides: show.slides });
+    }
+    /**
+     * Embed a TrueType/OpenType font family in the presentation so decks render with the
+     * intended typeface on machines that lack it. The font binaries are packaged into
+     * `/ppt/fonts/*.fntdata` and referenced from `<p:embeddedFontLst>` in `presentation.xml`.
+     *
+     * Each face value is a filesystem path (Node), a base64 string, or a `data:` URI.
+     * Only `.ttf`/`.otf` faces are supported — others are warned and skipped (clamp, don't crash).
+     * Subsetting is out of scope: the full font file is embedded (mind the size implication).
+     *
+     * @param {EmbedFontProps} font - font family + faces to embed
+     * @example pptx.embedFont({ family:'Inter', regular:'./Inter-Regular.ttf', bold:'./Inter-Bold.ttf' });
+     */
+    embedFont(font) {
+        if (!font) {
+            console.warn('embedFont requires an argument');
+            return;
+        }
+        if (!font.family || typeof font.family !== 'string') {
+            console.warn('embedFont requires a `family` name');
+            return;
+        }
+        // Accept only `.ttf`/`.otf` for path-like inputs; pass through base64/`data:` strings.
+        const isValidFace = (value) => {
+            if (typeof value !== 'string' || value.length === 0)
+                return false;
+            // base64 / data-URI inputs carry no path extension to validate
+            if (value.startsWith('data:'))
+                return true;
+            if (/^[A-Za-z0-9+/=\r\n]+$/.test(value) && value.length > 256 && !value.includes('.'))
+                return true;
+            return /\.(ttf|otf)$/i.test(value);
+        };
+        const cleaned = { family: font.family, regular: '' };
+        let hasValidFace = false;
+        ['regular', 'bold', 'italic', 'boldItalic'].forEach(key => {
+            const value = font[key];
+            if (value === undefined)
+                return;
+            if (isValidFace(value)) {
+                cleaned[key] = value;
+                hasValidFace = true;
+            }
+            else {
+                console.warn(`embedFont: skipping unsupported font face "${key}" (only .ttf/.otf are supported): ${String(value)}`);
+            }
+        });
+        if (!cleaned.regular) {
+            console.warn(`embedFont: font "${font.family}" has no valid \`regular\` face — skipping (a regular face is required)`);
+            return;
+        }
+        if (!hasValidFace)
+            return;
+        this._embeddedFonts.push(cleaned);
     }
     /**
      * Add a new Slide to Presentation

@@ -84,6 +84,7 @@ import {
 	KinsokuProps,
 	CustomShowProps,
 	PhotoAlbumProps,
+	EmbedFontProps,
 	LayoutGridProps,
 	LayoutGridResult,
 	PresLayout,
@@ -250,6 +251,17 @@ export default class PptxGenJS implements IPresentationProps {
 	}
 
 	/**
+	 * Presentation-level embedded fonts.
+	 * Emits `<p:embeddedFontLst>` + `embedTrueTypeFonts="1"` into `presentation.xml` and packages
+	 * the font binaries into `/ppt/fonts/*.fntdata` when set (default-off). Populate via `embedFont()`.
+	 * @type {EmbedFontProps[]}
+	 */
+	private readonly _embeddedFonts: EmbedFontProps[]
+	public get embeddedFonts(): EmbedFontProps[] {
+		return this._embeddedFonts
+	}
+
+	/**
 	 * @type {string}
 	 */
 	private _title: string
@@ -412,6 +424,7 @@ export default class PptxGenJS implements IPresentationProps {
 		this._slides = []
 		this._sections = []
 		this._customShows = []
+		this._embeddedFonts = []
 		this._masterSlide = {
 			addChart: null,
 			addImage: null,
@@ -533,6 +546,47 @@ export default class PptxGenJS implements IPresentationProps {
 	 * @param {WRITE_OUTPUT_TYPE} outputType - output file type
 	 * @return {Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array>} Promise with data or stream (node) or filename (browser)
 	 */
+	/**
+	 * Resolve each embedded-font face to base64, writing the result into `fontData[face.index]`.
+	 * Node: reads filesystem paths via `fs.readFileSync`. All runtimes: accepts `data:` URIs and
+	 * raw base64 strings directly. On read failure the face is left empty (clamp, don't crash).
+	 * @param {Array} faces - flattened font faces (from `flattenEmbeddedFontFaces`)
+	 * @param {string[]} fontData - output array (indexed by `face.index`) to populate with base64
+	 * @return {Array<Promise<string>>} per-face resolution promises
+	 */
+	private readonly encodeEmbeddedFonts = (
+		faces: Array<{ index: number, value: string }>,
+		fontData: string[]
+	): Array<Promise<string>> => {
+		const isNode = typeof process !== 'undefined' && !!process.versions?.node && process.release?.name === 'node'
+
+		const toBase64 = (value: string): string => {
+			// data:font/ttf;base64,XXXX  → take the payload after the comma
+			if (value.startsWith('data:')) {
+				const comma = value.indexOf(',')
+				return comma >= 0 ? value.slice(comma + 1) : ''
+			}
+			// already-base64 string (no path separators / extension) → pass through
+			return value
+		}
+
+		return faces.map(async face => {
+			try {
+				if (isNode && !face.value.startsWith('data:') && /\.(ttf|otf)$/i.test(face.value)) {
+					const { default: fs } = await import('node:fs')
+					fontData[face.index] = Buffer.from(fs.readFileSync(face.value)).toString('base64')
+				} else {
+					fontData[face.index] = toBase64(face.value)
+				}
+				return 'done'
+			} catch (ex) {
+				console.warn(`embedFont: unable to read font face: "${face.value}"\n${String(ex)}`)
+				fontData[face.index] = ''
+				return 'error'
+			}
+		})
+	}
+
 	private readonly exportPresentation = async (props: WriteProps): Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array> => {
 		const arrChartPromises: Promise<string>[] = []
 		let arrMediaPromises: Promise<string>[] = []
@@ -546,6 +600,14 @@ export default class PptxGenJS implements IPresentationProps {
 			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout))
 		})
 		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this.masterSlide))
+
+		// STEP 1b: Encode embedded fonts (default-off). Resolve each face to base64 into `fontData`
+		// (indexed by the flattened face order shared with gen-xml emitters).
+		const fontFaces = genXml.flattenEmbeddedFontFaces(this.embeddedFonts)
+		const fontData: string[] = new Array(fontFaces.length).fill('')
+		if (fontFaces.length > 0) {
+			arrMediaPromises = arrMediaPromises.concat(this.encodeEmbeddedFonts(fontFaces, fontData))
+		}
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
@@ -576,11 +638,17 @@ export default class PptxGenJS implements IPresentationProps {
 			zip.folder('ppt/theme')
 			zip.folder('ppt/notesMasters').folder('_rels')
 			zip.folder('ppt/notesSlides').folder('_rels')
-			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide)) // TODO: pass only `this` like below! 20200206
+			// Only scaffold ppt/fonts when at least one embedded font face is present.
+			if (fontFaces.length > 0) zip.folder('ppt/fonts')
+			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts)) // TODO: pass only `this` like below! 20200206
 			zip.file('_rels/.rels', genXml.makeXmlRootRels())
 			zip.file('docProps/app.xml', genXml.makeXmlApp(this.slides, this.company)) // TODO: pass only `this` like below! 20200206
 			zip.file('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
-			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this.slides))
+			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this.slides, this.embeddedFonts))
+			// Write embedded-font binary parts (`font${i+1}.fntdata`) referenced by the font rels above.
+			fontFaces.forEach(face => {
+				zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true })
+			})
 			zip.file('ppt/theme/theme1.xml', genXml.makeXmlTheme(this))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
 			zip.file('ppt/theme/theme2.xml', genXml.makeXmlTheme(this))
@@ -739,6 +807,59 @@ export default class PptxGenJS implements IPresentationProps {
 		}
 
 		this._customShows.push({ name: show.name, slides: show.slides })
+	}
+
+	/**
+	 * Embed a TrueType/OpenType font family in the presentation so decks render with the
+	 * intended typeface on machines that lack it. The font binaries are packaged into
+	 * `/ppt/fonts/*.fntdata` and referenced from `<p:embeddedFontLst>` in `presentation.xml`.
+	 *
+	 * Each face value is a filesystem path (Node), a base64 string, or a `data:` URI.
+	 * Only `.ttf`/`.otf` faces are supported — others are warned and skipped (clamp, don't crash).
+	 * Subsetting is out of scope: the full font file is embedded (mind the size implication).
+	 *
+	 * @param {EmbedFontProps} font - font family + faces to embed
+	 * @example pptx.embedFont({ family:'Inter', regular:'./Inter-Regular.ttf', bold:'./Inter-Bold.ttf' });
+	 */
+	embedFont(font: EmbedFontProps): void {
+		if (!font) {
+			console.warn('embedFont requires an argument')
+			return
+		}
+		if (!font.family || typeof font.family !== 'string') {
+			console.warn('embedFont requires a `family` name')
+			return
+		}
+
+		// Accept only `.ttf`/`.otf` for path-like inputs; pass through base64/`data:` strings.
+		const isValidFace = (value?: string): boolean => {
+			if (typeof value !== 'string' || value.length === 0) return false
+			// base64 / data-URI inputs carry no path extension to validate
+			if (value.startsWith('data:')) return true
+			if (/^[A-Za-z0-9+/=\r\n]+$/.test(value) && value.length > 256 && !value.includes('.')) return true
+			return /\.(ttf|otf)$/i.test(value)
+		}
+
+		const cleaned: EmbedFontProps = { family: font.family, regular: '' }
+		let hasValidFace = false
+		;(['regular', 'bold', 'italic', 'boldItalic'] as Array<keyof EmbedFontProps>).forEach(key => {
+			const value = font[key]
+			if (value === undefined) return
+			if (isValidFace(value as string)) {
+				;(cleaned as unknown as Record<string, string>)[key as string] = value as string
+				hasValidFace = true
+			} else {
+				console.warn(`embedFont: skipping unsupported font face "${key}" (only .ttf/.otf are supported): ${String(value)}`)
+			}
+		})
+
+		if (!cleaned.regular) {
+			console.warn(`embedFont: font "${font.family}" has no valid \`regular\` face — skipping (a regular face is required)`)
+			return
+		}
+		if (!hasValidFace) return
+
+		this._embeddedFonts.push(cleaned)
 	}
 
 	/**

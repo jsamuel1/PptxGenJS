@@ -112,6 +112,15 @@ declare class PptxGenJS {
 	 */
 	addSection(props: PptxGenJS.SectionProps): void
 	/**
+	 * Embed a TrueType/OpenType font family so the presentation renders with the intended
+	 * typeface on machines that lack it. Font binaries are packaged into `/ppt/fonts/*.fntdata`
+	 * and referenced from `<p:embeddedFontLst>` in `presentation.xml`. Only `.ttf`/`.otf` faces
+	 * are supported (others are skipped). Subsetting is out of scope (the full font is embedded).
+	 * @param {EmbedFontProps} font font family + faces to embed
+	 * @example pptx.embedFont({ family:'Inter', regular:'./Inter-Regular.ttf', bold:'./Inter-Bold.ttf' });
+	 */
+	embedFont(font: PptxGenJS.EmbedFontProps): void
+	/**
 	 * Add a new Slide to Presentation
 	 * @param {AddSlideProps} props slide options
 	 * @returns {Slide} the new Slide
@@ -2509,6 +2518,23 @@ declare namespace PptxGenJS {
 		 * - values: 1-n
 		 */
 		order?: number
+	}
+	/**
+	 * Embedded font — a single typeface family with one or more faces to embed in the package.
+	 * Each face value is a filesystem path (Node), a base64 string, or a `data:` URI.
+	 * Only TrueType (`.ttf`) / OpenType (`.otf`) faces are supported; others are skipped.
+	 */
+	export interface EmbedFontProps {
+		/** Font family name (matched against `<a:latin typeface>` etc.). */
+		family: string
+		/** Regular (normal) face — path or data. Required. */
+		regular: string
+		/** Bold face — path or data. */
+		bold?: string
+		/** Italic face — path or data. */
+		italic?: string
+		/** Bold-italic face — path or data. */
+		boldItalic?: string
 	}
 	export interface PresLayout {
 		//_sizeW?: number

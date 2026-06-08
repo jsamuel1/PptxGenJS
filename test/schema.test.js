@@ -664,6 +664,40 @@ module.exports = [
 		}
 	},
 	{
+		name: 'embedded fonts (pptx.embedFont -> p:embeddedFontLst + /ppt/fonts/*.fntdata)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.embedFont({ family: 'Inter', regular: 'data:font/ttf;base64,QUJD', bold: 'data:font/ttf;base64,REVG' })
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presXml = await readEntry(zip, 'ppt/presentation.xml')
+			// embedTrueTypeFonts attr + embeddedFontLst with matching rIds (1 slide → base rId8)
+			assert(/embedTrueTypeFonts="1"/.test(presXml), 'embedded-fonts: expected embedTrueTypeFonts="1"')
+			assert(
+				presXml.includes('<p:embeddedFontLst><p:embeddedFont><p:font typeface="Inter"/><p:regular r:id="rId8"/><p:bold r:id="rId9"/></p:embeddedFont></p:embeddedFontLst>'),
+				'embedded-fonts: expected embeddedFontLst with rId8/rId9; got: ' + presXml
+			)
+			// Child-order (CT_Presentation): <p:embeddedFontLst> after <p:notesSz>, before <p:defaultTextStyle>
+			assert(/<p:notesSz [^>]*\/><p:embeddedFontLst>/.test(presXml), 'embedded-fonts: <p:embeddedFontLst> must come right after <p:notesSz>')
+			assert(presXml.indexOf('<p:embeddedFontLst>') < presXml.indexOf('<p:defaultTextStyle>'), 'embedded-fonts: <p:embeddedFontLst> must come before <p:defaultTextStyle>')
+			// Parts + rels + Content_Types
+			assert(listEntries(zip).includes('ppt/fonts/font1.fntdata'), 'embedded-fonts: expected ppt/fonts/font1.fntdata')
+			assert(listEntries(zip).includes('ppt/fonts/font2.fntdata'), 'embedded-fonts: expected ppt/fonts/font2.fntdata')
+			const relsXml = await readEntry(zip, 'ppt/_rels/presentation.xml.rels')
+			assert(/Id="rId8" Type="[^"]+\/font" Target="fonts\/font1.fntdata"/.test(relsXml), 'embedded-fonts: expected font rId8 → font1.fntdata')
+			const ctXml = await readEntry(zip, '[Content_Types].xml')
+			assert(ctXml.includes('<Default Extension="fntdata" ContentType="application/x-fontdata"/>'), 'embedded-fonts: expected fntdata Default')
+			// Default-off invariant: a deck with NO embedded fonts must emit nothing
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presDefault = await readEntry(zip2, 'ppt/presentation.xml')
+			assert(!/<p:embeddedFontLst/.test(presDefault), 'embedded-fonts: default presentation.xml must NOT emit <p:embeddedFontLst>')
+			assert(!/embedTrueTypeFonts/.test(presDefault), 'embedded-fonts: default presentation.xml must NOT emit embedTrueTypeFonts')
+			await expectNoSchemaErrors(buf, 'embedded-fonts')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {
