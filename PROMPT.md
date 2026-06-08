@@ -33,6 +33,19 @@
 7. **Copy fidelity is sacred** (see matrix Scope note): never strip unknown
    parts/relationships/XML when round-tripping; "unsupported to author" never
    means "safe to drop."
+8. **Keep docs + CHANGELOG current — in the same commit as the change.**
+   Every behavior change updates, as part of the work (not as an afterthought):
+   - **`CHANGELOG.md`** — add an entry under `## [Unreleased]` in the correct
+     subsection (`Added` / `Changed` / `Fixed` / `Deprecated` / `Removed`),
+     Keep-a-Changelog style, describing the API and the OOXML it emits (match
+     the existing entries' level of detail).
+   - **`docs/FEATURE-MATRIX.md`** — flip the relevant row's status
+     (`❌ Missing`/`⚠️ Partial` → `✅ Done`) and update the "at a glance" lists.
+   - **`website/docs/*.md`** — the user-facing API docs (`api-shapes.md`,
+     `api-text.md`, `api-charts.md`, etc.). Add/extend the section for the new
+     option with a short code example. A feature is not "done" until it is
+     documented here.
+   A PR/commit that changes behavior without updating all three is incomplete.
 
 ---
 
@@ -43,27 +56,39 @@ publish from a local machine. The flow:
 
 1. Ensure `master` is green: `npm test` ends `Failed: 0` and CI (`ci.yml`) is
    passing on the latest commit. **Never release a red build.**
-2. Trigger the version bump + tag + publish chain:
+2. **Roll over the CHANGELOG and confirm docs.** Before bumping:
+   - In `CHANGELOG.md`, convert the `## [Unreleased]` section into a dated,
+     versioned release heading — `## [X.Y.Z] - YYYY-MM-DD` — keeping its
+     `Added`/`Changed`/`Fixed` entries, and start a fresh empty
+     `## [Unreleased]` above it. (Pick `X.Y.Z` to match the bump you will run:
+     patch vs minor.)
+   - Confirm `docs/FEATURE-MATRIX.md` and the relevant `website/docs/*.md`
+     reflect everything in this release (they should already be current per
+     ground rule 8 — this is a final check).
+   - Commit this as `docs(changelog): release X.Y.Z` and push. The release
+     notes for the version come straight from this CHANGELOG section.
+3. Trigger the version bump + tag + publish chain:
    ```bash
    gh workflow run version-bump.yml --ref master -f bump=patch -R jsamuel1/PptxGenJS
    ```
    Use `bump=patch` for bug-fix releases, `bump=minor` for new features.
+   The chosen bump **must** match the version you wrote into the CHANGELOG.
    This workflow bumps `package.json` + the `VERSION` constant in
    `src/pptxgen.ts`, commits `chore(release): X.Y.Z`, pushes the `vX.Y.Z`
    tag, and then **auto-dispatches `publish.yml`** for that tag (no manual
    step, no PAT needed).
-3. Watch both runs to success:
+4. Watch both runs to success:
    ```bash
    gh run watch <version-bump-run-id> -R jsamuel1/PptxGenJS --exit-status
    gh run watch <publish-run-id>      -R jsamuel1/PptxGenJS --exit-status
    ```
    `publish.yml` re-runs the full build + test suite, then publishes to npm
    via trusted publishing (OIDC, with provenance).
-4. Verify the release is live:
+5. Verify the release is live:
    ```bash
    npm view @jsamuel1/pptxgenjs version   # should equal the new X.Y.Z
    ```
-5. `git fetch` and fast-forward local `master` to the release commit the
+6. `git fetch` and fast-forward local `master` to the release commit the
    workflow pushed.
 
 > **When to release** is called out explicitly in the phase checkpoints below
@@ -143,12 +168,13 @@ Implement clamping so the emitted XML is schema-valid, then the tests pass.
 - `npm test` → both suites `Failed: 0`.
 - `npm run build && npm run ship && npm run lint` clean.
 - Each root cause is its own commit (`fix(charts): ...`, `fix(gradient): ...`)
-  with a regression fixture proving the schema is now valid.
+  with a regression fixture proving the schema is now valid, **and a
+  `CHANGELOG.md` `Fixed` entry** describing each bug.
 - Push; confirm CI (`ci.yml`) goes green before starting Phase 1.
 - **🚀 RELEASE: cut a patch version now.** Once CI is green on `master`, run
   the [Release procedure](#release-procedure-cut-a-version) with `bump=patch`
-  (this is a bug-fix release). Verify the new version is live on npm before
-  moving on.
+  (this is a bug-fix release) — including the CHANGELOG roll-over step. Verify
+  the new version is live on npm before moving on.
 
 ---
 
@@ -199,7 +225,7 @@ highest reuse. The animation timing engine already emits real
 
 ### Phase 1 exit criteria
 - All sub-features schema-validated with fixtures; full verify gate clean;
-  matrix updated (`⚠️ Partial`/`❌` → `✅`).
+  **docs + CHANGELOG + matrix updated** (`⚠️ Partial`/`❌` → `✅`).
 - **🚀 RELEASE: cut a minor version** once `master` is green — run the
   [Release procedure](#release-procedure-cut-a-version) with `bump=minor`
   (new features). You may release after the whole phase, or after a coherent
@@ -218,7 +244,7 @@ highest reuse. The animation timing engine already emits real
   `<a:sp3d>`/`<a:scene3d>`, schema fixture, default-off guard.
 
 ### Phase 2 exit criteria
-- Fixtures + verify gate clean; matrix updated.
+- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
   [Release procedure](#release-procedure-cut-a-version).
 
@@ -232,7 +258,7 @@ highest reuse. The animation timing engine already emits real
 - Extend `HyperlinkProps` with an action discriminator; emit `action=` URIs.
 
 ### Phase 3 exit criteria
-- Fixtures + verify gate clean; matrix updated.
+- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
   [Release procedure](#release-procedure-cut-a-version).
 
@@ -256,7 +282,7 @@ In rough priority order; each is self-contained:
 
 ### Phase 4 exit criteria
 - Each feature (or coherent subset) schema-validated with fixtures; verify gate
-  clean; matrix updated.
+  clean; docs + CHANGELOG + matrix updated.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) after each shipped feature
   set, on a green build, via the
   [Release procedure](#release-procedure-cut-a-version). Don't batch many
@@ -277,6 +303,11 @@ preserve them verbatim.
 ## Reference
 
 - **Format coverage map:** [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md)
+- **Changelog:** `CHANGELOG.md` (Keep a Changelog; add to `## [Unreleased]`).
+- **User-facing docs:** `website/docs/*.md` (Docusaurus) — `api-shapes.md`,
+  `api-text.md`, `api-charts.md`, `api-tables.md`, `api-images.md`,
+  `api-media.md`, etc. Deployed to GitHub Pages by `docs.yml` on changes under
+  `website/`.
 - **Build:** `npm run build` (fast, `src/bld/*`), `npm run ship` (full `dist/*`).
   Pipeline is rollup + terser (no gulp).
 - **Tests:** `test/run.js` (regression, imports `src/bld/pptxgen.cjs.js`),
