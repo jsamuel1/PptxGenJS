@@ -1,6 +1,7 @@
 # Feature: addCard() — Structured Card Rendering
 
-> **Status:** Proposed  
+> **Status:** Implemented (v4.2.0)  
+> **Implemented:** `src/gen-objects.ts` (`addCardDefinition`); instance method `src/slide.ts` (`addCard`); types `src/core-interfaces.ts` (`CardProps`); tests `test/feature-card.test.js`  
 > **Priority:** Medium — common pattern, reduces boilerplate significantly
 
 ## Problem
