@@ -36,6 +36,42 @@
 
 ---
 
+## Release procedure (cut a version)
+
+A release is **fully automated** via the GitHub Actions workflows — do not
+publish from a local machine. The flow:
+
+1. Ensure `master` is green: `npm test` ends `Failed: 0` and CI (`ci.yml`) is
+   passing on the latest commit. **Never release a red build.**
+2. Trigger the version bump + tag + publish chain:
+   ```bash
+   gh workflow run version-bump.yml --ref master -f bump=patch -R jsamuel1/PptxGenJS
+   ```
+   Use `bump=patch` for bug-fix releases, `bump=minor` for new features.
+   This workflow bumps `package.json` + the `VERSION` constant in
+   `src/pptxgen.ts`, commits `chore(release): X.Y.Z`, pushes the `vX.Y.Z`
+   tag, and then **auto-dispatches `publish.yml`** for that tag (no manual
+   step, no PAT needed).
+3. Watch both runs to success:
+   ```bash
+   gh run watch <version-bump-run-id> -R jsamuel1/PptxGenJS --exit-status
+   gh run watch <publish-run-id>      -R jsamuel1/PptxGenJS --exit-status
+   ```
+   `publish.yml` re-runs the full build + test suite, then publishes to npm
+   via trusted publishing (OIDC, with provenance).
+4. Verify the release is live:
+   ```bash
+   npm view @jsamuel1/pptxgenjs version   # should equal the new X.Y.Z
+   ```
+5. `git fetch` and fast-forward local `master` to the release commit the
+   workflow pushed.
+
+> **When to release** is called out explicitly in the phase checkpoints below
+> (a **patch** after Phase 0, a **minor** after each feature set). Always
+> follow this same procedure.
+
+---
+
 ## Phase 0 — Make the test suite green (BLOCKING)
 
 `npm test` currently ends `Passed: 34  Failed: 8` on the schema suite, which
@@ -109,6 +145,10 @@ Implement clamping so the emitted XML is schema-valid, then the tests pass.
 - Each root cause is its own commit (`fix(charts): ...`, `fix(gradient): ...`)
   with a regression fixture proving the schema is now valid.
 - Push; confirm CI (`ci.yml`) goes green before starting Phase 1.
+- **🚀 RELEASE: cut a patch version now.** Once CI is green on `master`, run
+  the [Release procedure](#release-procedure-cut-a-version) with `bump=patch`
+  (this is a bug-fix release). Verify the new version is live on npm before
+  moving on.
 
 ---
 
@@ -157,6 +197,15 @@ highest reuse. The animation timing engine already emits real
   Footer placeholder is already `⚠️ Partial`.
 - **Tests:** master hf fixture; per-slide override fixture.
 
+### Phase 1 exit criteria
+- All sub-features schema-validated with fixtures; full verify gate clean;
+  matrix updated (`⚠️ Partial`/`❌` → `✅`).
+- **🚀 RELEASE: cut a minor version** once `master` is green — run the
+  [Release procedure](#release-procedure-cut-a-version) with `bump=minor`
+  (new features). You may release after the whole phase, or after a coherent
+  subset (e.g. 1.1+1.2 fills, or 1.3+1.4 animations) — but only ever release a
+  green build.
+
 ---
 
 ## Phase 2 — Further shape effects
@@ -168,6 +217,11 @@ highest reuse. The animation timing engine already emits real
 - Each: extend `ShapeProps`/effect options, emit inside `<a:effectLst>` /
   `<a:sp3d>`/`<a:scene3d>`, schema fixture, default-off guard.
 
+### Phase 2 exit criteria
+- Fixtures + verify gate clean; matrix updated.
+- **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
+  [Release procedure](#release-procedure-cut-a-version).
+
 ---
 
 ## Phase 3 — Timing depth & links
@@ -176,6 +230,11 @@ highest reuse. The animation timing engine already emits real
 ### 3.2 — Hover hyperlinks (`a:hlinkHover`)
 ### 3.3 — Action jumps (`a:hlinkClick action="ppaction://..."`: next/prev/first/last/named slide)
 - Extend `HyperlinkProps` with an action discriminator; emit `action=` URIs.
+
+### Phase 3 exit criteria
+- Fixtures + verify gate clean; matrix updated.
+- **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
+  [Release procedure](#release-procedure-cut-a-version).
 
 ---
 
@@ -194,6 +253,14 @@ In rough priority order; each is self-contained:
 ### 4.7 — SmartArt / diagrams (`dgm:*`, `dsp:*`) — large; scope a minimal subset first
 ### 4.8 — Talking-points / structured notes export
 ### 4.9 — Ink (`p:contentPart` + InkML) — niche; tractable (plain XML + rel)
+
+### Phase 4 exit criteria
+- Each feature (or coherent subset) schema-validated with fixtures; verify gate
+  clean; matrix updated.
+- **🚀 RELEASE: cut a minor version** (`bump=minor`) after each shipped feature
+  set, on a green build, via the
+  [Release procedure](#release-procedure-cut-a-version). Don't batch many
+  large features into one release — ship incrementally.
 
 ---
 
