@@ -167,6 +167,25 @@ declare class PptxGenJS {
 	 * @param {TableToSlidesProps} props generation options
 	 */
 	tableToSlides(eleId: string, props?: PptxGenJS.TableToSlidesProps): void
+	/**
+	 * Add a new Custom Show (named subset/ordering of slides) to Presentation.
+	 * Emits a `<p:custShow>` into `presentation.xml` (default-off).
+	 * @param {CustomShowProps} show - custom show properties
+	 * @example pptx.addCustomShow({ name:'Exec Summary', slides:[slide1, slide3] });
+	 */
+	addCustomShow(show: PptxGenJS.CustomShowProps): void
+	/**
+	 * Presentation-level kinsoku (line-break) rules.
+	 * Emits `<p:kinsoku>` into `presentation.xml` when set (default-off).
+	 * @type {KinsokuProps}
+	 */
+	kinsoku: PptxGenJS.KinsokuProps
+	/**
+	 * Presentation-level photo album metadata.
+	 * Emits `<p:photoAlbum>` into `presentation.xml` when set (default-off).
+	 * @type {PhotoAlbumProps}
+	 */
+	photoAlbum: PptxGenJS.PhotoAlbumProps
 }
 
 declare namespace PptxGenJS {
@@ -2501,6 +2520,14 @@ declare namespace PptxGenJS {
 		OptsChartGridLine,
 		PositionProps {
 		/**
+		 * Chart color — declared explicitly so `IChartOpts` resolves the conflicting inherited
+		 * `color` members (`IChartPropsTitle`/`TextBaseProps` use `Color | GradientFillProps`;
+		 * `OptsChartGridLine` uses `HexColor`). `HexColor` is the type assignable to both bases,
+		 * so this clears the TS2320 multi-inheritance error. Chart code reads `titleColor`/per-axis
+		 * colours, not this unified `color`.
+		 */
+		color?: HexColor
+		/**
 		 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 		 * - PowerPoint: [right-click on a chart] > "Edit Alt Text..."
 		 */
@@ -2650,6 +2677,288 @@ declare namespace PptxGenJS {
 		color?: HexColor
 		/** Object name (accessibility/identification). */
 		objectName?: string
+	}
+	export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut' | 'motionPath'
+	export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
+	export type TransitionDirection = 'left' | 'right' | 'up' | 'down'
+	/**
+	 * Entrance/emphasis/exit/motion-path animation applied to a slide object via its `animation` option.
+	 */
+	export interface AnimationProps {
+		/** Effect type. */
+		type: AnimationType
+		/** Effect duration in ms. @default 500 */
+		duration?: number
+		/** Delay before this effect starts, in ms. @default 0 */
+		delay?: number
+		/** When the effect starts relative to the timeline. @default 'afterPrevious' */
+		trigger?: AnimationTrigger
+		/** Direction for `flyIn`/`flyOut`. @default 'left' */
+		direction?: TransitionDirection
+		/** Animation group ID (objects sharing a `group` animate together). */
+		group?: number
+		/** Cumulative per-item delay (ms) within the same `group`. */
+		stagger?: number
+		/** Rotation amount in degrees for the `spin` emphasis effect. @default 360 */
+		spinDegrees?: number
+		/** Target scale multiplier for the `grow` emphasis effect. @default 1.5 */
+		growScale?: number
+		/** Target color (6-hex, no `#`) for the `colorPulse` emphasis effect. @default '000000' */
+		color?: string
+		/** Motion path (normalized 0–1 slide coords) for the `motionPath` effect. */
+		path?: string
+	}
+	/**
+	 * A single normalised, paint-resolved sub-path extracted from an SVG (output of `parseSvg()`
+	 * from the `/utils` subpath). Mirrors the `SvgPart` shape in `@jsamuel1/pptxgenjs/utils`.
+	 */
+	export interface SvgPart {
+		/** Normalised path — absolute `M`/`L`/`C`/`Q`/`Z` only. */
+		d: string
+		/** The SVG `viewBox` width/height. */
+		viewBox: { w: number, h: number }
+		/** Solid hex colour (no `#`) OR a resolved gradient fill. */
+		fill: string | GradientFillProps
+		/** Stroke colour (6-hex, no `#`) when the element is stroked. */
+		stroke?: string
+		/** Stroke width, in viewBox units. */
+		strokeWidth?: number
+		/** Resolved opacity 0–1, when < 1. */
+		opacity?: number
+		/** How the element was painted in the source. */
+		mode: 'fill' | 'stroke'
+	}
+	/**
+	 * Rounded-rectangle callout/badge sugar (`slide.addCallout(...)`).
+	 * Convenience wrapper over `addShape('roundRect', …)` with centred text and a v2 group path
+	 * (accent bar + attribution) when `accentBar` or `attribution` is present.
+	 */
+	export interface CalloutProps extends PositionProps, ObjectNameProps {
+		/** Callout text. A string is a single run; `TextProps[]` is a multi-run body (v2 path only). */
+		text: string | TextProps[]
+		/** Background fill (hex color or fill props). @default '7C3AED' */
+		fill?: ShapeFillProps | GradientFillProps | HexColor
+		/** Text color (hex). @default 'FFFFFF' */
+		fontColor?: HexColor
+		/** Font size (points). @default 12 */
+		fontSize?: number
+		/** Body font face. v2 only. */
+		fontFace?: string
+		/** Bold text? @default true (v1) / false (v2 body) */
+		fontBold?: boolean
+		/** Italic body text? @default false */
+		fontItalic?: boolean
+		/** Corner radius in inches. @default 0.1 */
+		cornerRadius?: number
+		/** Horizontal text alignment. @default 'center' (v1) / 'left' (v2) */
+		align?: HAlign
+		/** Vertical text alignment. @default 'middle' (v1) / 'top' (v2) */
+		valign?: VAlign
+		/** NEW (v2): source/attribution line rendered below the body. Switches to the v2 group path. */
+		attribution?: string
+		/** NEW (v2): left-edge vertical accent bar (blockquote motif). Switches to the v2 group path. */
+		accentBar?: {
+			/** Bar color — hex string or gradient fill. @default '7C3AED' */
+			color?: HexColor | GradientFillProps
+			/** Bar width in inches. @default 0.03 */
+			width?: number
+		}
+		/** NEW (v2): attribution line styling. */
+		attributionFont?: {
+			/** Attribution font size (points). @default 9 */
+			size?: number
+			/** Attribution text color (hex). @default '94A3B8' */
+			color?: HexColor
+			/** Italic attribution? */
+			italic?: boolean
+		}
+		/** NEW (v2): inner padding in inches — a single number (all sides) or per-side object. */
+		padding?: number | { l?: number, r?: number, t?: number, b?: number }
+	}
+	/** Card title/description text styling (`CardProps.titleFont`/`descFont`). */
+	export interface CardFontProps {
+		/** Font face. */
+		face?: string
+		/** Font size (points). */
+		size?: number
+		/** Bold? */
+		bold?: boolean
+		/** Text color (hex). */
+		color?: HexColor
+	}
+	/** Text-pill card badge (`CardProps.badge`). */
+	export interface CardBadgeProps {
+		/** Badge label. */
+		text: string
+		/** Badge fill (hex). @default '10B981' */
+		fill?: HexColor
+		/** Badge text color (hex). @default 'FFFFFF' */
+		color?: HexColor
+	}
+	/** Count-bubble card badge variant (`CardProps.badge`). */
+	export interface CardCountBadgeProps {
+		/** Discriminant selecting the count-bubble variant. */
+		type: 'count'
+		/** The count to display (`String(value)`; non-finite → `'0'`). */
+		value: number
+		/** Bubble fill (hex). @default '7C3AED' */
+		fill?: HexColor
+		/** Bubble text colour (hex). @default 'FFFFFF' */
+		color?: HexColor
+		/** Placement. @default 'top-right'. */
+		position?: 'top-right' | 'inline-right'
+	}
+	/**
+	 * Structured "card" sugar (`slide.addCard(...)`) — a rounded-rectangle background with an
+	 * optional icon, title, description and badge, emitted as a single shape group.
+	 */
+	export interface CardProps extends PositionProps, ObjectNameProps {
+		/** Card title (required). */
+		title: string
+		/** Card description / body text. */
+		description?: string
+		/**
+		 * Icon: an SVG-path object, an emoji/text string, a font-icon glyph `{ char, fontFace, color? }`,
+		 * or a multi-colour SVG `{ parts: SvgPart[] }` (the output of `parseSvg()`).
+		 */
+		icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string | { char: string, fontFace: string, color?: HexColor } | { parts: SvgPart[] }
+		/** Optional badge — a text pill or a count bubble. */
+		badge?: CardBadgeProps | CardCountBadgeProps
+		/** Card background fill (hex or fill props). @default '1a1a24' */
+		fill?: ShapeFillProps | GradientFillProps | HexColor
+		/** Card border. */
+		border?: { color?: HexColor, width?: number }
+		/** Corner radius in inches. @default 0.12 */
+		cornerRadius?: number
+		/** Drop shadow on the card background. */
+		shadow?: ShadowProps
+		/** Glow on the card background. */
+		glow?: TextGlowProps
+		/** Title text styling. @default { size: 13, bold: true, color: 'E4E4ED' } */
+		titleFont?: CardFontProps
+		/** Description text styling. @default { size: 10, color: '8A8A9A' } */
+		descFont?: CardFontProps
+		/** Icon container size (inches). @default 0.4 */
+		iconSize?: number
+		/** Icon container fill (hex/alpha); `'none'`/`false` suppresses the tile (bare-icon mode). @default '7C3AED' */
+		iconFill?: HexColor | 'none' | false
+		/** Icon glyph accent colour (hex). Falls back to `titleFont.color` then `'E4E4ED'`. */
+		iconColor?: HexColor
+		/** Thin vertical accent bar on the card's left edge. @default { color: '7C3AED', width: 0.03 } */
+		accentBar?: { color?: HexColor | GradientFillProps, width?: number }
+		/** Content alignment within the card. @default 'center' */
+		align?: 'center' | 'left'
+		/** Icon placement. @default 'top' */
+		iconPosition?: 'top' | 'left'
+		/** Entrance animation applied to the whole card. */
+		animation?: AnimationProps
+	}
+	/**
+	 * Avatar / initials chip helper (`slide.addAvatar(...)`).
+	 * Composes a filled `ellipse` with centred initials — no new OOXML.
+	 */
+	export interface AvatarProps extends PositionProps, ObjectNameProps {
+		/** 1–2 initials drawn centred on the disc. */
+		initials: string
+		/** Disc diameter in inches. @default 0.4 */
+		size?: number
+		/** Disc fill colour (hex). @default '4B3F72' */
+		fill?: HexColor
+		/** Initials colour (hex). @default 'FFFFFF' */
+		color?: HexColor
+		/** Initials font face. @default deck font */
+		fontFace?: string
+		/** Initials font size (pt). @default derived from `size` */
+		fontSize?: number
+		/** Entrance animation. */
+		animation?: AnimationProps
+	}
+	/**
+	 * Badge / pill helper (`slide.addBadge(...)`).
+	 * Composes a `roundRect` (pill) or `ellipse` (circle) with a centred label — no new OOXML.
+	 */
+	export interface BadgeProps extends PositionProps, ObjectNameProps {
+		/** Short label or count. */
+		text: string
+		/** Badge shape. @default 'pill' */
+		shape?: 'circle' | 'pill'
+		/** Badge fill colour (hex). @default '7C3AED' */
+		fill?: HexColor
+		/** Label colour (hex). @default 'FFFFFF' */
+		color?: HexColor
+		/** Label font size (pt). @default 8 */
+		fontSize?: number
+		/** Bold label. @default true */
+		bold?: boolean
+		/** Explicit width in inches (else sized to the text). */
+		w?: number
+		/** Explicit height in inches. @default 0.25 */
+		h?: number
+		/** Entrance animation. */
+		animation?: AnimationProps
+	}
+	/**
+	 * Separator line helper (`slide.addSeparator(...)`).
+	 * Draws a thin horizontal/vertical rule as a single `rect` — no new OOXML.
+	 */
+	export interface SeparatorProps extends PositionProps, ObjectNameProps {
+		/** Line colour (hex). @default 'D4D4D8' */
+		color?: HexColor
+		/** Line thickness in inches. @default 0.01 */
+		thickness?: number
+		/** Line opacity 0–1. @default 0.5 */
+		opacity?: number
+		/** Orientation. @default 'horizontal' */
+		orientation?: 'horizontal' | 'vertical'
+		/** Entrance animation. */
+		animation?: AnimationProps
+	}
+	/**
+	 * Options for `slide.addGroup(...)` — the absolute position/size of a `<p:grpSp>` container;
+	 * child shapes/text use coordinates relative to the group origin.
+	 */
+	export interface GroupProps extends PositionProps, ObjectNameProps {}
+	/**
+	 * The object returned by `slide.addGroup(...)`. Child `x`/`y` are relative to the group origin.
+	 */
+	export interface SlideGroup {
+		/** Add a shape to the group (coords relative to the group origin). */
+		addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => SlideGroup
+		/** Add text to the group (coords relative to the group origin). */
+		addText: (text: string | TextProps[], options?: TextPropsOptions) => SlideGroup
+		/** Add an avatar/initials chip to the group. */
+		addAvatar: (options: AvatarProps) => SlideGroup
+		/** Add a badge/pill to the group. */
+		addBadge: (options: BadgeProps) => SlideGroup
+		/** Add a separator rule to the group. */
+		addSeparator: (options: SeparatorProps) => SlideGroup
+	}
+	/** A named subset/ordering of slides (`pptx.addCustomShow(...)` → `<p:custShow>`). */
+	export interface CustomShowProps {
+		/** Display name of the custom show. */
+		name: string
+		/** Slides included in the show, in presentation order. Each must already be added to the deck. */
+		slides: PresSlide[]
+	}
+	/** Kinsoku (line-break) rules (`pptx.kinsoku` → `<p:kinsoku>`). */
+	export interface KinsokuProps {
+		/** Language tag for the kinsoku rule set. @default 'ja-JP' */
+		lang?: string
+		/** Characters not allowed to START a line. */
+		invalStChars?: string
+		/** Characters not allowed to END a line. */
+		invalEndChars?: string
+	}
+	/** Photo album metadata (`pptx.photoAlbum` → `<p:photoAlbum>`). */
+	export interface PhotoAlbumProps {
+		/** Render album images in black & white. @default false */
+		blackWhite?: boolean
+		/** Show captions below album images. @default false */
+		showCaptions?: boolean
+		/** Album page layout (`ST_PhotoAlbumLayout`). */
+		layout?: 'fitToSlide' | '1pic' | '2pic' | '4pic' | '1picTitle' | '2picTitle' | '4picTitle'
+		/** Image frame shape (`ST_PhotoAlbumFrameShape`). */
+		frame?: 'frameStyle1' | 'frameStyle2' | 'frameStyle3' | 'frameStyle4' | 'frameStyle5' | 'frameStyle6' | 'frameStyle7'
 	}
 	export interface PresLayout {
 		//_sizeW?: number
@@ -2854,6 +3163,61 @@ declare namespace PptxGenJS {
 		 * @return {Slide} this Slide
 		 */
 		addText(text: string | TextProps[], options?: TextPropsOptions): Slide
+
+		/**
+		 * Add a review comment to Slide
+		 * @param {CommentProps} options - comment author, text, and optional anchor/date
+		 * @return {Slide} this Slide
+		 */
+		addComment(options: CommentProps): Slide
+		/**
+		 * Add an ink (stylus/handwriting) annotation to Slide
+		 * @param {InkProps} options - ink strokes + optional color/width
+		 * @return {Slide} this Slide
+		 */
+		addInk(options: InkProps): Slide
+		/**
+		 * Add a SmartArt/diagram to Slide
+		 * @param {SmartArtProps} options - layout + items (+ optional position/color)
+		 * @return {Slide} this Slide
+		 */
+		addSmartArt(options: SmartArtProps): Slide
+		/**
+		 * Add a shape group to Slide
+		 * @param {GroupProps} options - group position/size options
+		 * @return {SlideGroup} group handle exposing `addShape`/`addText`/`addAvatar`/`addBadge`/`addSeparator`
+		 */
+		addGroup(options: GroupProps): SlideGroup
+		/**
+		 * Add a rounded-rectangle callout/badge to Slide
+		 * @param {CalloutProps} options - callout options
+		 * @return {Slide} this Slide
+		 */
+		addCallout(options: CalloutProps): Slide
+		/**
+		 * Add a structured card (rounded-rect background + optional icon/title/description/badge) to Slide
+		 * @param {CardProps} options - card options
+		 * @return {Slide} this Slide
+		 */
+		addCard(options: CardProps): Slide
+		/**
+		 * Add an avatar/initials chip to Slide
+		 * @param {AvatarProps} options - avatar options
+		 * @return {Slide} this Slide
+		 */
+		addAvatar(options: AvatarProps): Slide
+		/**
+		 * Add a badge/pill to Slide
+		 * @param {BadgeProps} options - badge options
+		 * @return {Slide} this Slide
+		 */
+		addBadge(options: BadgeProps): Slide
+		/**
+		 * Add a thin horizontal/vertical separator rule to Slide
+		 * @param {SeparatorProps} options - separator options
+		 * @return {Slide} this Slide
+		 */
+		addSeparator(options: SeparatorProps): Slide
 
 		/**
 		 * Background color
