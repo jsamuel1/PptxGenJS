@@ -637,5 +637,35 @@ module.exports = [
 			// COMPLIANT-outcome assertion: passes now that pos/transparency are clamped into [0,100].
 			await expectNoSchemaErrors(buf, 'gradient-stop-oob')
 		}
+	},
+	{
+		// Phase 1.1 — pattern (preset hatch) fill on shapes: `<a:pattFill prst="...">` with
+		// `<a:fgClr>` and optional `<a:bgClr>`. Exercises 3 presets: one with backColor
+		// (ltUpDiag), one WITHOUT backColor (cross → <a:bgClr> omitted), and a third (pct50)
+		// with backColor. The fixture asserts BOTH the raw emission (REGRESSION-CATCH per the
+		// run's RUNNER/ASSESSOR memory: a clean schema pass alone does NOT close the gap) AND
+		// schema validity — if genXmlPatternFill regresses (wrong prst, dropped fgClr, or a
+		// bgClr emitted for the no-background case) these exact-string asserts fail.
+		name: 'pattern-fill shapes (3 presets, fg + optional bg) — a:pattFill',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 4, h: 1, fill: { type: 'pattern', preset: 'ltUpDiag', foreColor: '7C3AED', backColor: '1A1A24' } })
+				s.addShape(p.shapes.RECTANGLE, { x: 1, y: 2.5, w: 4, h: 1, fill: { type: 'pattern', preset: 'cross', foreColor: 'FF0000' } })
+				s.addShape(p.shapes.RECTANGLE, { x: 1, y: 4, w: 4, h: 1, fill: { type: 'pattern', preset: 'pct50', foreColor: '00B0B9', backColor: 'FFFFFF' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// REGRESSION-CATCH 1: the preset prst + foreground colour are emitted exactly as authored.
+			assert(xml.includes('<a:pattFill prst="ltUpDiag">'), `pattern: expected <a:pattFill prst="ltUpDiag">, slide xml: ${xml.slice(0, 800)}`)
+			assert(xml.includes('<a:fgClr><a:srgbClr val="7C3AED"/></a:fgClr>'), `pattern: expected <a:fgClr><a:srgbClr val="7C3AED"/>, slide xml: ${xml.slice(0, 800)}`)
+			// REGRESSION-CATCH 2: all three presets are present.
+			assert((xml.match(/<a:pattFill\s+prst="/g) || []).length === 3, `pattern: expected 3 <a:pattFill> elements, got ${(xml.match(/<a:pattFill\s+prst="/g) || []).length}`)
+			assert(xml.includes('prst="cross"') && xml.includes('prst="pct50"'), `pattern: expected presets cross + pct50, slide xml: ${xml.slice(0, 800)}`)
+			// REGRESSION-CATCH 3: backColor is opt-in — only the 2 shapes with backColor emit <a:bgClr> (cross omits it).
+			assert((xml.match(/<a:bgClr>/g) || []).length === 2, `pattern: expected exactly 2 <a:bgClr> (cross omits bg), got ${(xml.match(/<a:bgClr>/g) || []).length}`)
+			assert(xml.includes('<a:bgClr><a:srgbClr val="1A1A24"/></a:bgClr>'), `pattern: expected <a:bgClr><a:srgbClr val="1A1A24"/>, slide xml: ${xml.slice(0, 800)}`)
+			// COMPLIANT-outcome assertion: a:pattFill with valid ST_PresetPatternVal prst is schema-clean.
+			await expectNoSchemaErrors(buf, 'shape-patternfill')
+		}
 	}
 ]

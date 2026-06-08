@@ -296,6 +296,32 @@ export interface GradientFillProps {
 	 */
 	rotWithShape?: boolean
 }
+/**
+ * ECMA-376 `ST_PresetPatternVal` — preset hatch/pattern names accepted by `<a:pattFill prst="...">`.
+ * @since v4.2.0
+ * @see ECMA-376 §20.1.10.58
+ */
+export type PresetPattern =
+	| 'pct5' | 'pct10' | 'pct20' | 'pct25' | 'pct30' | 'pct40' | 'pct50' | 'pct60' | 'pct70' | 'pct75' | 'pct80' | 'pct90'
+	| 'horz' | 'vert' | 'ltHorz' | 'ltVert' | 'dkHorz' | 'dkVert' | 'narHorz' | 'narVert' | 'dashHorz' | 'dashVert'
+	| 'cross' | 'dnDiag' | 'upDiag' | 'ltDnDiag' | 'ltUpDiag' | 'dkDnDiag' | 'dkUpDiag' | 'wdDnDiag' | 'wdUpDiag'
+	| 'dashDnDiag' | 'dashUpDiag' | 'diagCross' | 'smCheck' | 'lgCheck' | 'smGrid' | 'lgGrid' | 'dotGrid'
+	| 'smConfetti' | 'lgConfetti' | 'horzBrick' | 'diagBrick' | 'solidDmnd' | 'openDmnd' | 'dotDmnd' | 'plaid'
+	| 'sphere' | 'weave' | 'divot' | 'shingle' | 'wave' | 'trellis' | 'zigZag'
+/**
+ * Pattern (preset hatch) fill properties (accepted anywhere a solid `ShapeFillProps` fill is).
+ * Emits `<a:pattFill prst="...">` with `<a:fgClr>` and optional `<a:bgClr>`.
+ * @since v4.2.0
+ */
+export interface PatternFillProps {
+	type: 'pattern'
+	/** Preset pattern name (ECMA-376 `ST_PresetPatternVal`), e.g. `'ltUpDiag'`, `'cross'`, `'pct50'`. */
+	preset: PresetPattern
+	/** Foreground (hatch) colour — hex (no leading '#') or ThemeColor. */
+	foreColor: Color
+	/** Optional background colour — hex or ThemeColor. Omitted → no `<a:bgClr>` (transparent background). */
+	backColor?: Color
+}
 export interface ShapeLineProps extends ShapeFillProps {
 	/**
 	 * Line width (pt)
@@ -738,7 +764,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @example { color:pptx.SchemeColor.accent1 } // Theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false
@@ -843,7 +869,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	/** Callout text (single run, centred by default). */
 	text: string
 	/** Background fill (hex color or fill props). @default '7C3AED' */
-	fill?: ShapeFillProps | GradientFillProps | HexColor
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | HexColor
 	/** Text color (hex). @default 'FFFFFF' */
 	fontColor?: HexColor
 	/** Font size (points). @default 12 */
@@ -898,7 +924,7 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	/** Optional badge, positioned top-right. */
 	badge?: CardBadgeProps
 	/** Card background fill (hex or fill props). @default '1a1a24' */
-	fill?: ShapeFillProps | GradientFillProps | HexColor
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | HexColor
 	/** Card border. */
 	border?: { color?: HexColor, width?: number }
 	/** Corner radius in inches. @default 0.12 */
@@ -1064,7 +1090,7 @@ export interface TableCellProps extends TextBaseProps {
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
 	hyperlink?: HyperlinkProps
 	/**
 	 * Cell margin (inches)
@@ -1277,7 +1303,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false

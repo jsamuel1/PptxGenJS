@@ -1,6 +1,7 @@
 # Feature: Pattern Fill on Shapes (`a:pattFill`)
 
-> **Status:** Proposed
+> **Status:** Implemented
+> **Implemented:** `src/core-enums.ts` (`PRESET_PATTERN_VALS`), `src/core-interfaces.ts` (`PresetPattern` + `PatternFillProps`, added to the shape `fill?` unions), `src/gen-utils.ts` (`genXmlPatternFill` + `type === 'pattern'` branch in `genXmlColorSelection`). Tests: `test/schema.test.js` fixture `shape-patternfill` (3 presets, fg + optional bg, with raw-emission regression-catch).
 > **Priority:** High — Phase 1 (matrix `⚠️ Partial` → `✅`); shape fills currently only support `none`/`solid`/`gradient`
 > **Matrix row:** §3 Fills — "Pattern fill"
 

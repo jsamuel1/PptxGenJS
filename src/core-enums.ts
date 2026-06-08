@@ -42,6 +42,20 @@ export type WRITE_OUTPUT_TYPE = JSZIP_OUTPUT_TYPE | 'STREAM'
 export type CHART_NAME = 'area' | 'bar' | 'bar3D' | 'bubble' | 'bubble3D' | 'doughnut' | 'line' | 'pie' | 'radar' | 'scatter'
 export type SCHEME_COLORS = 'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
 
+/**
+ * ECMA-376 `ST_PresetPatternVal` — the 54 preset hatch/pattern fills accepted by `<a:pattFill prst="...">`.
+ * Used to validate the `preset` of a `PatternFillProps` before emission (unknown values are skipped with a warn).
+ * @see ECMA-376 §20.1.10.58 (ST_PresetPatternVal)
+ */
+export const PRESET_PATTERN_VALS: string[] = [
+	'pct5', 'pct10', 'pct20', 'pct25', 'pct30', 'pct40', 'pct50', 'pct60', 'pct70', 'pct75', 'pct80', 'pct90',
+	'horz', 'vert', 'ltHorz', 'ltVert', 'dkHorz', 'dkVert', 'narHorz', 'narVert', 'dashHorz', 'dashVert',
+	'cross', 'dnDiag', 'upDiag', 'ltDnDiag', 'ltUpDiag', 'dkDnDiag', 'dkUpDiag', 'wdDnDiag', 'wdUpDiag',
+	'dashDnDiag', 'dashUpDiag', 'diagCross', 'smCheck', 'lgCheck', 'smGrid', 'lgGrid', 'dotGrid',
+	'smConfetti', 'lgConfetti', 'horzBrick', 'diagBrick', 'solidDmnd', 'openDmnd', 'dotDmnd', 'plaid',
+	'sphere', 'weave', 'divot', 'shingle', 'wave', 'trellis', 'zigZag'
+]
+
 export const LETTERS: string[] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 export const BARCHART_COLORS: string[] = [
 	'C0504D',

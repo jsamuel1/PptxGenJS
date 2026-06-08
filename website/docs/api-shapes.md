@@ -15,6 +15,16 @@ slide.addShape(pres.ShapeType.ellipse, {
 });
 slide.addShape(pres.ShapeType.line, { line: { color: "FF0000", width: 1 } });
 
+// Pattern (preset hatch) fill
+slide.addShape(pres.ShapeType.rect, {
+  fill: {
+    type: "pattern",
+    preset: "ltUpDiag", // one of 54 ECMA-376 ST_PresetPatternVal names (e.g. pct50, cross, dkHorz)
+    foreColor: "7C3AED", // hatch color (hex or SchemeColor)
+    backColor: "1A1A24", // optional background; omit for a transparent background
+  },
+});
+
 // Shapes with text
 slide.addText("ShapeType.rect", {
   shape: pres.ShapeType.rect,

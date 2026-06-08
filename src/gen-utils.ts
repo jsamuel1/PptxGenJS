@@ -2,8 +2,8 @@
  * PptxGenJS: Utility Methods
  */
 
-import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -193,10 +193,10 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 
 /**
  * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps} props fill props
+ * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps} props fill props
  * @returns XML string
  */
-export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps | GradientFillProps): string {
+export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps): string {
 	let fillType = 'solid'
 	let colorVal = ''
 	let internalElements = ''
@@ -208,6 +208,9 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		} else if (props.type === 'gradient') {
 			// Gradient fills are emitted as a self-contained `<a:gradFill>` (replaces `<a:solidFill>`)
 			return genXmlGradientFill(props)
+		} else if (props.type === 'pattern') {
+			// Pattern fills are emitted as a self-contained `<a:pattFill>` (replaces `<a:solidFill>`)
+			return genXmlPatternFill(props)
 		} else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
@@ -265,6 +268,30 @@ export function genXmlGradientFill (props: GradientFillProps): string {
 	const rotWithShape = props.rotWithShape === false ? '0' : '1'
 
 	return `<a:gradFill rotWithShape="${rotWithShape}"><a:gsLst>${gsList}</a:gsLst><a:lin ang="${ang}" scaled="1"/></a:gradFill>`
+}
+
+/**
+ * Create a preset pattern (hatch) fill element (`<a:pattFill>`), replacing the solid fill in a shape's `<p:spPr>`.
+ * Reuses `createColorElement()` for fore/back colours so hex and scheme colours are handled consistently.
+ * @param {PatternFillProps} props pattern fill props
+ * @returns {string} XML string (empty string when the preset is unknown — guard-don't-crash, keeps output schema-valid)
+ * @see ECMA-376 §20.1.8.32 (pattFill) / §20.1.10.58 (ST_PresetPatternVal)
+ */
+export function genXmlPatternFill (props: PatternFillProps): string {
+	if (!props || !props.preset) return ''
+
+	// Validate the preset against ST_PresetPatternVal; on unknown value warn + skip emit so the
+	// part stays schema-valid (an invalid `prst` would otherwise fail OOXML validation).
+	if (!PRESET_PATTERN_VALS.includes(props.preset)) {
+		console.warn(`"${props.preset}" is not a valid preset pattern! Pattern fill skipped. Use an ECMA-376 ST_PresetPatternVal value (e.g. 'ltUpDiag', 'cross', 'pct50').`)
+		return ''
+	}
+
+	const fgClr = `<a:fgClr>${createColorElement(props.foreColor)}</a:fgClr>`
+	// Missing backColor → omit <a:bgClr> entirely (PowerPoint treats as no background).
+	const bgClr = props.backColor ? `<a:bgClr>${createColorElement(props.backColor)}</a:bgClr>` : ''
+
+	return `<a:pattFill prst="${props.preset}">${fgClr}${bgClr}</a:pattFill>`
 }
 
 /**
