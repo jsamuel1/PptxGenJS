@@ -89,6 +89,34 @@ slide.addInk({
 });
 ```
 
+## SmartArt Diagrams
+
+Add a SmartArt diagram from a flat list of strings with `addSmartArt()`. The
+minimal supported set is a **process** (left-to-right) or **list** (top-to-bottom)
+diagram. Each call packages the five linked `/ppt/diagrams/*` parts plus a
+`<p:graphicFrame>`, and includes a precomputed drawing cache so the diagram
+renders without PowerPoint recomputing the layout.
+
+| Option   | Type                     | Default    | Description                                  |
+| :------- | :----------------------- | :--------- | :------------------------------------------- |
+| `layout` | `'list'` \| `'process'`  |            | Diagram layout (vertical list / horizontal)  |
+| `items`  | `string[]`               |            | One node per string                          |
+| `x`      | `number`                 | `1`        | Horizontal position (inches)                 |
+| `y`      | `number`                 | `1`        | Vertical position (inches)                   |
+| `w`      | `number`                 | `8`        | Width (inches)                               |
+| `h`      | `number`                 | `3`        | Height (inches)                              |
+| `color`  | `string`                 | `'4472C4'` | Node fill color (6-digit hex, no `#`)        |
+
+```typescript
+let slide = pptx.addSlide();
+slide.addSmartArt({
+  x: 1, y: 1, w: 10, h: 3,
+  layout: 'process',
+  items: ['Discover', 'Build', 'Ship'],
+  color: '7C3AED',
+});
+```
+
 
 ```typescript
 import pptxgen from "pptxgenjs";

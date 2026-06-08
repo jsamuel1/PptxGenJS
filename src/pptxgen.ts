@@ -105,6 +105,7 @@ import * as genObj from './gen-objects'
 import * as genMedia from './gen-media'
 import * as genTable from './gen-tables'
 import * as genXml from './gen-xml'
+import * as genSmartArt from './gen-smartart'
 import { layoutGrid as layoutGridUtil } from './gen-utils'
 
 const VERSION = '4.1.7'
@@ -657,6 +658,9 @@ export default class PptxGenJS implements IPresentationProps {
 			// Only scaffold ppt/comments when at least one slide has review comments.
 			const hasComments = this.slides.some(s => (s._comments || []).length > 0)
 			if (hasComments) zip.folder('ppt/comments')
+			// Only scaffold ppt/diagrams when at least one slide has a SmartArt diagram.
+			const hasDiagrams = this.slides.some(s => (s._diagram || []).length > 0)
+			if (hasDiagrams) zip.folder('ppt/diagrams')
 			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts, !!this._handoutMaster)) // TODO: pass only `this` like below! 20200206
 			zip.file('_rels/.rels', genXml.makeXmlRootRels())
 			zip.file('docProps/app.xml', genXml.makeXmlApp(this.slides, this.company)) // TODO: pass only `this` like below! 20200206
@@ -694,6 +698,16 @@ export default class PptxGenJS implements IPresentationProps {
 				// Ink (default-off): write each ink annotation's InkML part to its stashed filename.
 				;((slide._ink) || []).forEach(ink => {
 					zip.file(`ppt/ink/${ink._target}`, genXml.makeXmlInk(ink))
+				})
+				// SmartArt (default-off): write the five linked diagram parts + the data part's sub-rels
+				// (which point at the drawing cache via local rId1).
+				;((slide._diagram) || []).forEach(dgm => {
+					const k = dgm._id
+					zip.file(`ppt/diagrams/data${k}.xml`, genSmartArt.makeXmlDiagramData(dgm, dgm._drawingRid))
+					zip.file(`ppt/diagrams/layout${k}.xml`, genSmartArt.makeXmlDiagramLayout(dgm))
+					zip.file(`ppt/diagrams/quickStyle${k}.xml`, genSmartArt.makeXmlDiagramQuickStyle())
+					zip.file(`ppt/diagrams/colors${k}.xml`, genSmartArt.makeXmlDiagramColors())
+					zip.file(`ppt/diagrams/drawing${k}.xml`, genSmartArt.makeXmlDiagramDrawing(dgm, dgm.w, dgm.h))
 				})
 			})
 			zip.file('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this.masterSlide, this.slideLayouts))

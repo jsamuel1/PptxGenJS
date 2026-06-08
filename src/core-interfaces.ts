@@ -2431,6 +2431,28 @@ export interface SlideBaseProps {
 	 */
 	_ink?: Array<{ strokes: number[][][], color?: HexColor, width?: number, _rId: number, _target: string }>
 
+	/**
+	 * SmartArt/diagram objects authored via `slide.addSmartArt(...)`. Each entry is emitted as FIVE
+	 * linked `/ppt/diagrams/` parts (data/layout/quickStyle/colors/drawing) plus a `<p:graphicFrame>`
+	 * carrying `<dgm:relIds r:dm r:lo r:qs r:cs>`. The four diagram-family slide-rel rIds are stashed
+	 * here so the graphicFrame relIds, the slide rels, and the written parts all agree (cross-entity
+	 * id invariant ×4 + the drawing referenced from the data part's own sub-rels). Default-off:
+	 * unset/empty → no diagram parts, rels, Content_Types overrides, or graphicFrame are emitted.
+	 */
+	_diagram?: Array<{
+		layout: 'list' | 'process'
+		items: string[]
+		color?: HexColor
+		w: number
+		h: number
+		_id: string
+		_dataRid: number
+		_layoutRid: number
+		_quickStyleRid: number
+		_colorsRid: number
+		_drawingRid: number
+	}>
+
 	background?: BackgroundProps
 	/**
 	 * @deprecated v3.3.0 - use `background`
@@ -2723,6 +2745,30 @@ export interface InkProps {
 	color?: HexColor
 	/** Stroke width in points. @default 1 */
 	width?: number
+}
+/**
+ * SmartArt / diagram options (`slide.addSmartArt(...)`).
+ * Minimal subset: a flat list of strings rendered as a `list` (vertical) or
+ * `process` (horizontal) diagram. Emits the five `/ppt/diagrams/` parts plus a
+ * `<p:graphicFrame>` so the diagram renders out-of-the-box via the drawing cache.
+ */
+export interface SmartArtProps {
+	/** Horizontal position (inches). @default 1 */
+	x?: Coord
+	/** Vertical position (inches). @default 1 */
+	y?: Coord
+	/** Width (inches). @default 8 */
+	w?: Coord
+	/** Height (inches). @default 3 */
+	h?: Coord
+	/** Diagram layout. Initial supported set: `'list'` (vertical) | `'process'` (horizontal). */
+	layout: 'list' | 'process'
+	/** Diagram items — one node per string. Empty/invalid → no-op (default-off). */
+	items: string[]
+	/** Node fill color (6-digit hex, no `#`). @default '4472C4' */
+	color?: HexColor
+	/** Object name (accessibility/identification). */
+	objectName?: string
 }
 export interface CustomShowProps {
 	/** Display name of the custom show. */

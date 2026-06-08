@@ -42,6 +42,7 @@ import {
 	NoteParagraph,
 	CommentProps,
 	InkProps,
+	SmartArtProps,
 	ObjectOptions,
 	OptsChartGridLine,
 	PresLayout,
@@ -754,6 +755,78 @@ export function addInkDefinition(target: PresSlide, props: InkProps): void {
 		_rId: rId,
 		_target: target_file,
 	})
+}
+
+/**
+ * Adds a SmartArt/diagram object to a slide definition.
+ * Allocates FOUR diagram-family slide relationships (data/layout/quickStyle/colors) — referenced by
+ * the `<dgm:relIds>` on the emitted `<p:graphicFrame>` — and stashes the four rIds + a globally-unique
+ * diagram index on a `_diagram` slide-object so the graphicFrame, the slide rels, and the written
+ * `/ppt/diagrams/*N.xml` parts all agree (cross-entity id invariant). The drawing cache part is a
+ * sub-rel of the data part (written in pptxgen.ts). Empty/invalid `items` or an unknown `layout`
+ * is a no-op (default-off preserved).
+ * @param {PresSlide} target - slide the diagram is added to
+ * @param {SmartArtProps} props - layout + items (+ optional position/color)
+ */
+export function addSmartArtDefinition (target: PresSlide, props: SmartArtProps): void {
+	const layout = props?.layout
+	const items = (props?.items || []).filter(it => typeof it === 'string' && it.length > 0)
+	if ((layout !== 'list' && layout !== 'process') || items.length === 0) {
+		console.warn("addSmartArt requires layout 'list'|'process' and at least one non-empty item")
+		return
+	}
+
+	if (!Array.isArray(target._diagram)) target._diagram = []
+	// Deck-deterministic, globally-unique filename index (slideNum + per-slide index), mirroring the
+	// ink `ink-{slideNum}-{i}` scheme so diagrams never collide and filenames are reproducible.
+	const diagramId = `${target._slideNum}-${target._diagram.length + 1}`
+
+	// Allocate FOUR distinct slide-rel rIds in sequence. Push each rel as it is allocated so the next
+	// getNewRelId() call (which counts _rels.length) increments — exactly the ink/chart pattern.
+	const dataRid = getNewRelId(target)
+	target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramData', Target: `../diagrams/data${diagramId}.xml`, rId: dataRid })
+	const layoutRid = getNewRelId(target)
+	target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramLayout', Target: `../diagrams/layout${diagramId}.xml`, rId: layoutRid })
+	const quickStyleRid = getNewRelId(target)
+	target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramQuickStyle', Target: `../diagrams/quickStyle${diagramId}.xml`, rId: quickStyleRid })
+	const colorsRid = getNewRelId(target)
+	target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramColors', Target: `../diagrams/colors${diagramId}.xml`, rId: colorsRid })
+	// 5th rel = the drawing cache (MS extension). The Open XML SDK requires this part to be related
+	// from the SLIDE (not the data part); the data model's <dsp:dataModelExt relId> references THIS rId.
+	const drawingRid = getNewRelId(target)
+	target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramDrawing', Target: `../diagrams/drawing${diagramId}.xml`, rId: drawingRid })
+
+	const diagram = {
+		layout,
+		items,
+		color: props.color,
+		w: typeof props.w === 'number' && isFinite(props.w) ? props.w : 8,
+		h: typeof props.h === 'number' && isFinite(props.h) ? props.h : 3,
+		_id: diagramId,
+		_dataRid: dataRid,
+		_layoutRid: layoutRid,
+		_quickStyleRid: quickStyleRid,
+		_colorsRid: colorsRid,
+		_drawingRid: drawingRid,
+	}
+	target._diagram.push(diagram)
+
+	// Push a top-level slide object so the existing slideObjectToXml switch emits the graphicFrame at
+	// the natural shape position (mirrors how charts are stored). Carries position + the stashed rIds.
+	const objectName = props.objectName
+		? encodeXmlEntities(props.objectName)
+		: `Diagram ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.diagram).length + 1}`
+	target._slideObjects.push({
+		_type: SLIDE_OBJECT_TYPES.diagram,
+		options: {
+			x: typeof props.x !== 'undefined' && props.x !== null ? props.x : 1,
+			y: typeof props.y !== 'undefined' && props.y !== null ? props.y : 1,
+			w: typeof props.w !== 'undefined' && props.w !== null ? props.w : 8,
+			h: typeof props.h !== 'undefined' && props.h !== null ? props.h : 3,
+			objectName,
+		},
+		_diagram: diagram,
+	} as unknown as ISlideObject)
 }
 
 /**

@@ -25,6 +25,7 @@ import {
 	ISlideRelMedia,
 	ImageProps,
 	InkProps,
+	SmartArtProps,
 	MediaProps,
 	NoteParagraph,
 	PresLayout,
@@ -60,6 +61,7 @@ export default class Slide {
 	public _slideObjects: ISlideObject[]
 	public _comments: CommentProps[]
 	public _ink: Array<{ strokes: number[][][], color?: HexColor, width?: number, _rId: number, _target: string }>
+	public _diagram: Array<{ layout: 'list' | 'process', items: string[], color?: HexColor, w: number, h: number, _id: string, _dataRid: number, _layoutRid: number, _quickStyleRid: number, _colorsRid: number, _drawingRid: number }>
 	public _newAutoPagedSlides: PresSlide[]
 
 	constructor(params: {
@@ -99,6 +101,8 @@ export default class Slide {
 		this._comments = []
 		/** NOTE: Ink annotations (default `[]`). Empty → no ink parts/rels/overrides/contentPart → byte-identical. */
 		this._ink = []
+		/** NOTE: SmartArt diagrams (default `[]`). Empty → no diagram parts/rels/overrides/graphicFrame → byte-identical. */
+		this._diagram = []
 	}
 
 	/**
@@ -279,6 +283,20 @@ export default class Slide {
 	 */
 	addInk(options: InkProps): Slide {
 		genObj.addInkDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add a SmartArt/diagram to Slide.
+	 * Minimal subset: a flat `items` array rendered as a `list` (vertical) or `process` (horizontal)
+	 * diagram. Emits five linked `ppt/diagrams/*N.xml` parts (data/layout/quickStyle/colors/drawing)
+	 * + a `<p:graphicFrame>` with `<dgm:relIds>` + slide rels + Content_Types overrides. Empty/invalid
+	 * `items` or an unknown `layout` is a no-op (default-off when never called).
+	 * @param {SmartArtProps} options - layout + items (+ optional position/color)
+	 * @return {Slide} this Slide
+	 */
+	addSmartArt(options: SmartArtProps): Slide {
+		genObj.addSmartArtDefinition(this, options)
 		return this
 	}
 

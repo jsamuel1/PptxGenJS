@@ -2628,7 +2628,29 @@ declare namespace PptxGenJS {
 		/** Stroke width in points. @default 1 */
 		width?: number
 	}
-	export interface PresLayout {
+	/**
+	 * SmartArt / diagram options, authored via `slide.addSmartArt({...})`.
+	 * Minimal subset: a flat list of strings rendered as a `list` (vertical) or `process`
+	 * (horizontal) diagram. Emits five linked `/ppt/diagrams/` parts + a `<p:graphicFrame>`.
+	 */
+	export interface SmartArtProps {
+		/** Horizontal position (inches). @default 1 */
+		x?: Coord
+		/** Vertical position (inches). @default 1 */
+		y?: Coord
+		/** Width (inches). @default 8 */
+		w?: Coord
+		/** Height (inches). @default 3 */
+		h?: Coord
+		/** Diagram layout. Initial supported set: `'list'` (vertical) | `'process'` (horizontal). */
+		layout: 'list' | 'process'
+		/** Diagram items — one node per string. Empty/invalid → no-op (default-off). */
+		items: string[]
+		/** Node fill color (6-digit hex, no `#`). @default '4472C4' */
+		color?: HexColor
+		/** Object name (accessibility/identification). */
+		objectName?: string
+	}
 		//_sizeW?: number
 		//_sizeH?: number
 
@@ -2692,6 +2714,7 @@ declare namespace PptxGenJS {
 		addNotes: Function
 		addComment: (options: PptxGenJS.CommentProps) => PptxGenJS.PresSlide
 		addInk: (options: PptxGenJS.InkProps) => PptxGenJS.PresSlide
+		addSmartArt: (options: PptxGenJS.SmartArtProps) => PptxGenJS.PresSlide
 		addShape: Function
 		addTable: Function
 		addText: Function

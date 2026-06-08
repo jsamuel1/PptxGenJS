@@ -1012,6 +1012,29 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += '</p:graphicFrame>'
 				break
 
+			case SLIDE_OBJECT_TYPES.diagram: {
+				// SmartArt/diagram: a graphicFrame whose graphicData carries <dgm:relIds> referencing the
+				// four diagram parts via slide relationships allocated in addSmartArtDefinition. The drawing
+				// cache (referenced from the data part's own sub-rels) makes it render out-of-the-box.
+				const dgmObj = (slideItemObj as unknown as { _diagram?: { _dataRid: number, _layoutRid: number, _quickStyleRid: number, _colorsRid: number } })._diagram
+				if (dgmObj) {
+					strSlideXml += '<p:graphicFrame>'
+					strSlideXml += ' <p:nvGraphicFramePr>'
+					strSlideXml += `   <p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+					strSlideXml += '   <p:cNvGraphicFramePr/>'
+					strSlideXml += `   <p:nvPr>${genXmlPlaceholder(placeholderObj)}</p:nvPr>`
+					strSlideXml += ' </p:nvGraphicFramePr>'
+					strSlideXml += ` <p:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></p:xfrm>`
+					strSlideXml += ' <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+					strSlideXml += '  <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/diagram">'
+					strSlideXml += `   <dgm:relIds xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:dm="rId${dgmObj._dataRid}" r:lo="rId${dgmObj._layoutRid}" r:qs="rId${dgmObj._quickStyleRid}" r:cs="rId${dgmObj._colorsRid}"/>`
+					strSlideXml += '  </a:graphicData>'
+					strSlideXml += ' </a:graphic>'
+					strSlideXml += '</p:graphicFrame>'
+				}
+				break
+			}
+
 			case SLIDE_OBJECT_TYPES.group:
 				// Feature 6: nested shape group. The `<a:xfrm>` carries the absolute position/size;
 				// `chOff="0,0"` + `chExt`=ext gives a 1:1 child coordinate space, so children use
@@ -1214,6 +1237,17 @@ function slideObjectRelationsToXml (slide: PresSlide | SlideLayout, defaultRels:
 			strXml += `<Relationship Id="rId${rel.rId}" Target="${rel.Target}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
 		} else if (rel.type.toLowerCase().includes('ink')) {
 			strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${rel.Target}"/>`
+		} else if (rel.type.toLowerCase().includes('diagram')) {
+			// SmartArt: each diagram part has its own relationship Type, keyed by `rel.data`. The drawing
+			// cache uses the Microsoft extension Type; the other four use the standard officeDocument Types.
+			const dgmTypeUri = ({
+				diagramData: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData',
+				diagramLayout: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout',
+				diagramQuickStyle: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle',
+				diagramColors: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors',
+				diagramDrawing: 'http://schemas.microsoft.com/office/2007/relationships/diagramDrawing',
+			} as { [key: string]: string })[String(rel.data)] || 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData'
+			strXml += `<Relationship Id="rId${rel.rId}" Type="${dgmTypeUri}" Target="${rel.Target}"/>`
 		}
 	})
 	; (slide._relsChart || []).forEach((rel: ISlideRelChart) => {
@@ -1912,6 +1946,15 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 		// Ink (default-off): one Override per ink part on this slide.
 		;((slide._ink) || []).forEach(ink => {
 			strXml += `<Override PartName="/ppt/ink/${ink._target}" ContentType="application/inkml+xml"/>`
+		})
+		// SmartArt (default-off): five Overrides per diagram on this slide.
+		;((slide._diagram) || []).forEach(dgm => {
+			const k = dgm._id
+			strXml += `<Override PartName="/ppt/diagrams/data${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml"/>`
+			strXml += `<Override PartName="/ppt/diagrams/layout${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml"/>`
+			strXml += `<Override PartName="/ppt/diagrams/quickStyle${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml"/>`
+			strXml += `<Override PartName="/ppt/diagrams/colors${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml"/>`
+			strXml += `<Override PartName="/ppt/diagrams/drawing${k}.xml" ContentType="application/vnd.ms-office.drawingml.diagramDrawing+xml"/>`
 		})
 	})
 	// Comments (default-off): a single shared commentAuthors override when ANY slide has comments.

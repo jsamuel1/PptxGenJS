@@ -27,7 +27,7 @@ fidelity** when duplicating or importing an existing slide.
 are about *creating* that content from scratch. If/when slide-copy or
 slide-import is implemented, it **must preserve every part, relationship, and
 XML element of the source slide verbatim** — including features this library
-cannot author (OLE objects, ActiveX controls, SmartArt,
+cannot author (OLE objects, ActiveX controls,
 etc.). Copy fidelity is a hard requirement, not a function of authoring
 support: an unsupported feature is a reason not to expose a *builder* for it,
 never a license to silently strip it from a faithful copy.
@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | SmartArt, motion animations |
+| ❌ Missing | motion animations |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -89,7 +89,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Speaker notes (storage) | `p:notes` notesSlide | ✅ Done | `addNotes()` writes notes slide |
 | **Talking-points notes export** | structured notes / per-build notes | ✅ Done | `slide.addNotes(NoteParagraph[])` — multi-paragraph bulleted/indented notes |
 | Comments (modern) | `p:cm`, `cmAuthorLst` | ✅ Done | `slide.addComment()` → legacy `p:cm` + shared `commentAuthors.xml` (deduped authors); modern `p188`/`pc` threaded comments are a follow-up |
-| SmartArt / diagrams | `dgm:*`, `dsp:*` | ❌ Missing | in scope (roadmap) |
+| SmartArt / diagrams | `dgm:*`, `dsp:*` | ✅ Done | `slide.addSmartArt({ layout:'list'\|'process', items, color? })` → five linked `/ppt/diagrams/*` parts (data/layout/quickStyle/colors + `dsp:drawing` cache) + `<p:graphicFrame>` w/ `<dgm:relIds>` + 5 slide rels + Content_Types overrides; minimal list/process subset. Cross-entity id invariant ×5 + default-off. See `docs/feature-smartart.md`. |
 | OLE objects | `p:oleObj` + `/ppt/embeddings/*.bin` | 🚫 Out of scope (authoring) | **Why:** embedding Excel/Word means writing binary OLE compound-document parts and managing their fallback images + relationships. Niche for code-generated decks and high effort; no clean dependency-free path. *(Must still be preserved on slide copy.)* |
 | VBA / macros | `.pptm` content-type + `/ppt/vbaProject.bin` | 🚫 Out of scope (authoring) | **Why:** requires emitting a binary `vbaProject.bin` (CFB) and switching the package to the macro-enabled content type. Carries security baggage (macro-enabled output) with little value for programmatic generation. *(Preserve on copy.)* |
 | ActiveX controls | `p:control` + `/ppt/activeX/*.bin` | 🚫 Out of scope (authoring) | **Why:** needs binary ActiveX control persistence + COM-class metadata; Windows/PowerPoint-specific, security-sensitive, and effectively un-authorable in a portable JS library. *(Preserve on copy.)* |
@@ -155,7 +155,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — SmartArt, hover links, **ink** (niche but tractable).
+5. **Then everything else** — SmartArt ✅, **ink** ✅; hover links remain.
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package

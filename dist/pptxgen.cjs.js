@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T19:22:25.416Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T20:02:15.804Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -648,6 +648,7 @@ var SLIDE_OBJECT_TYPES;
     SLIDE_OBJECT_TYPES["text"] = "text";
     SLIDE_OBJECT_TYPES["notes"] = "notes";
     SLIDE_OBJECT_TYPES["ink"] = "ink";
+    SLIDE_OBJECT_TYPES["diagram"] = "diagram";
 })(SLIDE_OBJECT_TYPES || (SLIDE_OBJECT_TYPES = {}));
 var PLACEHOLDER_TYPES;
 (function (PLACEHOLDER_TYPES) {
@@ -2716,6 +2717,74 @@ function addInkDefinition(target, props) {
     });
 }
 /**
+ * Adds a SmartArt/diagram object to a slide definition.
+ * Allocates FOUR diagram-family slide relationships (data/layout/quickStyle/colors) — referenced by
+ * the `<dgm:relIds>` on the emitted `<p:graphicFrame>` — and stashes the four rIds + a globally-unique
+ * diagram index on a `_diagram` slide-object so the graphicFrame, the slide rels, and the written
+ * `/ppt/diagrams/*N.xml` parts all agree (cross-entity id invariant). The drawing cache part is a
+ * sub-rel of the data part (written in pptxgen.ts). Empty/invalid `items` or an unknown `layout`
+ * is a no-op (default-off preserved).
+ * @param {PresSlide} target - slide the diagram is added to
+ * @param {SmartArtProps} props - layout + items (+ optional position/color)
+ */
+function addSmartArtDefinition(target, props) {
+    const layout = props === null || props === void 0 ? void 0 : props.layout;
+    const items = ((props === null || props === void 0 ? void 0 : props.items) || []).filter(it => typeof it === 'string' && it.length > 0);
+    if ((layout !== 'list' && layout !== 'process') || items.length === 0) {
+        console.warn("addSmartArt requires layout 'list'|'process' and at least one non-empty item");
+        return;
+    }
+    if (!Array.isArray(target._diagram))
+        target._diagram = [];
+    // Deck-deterministic, globally-unique filename index (slideNum + per-slide index), mirroring the
+    // ink `ink-{slideNum}-{i}` scheme so diagrams never collide and filenames are reproducible.
+    const diagramId = `${target._slideNum}-${target._diagram.length + 1}`;
+    // Allocate FOUR distinct slide-rel rIds in sequence. Push each rel as it is allocated so the next
+    // getNewRelId() call (which counts _rels.length) increments — exactly the ink/chart pattern.
+    const dataRid = getNewRelId(target);
+    target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramData', Target: `../diagrams/data${diagramId}.xml`, rId: dataRid });
+    const layoutRid = getNewRelId(target);
+    target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramLayout', Target: `../diagrams/layout${diagramId}.xml`, rId: layoutRid });
+    const quickStyleRid = getNewRelId(target);
+    target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramQuickStyle', Target: `../diagrams/quickStyle${diagramId}.xml`, rId: quickStyleRid });
+    const colorsRid = getNewRelId(target);
+    target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramColors', Target: `../diagrams/colors${diagramId}.xml`, rId: colorsRid });
+    // 5th rel = the drawing cache (MS extension). The Open XML SDK requires this part to be related
+    // from the SLIDE (not the data part); the data model's <dsp:dataModelExt relId> references THIS rId.
+    const drawingRid = getNewRelId(target);
+    target._rels.push({ type: SLIDE_OBJECT_TYPES.diagram, data: 'diagramDrawing', Target: `../diagrams/drawing${diagramId}.xml`, rId: drawingRid });
+    const diagram = {
+        layout,
+        items,
+        color: props.color,
+        w: typeof props.w === 'number' && isFinite(props.w) ? props.w : 8,
+        h: typeof props.h === 'number' && isFinite(props.h) ? props.h : 3,
+        _id: diagramId,
+        _dataRid: dataRid,
+        _layoutRid: layoutRid,
+        _quickStyleRid: quickStyleRid,
+        _colorsRid: colorsRid,
+        _drawingRid: drawingRid,
+    };
+    target._diagram.push(diagram);
+    // Push a top-level slide object so the existing slideObjectToXml switch emits the graphicFrame at
+    // the natural shape position (mirrors how charts are stored). Carries position + the stashed rIds.
+    const objectName = props.objectName
+        ? encodeXmlEntities(props.objectName)
+        : `Diagram ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.diagram).length + 1}`;
+    target._slideObjects.push({
+        _type: SLIDE_OBJECT_TYPES.diagram,
+        options: {
+            x: typeof props.x !== 'undefined' && props.x !== null ? props.x : 1,
+            y: typeof props.y !== 'undefined' && props.y !== null ? props.y : 1,
+            w: typeof props.w !== 'undefined' && props.w !== null ? props.w : 8,
+            h: typeof props.h !== 'undefined' && props.h !== null ? props.h : 3,
+            objectName,
+        },
+        _diagram: diagram,
+    });
+}
+/**
  * Map of common friendly shape names users pass as bare strings to their
  * valid OOXML preset values. PowerPoint can't parse the friendly spellings
  * and removes the shape during repair .
@@ -3890,6 +3959,8 @@ class Slide {
         this._comments = [];
         /** NOTE: Ink annotations (default `[]`). Empty → no ink parts/rels/overrides/contentPart → byte-identical. */
         this._ink = [];
+        /** NOTE: SmartArt diagrams (default `[]`). Empty → no diagram parts/rels/overrides/graphicFrame → byte-identical. */
+        this._diagram = [];
     }
     set bkgd(value) {
         this._bkgd = value;
@@ -4022,6 +4093,19 @@ class Slide {
      */
     addInk(options) {
         addInkDefinition(this, options);
+        return this;
+    }
+    /**
+     * Add a SmartArt/diagram to Slide.
+     * Minimal subset: a flat `items` array rendered as a `list` (vertical) or `process` (horizontal)
+     * diagram. Emits five linked `ppt/diagrams/*N.xml` parts (data/layout/quickStyle/colors/drawing)
+     * + a `<p:graphicFrame>` with `<dgm:relIds>` + slide rels + Content_Types overrides. Empty/invalid
+     * `items` or an unknown `layout` is a no-op (default-off when never called).
+     * @param {SmartArtProps} options - layout + items (+ optional position/color)
+     * @return {Slide} this Slide
+     */
+    addSmartArt(options) {
+        addSmartArtDefinition(this, options);
         return this;
     }
     /**
@@ -7211,6 +7295,28 @@ function slideObjectToXml(slide) {
                 strSlideXml += ' </a:graphic>';
                 strSlideXml += '</p:graphicFrame>';
                 break;
+            case SLIDE_OBJECT_TYPES.diagram: {
+                // SmartArt/diagram: a graphicFrame whose graphicData carries <dgm:relIds> referencing the
+                // four diagram parts via slide relationships allocated in addSmartArtDefinition. The drawing
+                // cache (referenced from the data part's own sub-rels) makes it render out-of-the-box.
+                const dgmObj = slideItemObj._diagram;
+                if (dgmObj) {
+                    strSlideXml += '<p:graphicFrame>';
+                    strSlideXml += ' <p:nvGraphicFramePr>';
+                    strSlideXml += `   <p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`;
+                    strSlideXml += '   <p:cNvGraphicFramePr/>';
+                    strSlideXml += `   <p:nvPr>${genXmlPlaceholder(placeholderObj)}</p:nvPr>`;
+                    strSlideXml += ' </p:nvGraphicFramePr>';
+                    strSlideXml += ` <p:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></p:xfrm>`;
+                    strSlideXml += ' <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">';
+                    strSlideXml += '  <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/diagram">';
+                    strSlideXml += `   <dgm:relIds xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:dm="rId${dgmObj._dataRid}" r:lo="rId${dgmObj._layoutRid}" r:qs="rId${dgmObj._quickStyleRid}" r:cs="rId${dgmObj._colorsRid}"/>`;
+                    strSlideXml += '  </a:graphicData>';
+                    strSlideXml += ' </a:graphic>';
+                    strSlideXml += '</p:graphicFrame>';
+                }
+                break;
+            }
             case SLIDE_OBJECT_TYPES.group:
                 // Feature 6: nested shape group. The `<a:xfrm>` carries the absolute position/size;
                 // `chOff="0,0"` + `chExt`=ext gives a 1:1 child coordinate space, so children use
@@ -7407,6 +7513,18 @@ function slideObjectRelationsToXml(slide, defaultRels) {
         }
         else if (rel.type.toLowerCase().includes('ink')) {
             strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${rel.Target}"/>`;
+        }
+        else if (rel.type.toLowerCase().includes('diagram')) {
+            // SmartArt: each diagram part has its own relationship Type, keyed by `rel.data`. The drawing
+            // cache uses the Microsoft extension Type; the other four use the standard officeDocument Types.
+            const dgmTypeUri = {
+                diagramData: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData',
+                diagramLayout: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramLayout',
+                diagramQuickStyle: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramQuickStyle',
+                diagramColors: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramColors',
+                diagramDrawing: 'http://schemas.microsoft.com/office/2007/relationships/diagramDrawing',
+            }[String(rel.data)] || 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/diagramData';
+            strXml += `<Relationship Id="rId${rel.rId}" Type="${dgmTypeUri}" Target="${rel.Target}"/>`;
         }
     });
     (slide._relsChart || []).forEach((rel) => {
@@ -8086,6 +8204,14 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts, hasH
         }
         ((slide._ink) || []).forEach(ink => {
             strXml += `<Override PartName="/ppt/ink/${ink._target}" ContentType="application/inkml+xml"/>`;
+        });
+        ((slide._diagram) || []).forEach(dgm => {
+            const k = dgm._id;
+            strXml += `<Override PartName="/ppt/diagrams/data${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml"/>`;
+            strXml += `<Override PartName="/ppt/diagrams/layout${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml"/>`;
+            strXml += `<Override PartName="/ppt/diagrams/quickStyle${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml"/>`;
+            strXml += `<Override PartName="/ppt/diagrams/colors${k}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml"/>`;
+            strXml += `<Override PartName="/ppt/diagrams/drawing${k}.xml" ContentType="application/vnd.ms-office.drawingml.diagramDrawing+xml"/>`;
         });
     });
     // Comments (default-off): a single shared commentAuthors override when ANY slide has comments.
@@ -9133,6 +9259,155 @@ function makeXmlViewProps() {
 }
 
 /**
+ * PptxGenJS: SmartArt / Diagram (`dgm:*`, `dsp:*`) XML generators.
+ *
+ * Minimal subset: a flat array of strings rendered as a `list` (vertical stack) or
+ * `process` (horizontal row) diagram. Each `addSmartArt(...)` call emits FIVE linked
+ * `/ppt/diagrams/` parts:
+ *   - data{N}.xml      `<dgm:dataModel>`  (point/connection model + dsp:dataModelExt → drawing)
+ *   - layout{N}.xml    `<dgm:layoutDef>`  (minimal valid layout definition)
+ *   - quickStyle{N}.xml`<dgm:styleDef>`   (minimal valid style definition)
+ *   - colors{N}.xml    `<dgm:colorsDef>`  (minimal valid colors definition)
+ *   - drawing{N}.xml   `<dsp:drawing>`    (precomputed drawing cache so it renders out-of-the-box)
+ *
+ * The graphicFrame on the slide (gen-xml.ts `case SLIDE_OBJECT_TYPES.diagram`) references the
+ * data/layout/quickStyle/colors parts via four slide relationships; the drawing part is a sub-rel
+ * of the data part (`/ppt/diagrams/_rels/data{N}.xml.rels`, local `rId1`) referenced from the data
+ * model's `extLst` via `<dsp:dataModelExt relId="rId1">`.
+ */
+const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+const DGM_NS = 'http://schemas.openxmlformats.org/drawingml/2006/diagram';
+const DSP_NS = 'http://schemas.microsoft.com/office/drawing/2008/diagram';
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const DSP_EXT_URI = 'http://schemas.microsoft.com/office/drawing/2008/diagram';
+const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF;
+/** Per-node modelId used in BOTH the data model and the drawing cache (string ids 1..N; doc = "0"). */
+function nodeModelId(i) {
+    return String(i + 1);
+}
+/**
+ * data{N}.xml — `<dgm:dataModel>`: one `doc` point + one `node` point per item, each linked from the
+ * doc via a `parOf` connection. The `extLst` carries `<dsp:dataModelExt relId="rId1">` pointing at the
+ * drawing cache (resolved via the data part's own sub-rels).
+ */
+function makeXmlDiagramData(dgm, drawingRid) {
+    const items = dgm.items || [];
+    let pts = `<dgm:pt modelId="0" type="doc"><dgm:prSet/><dgm:spPr/><dgm:t><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></dgm:t></dgm:pt>`;
+    let cxns = '';
+    items.forEach((txt, i) => {
+        const mid = nodeModelId(i);
+        pts += `<dgm:pt modelId="${mid}" type="node"><dgm:prSet/><dgm:spPr/><dgm:t><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>${encodeXmlEntities(txt)}</a:t></a:r></a:p></dgm:t></dgm:pt>`;
+        // Connection: doc (srcId="0") -> node. modelId must be unique; offset past node ids.
+        cxns += `<dgm:cxn modelId="${1000 + i}" type="parOf" srcId="0" destId="${mid}" srcOrd="${i}" destOrd="0"/>`;
+    });
+    let xml = XML_HEAD;
+    xml += `<dgm:dataModel xmlns:dgm="${DGM_NS}" xmlns:a="${A_NS}" xmlns:r="${R_NS}">`;
+    xml += `<dgm:ptLst>${pts}</dgm:ptLst>`;
+    xml += `<dgm:cxnLst>${cxns}</dgm:cxnLst>`;
+    xml += '<dgm:bg/><dgm:whole/>';
+    xml += '<dgm:extLst>';
+    xml += `<a:ext uri="${DSP_EXT_URI}">`;
+    xml += `<dsp:dataModelExt xmlns:dsp="${DSP_NS}" relId="rId${drawingRid}" minVer="${DGM_NS}"/>`;
+    xml += '</a:ext>';
+    xml += '</dgm:extLst>';
+    xml += '</dgm:dataModel>';
+    return xml;
+}
+/** layout{N}.xml — `<dgm:layoutDef>`: minimal valid layout (exactly one `<dgm:layoutNode>`). */
+function makeXmlDiagramLayout(dgm) {
+    const uniqueId = `urn:pptxgenjs/diagram/${dgm.layout}`;
+    let xml = XML_HEAD;
+    xml += `<dgm:layoutDef xmlns:dgm="${DGM_NS}" xmlns:a="${A_NS}" uniqueId="${uniqueId}">`;
+    xml += `<dgm:title val=""/><dgm:desc val=""/>`;
+    xml += '<dgm:catLst/>';
+    xml += '<dgm:sampData/><dgm:styleData/><dgm:clrData/>';
+    xml += '<dgm:layoutNode name="root"/>';
+    xml += '</dgm:layoutDef>';
+    return xml;
+}
+/** quickStyle{N}.xml — `<dgm:styleDef>`: minimal valid style definition. */
+function makeXmlDiagramQuickStyle() {
+    let xml = XML_HEAD;
+    xml += `<dgm:styleDef xmlns:dgm="${DGM_NS}" xmlns:a="${A_NS}" uniqueId="urn:pptxgenjs/diagram/style">`;
+    xml += '<dgm:title val=""/><dgm:desc val=""/>';
+    xml += '<dgm:catLst/>';
+    xml += '<dgm:scene3d><a:camera prst="orthographicFront"/><a:lightRig rig="threePt" dir="t"/></dgm:scene3d>';
+    xml += '<dgm:styleLbl name="node0"><dgm:scene3d><a:camera prst="orthographicFront"/><a:lightRig rig="threePt" dir="t"/></dgm:scene3d><dgm:sp3d/><dgm:txPr/></dgm:styleLbl>';
+    xml += '</dgm:styleDef>';
+    return xml;
+}
+/** colors{N}.xml — `<dgm:colorsDef>`: minimal valid colors definition. */
+function makeXmlDiagramColors() {
+    let xml = XML_HEAD;
+    xml += `<dgm:colorsDef xmlns:dgm="${DGM_NS}" xmlns:a="${A_NS}" uniqueId="urn:pptxgenjs/diagram/colors">`;
+    xml += '<dgm:title val=""/><dgm:desc val=""/>';
+    xml += '<dgm:catLst/>';
+    xml += '</dgm:colorsDef>';
+    return xml;
+}
+/**
+ * drawing{N}.xml — `<dsp:drawing>`: precomputed drawing cache. One `<dsp:sp>` per item positioned
+ * evenly along a row (process) or column (list), filling the frame `cx`×`cy` (EMU). Each shape's
+ * `modelId` matches the corresponding data-model node `modelId`.
+ */
+function makeXmlDiagramDrawing(dgm, w, h) {
+    const items = dgm.items || [];
+    const n = Math.max(1, items.length);
+    const cx = Math.round(inch2Emu(w));
+    const cy = Math.round(inch2Emu(h));
+    const fill = (dgm.color || '4472C4').replace(/^#/, '');
+    const isProcess = dgm.layout === 'process';
+    // Gap between boxes = 12% of a cell; box gets the remaining 88%.
+    const gapFrac = 0.12;
+    let shapes = '';
+    items.forEach((txt, i) => {
+        const mid = nodeModelId(i);
+        let bx, by, bw, bh;
+        if (isProcess) {
+            const cell = cx / n;
+            const gap = Math.round(cell * gapFrac);
+            bx = Math.round(i * cell) + Math.round(gap / 2);
+            by = 0;
+            bw = Math.round(cell) - gap;
+            bh = cy;
+        }
+        else {
+            const cell = cy / n;
+            const gap = Math.round(cell * gapFrac);
+            bx = 0;
+            by = Math.round(i * cell) + Math.round(gap / 2);
+            bw = cx;
+            bh = Math.round(cell) - gap;
+        }
+        if (bw < 1)
+            bw = 1;
+        if (bh < 1)
+            bh = 1;
+        shapes += `<dsp:sp modelId="${mid}">`;
+        shapes += `<dsp:nvSpPr><dsp:cNvPr id="${i + 1}" name=""/><dsp:cNvSpPr/></dsp:nvSpPr>`;
+        shapes += '<dsp:spPr>';
+        shapes += `<a:xfrm><a:off x="${bx}" y="${by}"/><a:ext cx="${bw}" cy="${bh}"/></a:xfrm>`;
+        shapes += '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
+        shapes += `<a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>`;
+        shapes += '</dsp:spPr>';
+        shapes += '<dsp:txBody>';
+        shapes += '<a:bodyPr/><a:lstStyle/>';
+        shapes += `<a:p><a:r><a:t>${encodeXmlEntities(txt)}</a:t></a:r></a:p>`;
+        shapes += '</dsp:txBody>';
+        shapes += '</dsp:sp>';
+    });
+    let xml = XML_HEAD;
+    xml += `<dsp:drawing xmlns:dsp="${DSP_NS}" xmlns:dgm="${DGM_NS}" xmlns:a="${A_NS}" xmlns:r="${R_NS}">`;
+    xml += '<dsp:spTree>';
+    xml += '<dsp:nvGrpSpPr><dsp:cNvPr id="0" name=""/><dsp:cNvGrpSpPr/></dsp:nvGrpSpPr>';
+    xml += '<dsp:grpSpPr/>';
+    xml += shapes;
+    xml += '</dsp:spTree>';
+    xml += '</dsp:drawing>';
+    return xml;
+}
+
+/**
  *  :: pptxgen.ts ::
  *
  *  JavaScript framework that creates PowerPoint (pptx) presentations
@@ -9494,6 +9769,10 @@ class PptxGenJS {
                 const hasComments = this.slides.some(s => (s._comments || []).length > 0);
                 if (hasComments)
                     zip.folder('ppt/comments');
+                // Only scaffold ppt/diagrams when at least one slide has a SmartArt diagram.
+                const hasDiagrams = this.slides.some(s => (s._diagram || []).length > 0);
+                if (hasDiagrams)
+                    zip.folder('ppt/diagrams');
                 zip.file('[Content_Types].xml', makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts, !!this._handoutMaster)); // TODO: pass only `this` like below! 20200206
                 zip.file('_rels/.rels', makeXmlRootRels());
                 zip.file('docProps/app.xml', makeXmlApp(this.slides, this.company)); // TODO: pass only `this` like below! 20200206
@@ -9530,6 +9809,14 @@ class PptxGenJS {
                     }
                     ((slide._ink) || []).forEach(ink => {
                         zip.file(`ppt/ink/${ink._target}`, makeXmlInk(ink));
+                    });
+                    ((slide._diagram) || []).forEach(dgm => {
+                        const k = dgm._id;
+                        zip.file(`ppt/diagrams/data${k}.xml`, makeXmlDiagramData(dgm, dgm._drawingRid));
+                        zip.file(`ppt/diagrams/layout${k}.xml`, makeXmlDiagramLayout(dgm));
+                        zip.file(`ppt/diagrams/quickStyle${k}.xml`, makeXmlDiagramQuickStyle());
+                        zip.file(`ppt/diagrams/colors${k}.xml`, makeXmlDiagramColors());
+                        zip.file(`ppt/diagrams/drawing${k}.xml`, makeXmlDiagramDrawing(dgm, dgm.w, dgm.h));
                     });
                 });
                 zip.file('ppt/slideMasters/slideMaster1.xml', makeXmlMaster(this.masterSlide, this.slideLayouts));

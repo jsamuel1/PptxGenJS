@@ -29,6 +29,82 @@ async function expectNoSchemaErrors (buf, label) {
 
 module.exports = [
 	{
+		name: 'smartart diagrams (addSmartArt -> 5 dgm/dsp parts + graphicFrame + dgm:relIds + 5 slide rels + Overrides)',
+		fn: async () => {
+			// Slide 1: a process diagram (3 items). Slide 2: a list diagram (2 items). Slide 3: no diagram (default-off control).
+			const { buf, zip } = await build(p => {
+				p.addSlide().addSmartArt({ x: 1, y: 1, w: 10, h: 3, layout: 'process', items: ['Discover', 'Build', 'Ship'], color: '7C3AED' })
+				p.addSlide().addSmartArt({ x: 0.5, y: 0.5, w: 4, h: 5, layout: 'list', items: ['Alpha', 'Beta'] })
+				p.addSlide().addText('plain', { x: 1, y: 1, w: 3, h: 1 })
+			})
+			// Baseline: the whole package validates clean (5 dgm/dsp parts + graphicFrame).
+			await expectNoSchemaErrors(buf, 'smartart')
+
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			const slide3 = await readEntry(zip, 'ppt/slides/slide3.xml')
+			const ct = await readEntry(zip, '[Content_Types].xml')
+
+			// (i) all 5 diagram parts exist + parse for slide 1.
+			;['data1-1', 'layout1-1', 'quickStyle1-1', 'colors1-1', 'drawing1-1'].forEach(n => {
+				assert(zip.file('ppt/diagrams/' + n + '.xml'), 'smartart: part ppt/diagrams/' + n + '.xml missing')
+			})
+
+			// (ii) cross-entity invariant ×5 — the four <dgm:relIds> r: ids + the drawing rId each resolve
+			// to a DISTINCT UNIQUE slide rel of the correct Type. The XSD WILL catch a dangling r:dm/r:lo/
+			// r:qs/r:cs (they are r:id-typed) — see the regression-catch below.
+			const m = slide1.match(/<dgm:relIds[^>]*r:dm="(rId\d+)"[^>]*r:lo="(rId\d+)"[^>]*r:qs="(rId\d+)"[^>]*r:cs="(rId\d+)"/)
+			assert(m, 'smartart: <dgm:relIds> with 4 r: ids missing')
+			const [, dm, lo, qs, cs] = m
+			const typeOf = rid => {
+				const mm = rels1.match(new RegExp('<Relationship Id="' + rid + '" Type="([^"]+)"'))
+				return mm ? mm[1] : null
+			}
+			assert(/relationships\/diagramData$/.test(typeOf(dm)), 'smartart: r:dm must resolve to diagramData rel')
+			assert(/relationships\/diagramLayout$/.test(typeOf(lo)), 'smartart: r:lo must resolve to diagramLayout rel')
+			assert(/relationships\/diagramQuickStyle$/.test(typeOf(qs)), 'smartart: r:qs must resolve to diagramQuickStyle rel')
+			assert(/relationships\/diagramColors$/.test(typeOf(cs)), 'smartart: r:cs must resolve to diagramColors rel')
+			const drawRel = rels1.match(/<Relationship Id="(rId\d+)" Type="[^"]*office\/2007\/relationships\/diagramDrawing" Target="\.\.\/diagrams\/drawing1-1\.xml"\//)
+			assert(drawRel, 'smartart: drawing slide rel (5th) missing')
+			const ids = [dm, lo, qs, cs, drawRel[1]]
+			assert(new Set(ids).size === 5, 'smartart: the 4 relIds + drawing rId must be 5 distinct ids: ' + ids.join(','))
+			// each id unique within the rels part
+			ids.forEach(rid => assert((rels1.match(new RegExp('Id="' + rid + '"', 'g')) || []).length === 1, 'smartart: rId ' + rid + ' must be unique'))
+
+			// (iii) dataModelExt relId == the drawing slide rel rId (renders out-of-the-box via the cache).
+			const data1 = await readEntry(zip, 'ppt/diagrams/data1-1.xml')
+			assert(data1.indexOf('relId="' + drawRel[1] + '"') !== -1, 'smartart: dataModelExt relId must equal the drawing rId ' + drawRel[1])
+
+			// (iv) data-model point count == items+1 (doc); drawing sp count == items; modelIds align.
+			assert((data1.match(/<dgm:pt /g) || []).length === 4, 'smartart: data1 should have 4 <dgm:pt> (3 items + doc)')
+			const drawing1 = await readEntry(zip, 'ppt/diagrams/drawing1-1.xml')
+			assert((drawing1.match(/<dsp:sp /g) || []).length === 3, 'smartart: drawing1 should have 3 <dsp:sp>')
+			assert(drawing1.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'smartart: custom node fill missing in drawing cache')
+
+			// (v) 5 Content_Types Overrides for slide 1's diagram.
+			;[['data1-1', 'diagramData'], ['layout1-1', 'diagramLayout'], ['quickStyle1-1', 'diagramStyle'], ['colors1-1', 'diagramColors']].forEach(([n, t]) => {
+				assert(ct.indexOf('PartName="/ppt/diagrams/' + n + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.' + t + '+xml"') !== -1, 'smartart: Override for ' + n + ' missing')
+			})
+			assert(ct.indexOf('PartName="/ppt/diagrams/drawing1-1.xml" ContentType="application/vnd.ms-office.drawingml.diagramDrawing+xml"') !== -1, 'smartart: drawing Override missing')
+
+			// DEFAULT-OFF: slide 3 has no graphicFrame/relIds; a deck with NO addSmartArt has no diagram parts at all.
+			assert(slide3.indexOf('<dgm:relIds') === -1, 'smartart: default-off slide must have no relIds')
+			const { zip: zipNo } = await build(p => { p.addSlide().addText('x', { x: 1, y: 1 }) })
+			assert(!Object.keys(zipNo.files).some(n => n.startsWith('ppt/diagrams/')), 'smartart: default-off deck must have no diagram parts')
+			const ctNo = await readEntry(zipNo, '[Content_Types].xml')
+			assert(ctNo.indexOf('drawingml.diagramData+xml') === -1, 'smartart: default-off deck must have no diagram Override')
+
+			// Validator regression-catch: prove the validator is engaged — corrupt r:dm to a dangling rId
+			// and confirm schema errors surface (r:dm is an r:id-typed attribute).
+			const badSlide1 = slide1.replace(/r:dm="rId\d+"/, 'r:dm="rId9999"')
+			assert(badSlide1 !== slide1, 'smartart: mutation precondition')
+			zip.file('ppt/slides/slide1.xml', badSlide1)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'smartart: validator should flag a dangling <dgm:relIds> r:dm (regression-catch)')
+		}
+	},
+	{
 		name: 'ink annotations (addInk -> InkML part + customXml rel + contentPart + Override)',
 		fn: async () => {
 			// Slide 1 has TWO inks AND a group (double-emit guard); slide 2 has none (default-off control).
