@@ -2559,6 +2559,17 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
 	strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`
 
+	// STEP 4b: Add kinsoku (East-Asian line-break rules) — default-off.
+	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+	// <p:kinsoku> after <p:notesSz> and immediately before <p:defaultTextStyle>.
+	if (pres.kinsoku) {
+		const lang = encodeXmlEntities(pres.kinsoku.lang ?? 'ja-JP')
+		// Sensible Japanese (ja-JP) defaults so most users need only set `lang`.
+		const invalStChars = encodeXmlEntities(pres.kinsoku.invalStChars ?? '!),.:;?]}\u2026')
+		const invalEndChars = encodeXmlEntities(pres.kinsoku.invalEndChars ?? '([{\u2018\u201C')
+		strXml += `<p:kinsoku lang="${lang}" invalStChars="${invalStChars}" invalEndChars="${invalEndChars}"/>`
+	}
+
 	// STEP 5: Add text styles
 	strXml += '<p:defaultTextStyle>'
 	for (let idy = 1; idy < 10; idy++) {

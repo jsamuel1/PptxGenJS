@@ -1,8 +1,16 @@
 # Feature: Kinsoku — East-Asian Line-Break Rules (`p:kinsoku`)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Low — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §1 Presentation container — "Kinsoku (E-Asian breaks)"
+>
+> **Implemented:** `pptx.kinsoku = { lang?, invalStChars?, invalEndChars? }` →
+> `<p:kinsoku>` emitted in `presentation.xml` between `<p:notesSz>` and
+> `<p:defaultTextStyle>` (canonical `CT_Presentation` order). ja-JP defaults,
+> attribute values XML-escaped via `encodeXmlEntities`, default-off byte-identical.
+> Touch points: `src/core-interfaces.ts` (`KinsokuProps` + `kinsoku?` on
+> `PresentationProps`), `src/pptxgen.ts` (`pptx.kinsoku` accessor),
+> `src/gen-xml.ts` (`makeXmlPresentation` emit). Schema fixture `kinsoku`.
 
 ## Problem
 

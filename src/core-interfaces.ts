@@ -2413,6 +2413,32 @@ export interface PresentationProps {
 	subject: string
 	theme: ThemeProps
 	title: string
+	/**
+	 * Kinsoku (East-Asian line-break) rules emitted as `<p:kinsoku>` in `presentation.xml`.
+	 * Default-off: when unset, no `<p:kinsoku>` element is emitted.
+	 */
+	kinsoku?: KinsokuProps
+}
+/**
+ * Kinsoku — East-Asian line-break rules (`<p:kinsoku>` in `presentation.xml`).
+ * Controls which characters may not start (`invalStChars`) or end (`invalEndChars`) a line.
+ */
+export interface KinsokuProps {
+	/**
+	 * Language tag for the kinsoku rule set.
+	 * @default 'ja-JP'
+	 */
+	lang?: string
+	/**
+	 * Characters not allowed to START a line.
+	 * @default Japanese (ja-JP) default set
+	 */
+	invalStChars?: string
+	/**
+	 * Characters not allowed to END a line.
+	 * @default Japanese (ja-JP) default set
+	 */
+	invalEndChars?: string
 }
 // PRIVATE interface
 export interface IPresentationProps extends PresentationProps {

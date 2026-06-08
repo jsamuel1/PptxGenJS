@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, custom shows, photo album, handout master, kinsoku, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, custom shows, photo album, handout master, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -71,7 +71,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Custom shows | `p:custShowLst` | ❌ Missing | subset slideshows |
 | Photo album | `p:photoAlbum` | ❌ Missing | |
 | Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ❌ Missing | needed for portable decks; README markets "Asian fonts" but no embedding exists |
-| Kinsoku (E-Asian breaks) | `p:kinsoku` | ❌ Missing | |
+| Kinsoku (E-Asian breaks) | `p:kinsoku` | ✅ Done | `pptx.kinsoku = { lang?, invalStChars?, invalEndChars? }` → `<p:kinsoku>` in `presentation.xml` (ja-JP defaults, XML-escaped, default-off) |
 | Password / encryption | `p:modifyVerifier` + package encryption | 🚫 Out of scope (authoring) | **Why:** real protection = encrypting the whole OOXML package into an OLE2/CFB container with ECMA-376 Part 2 *agile encryption* (AES + SHA-512 KDF) — a different output format than the ZIP JSZip emits, requiring heavy crypto deps (breaks the zero-dependency goal). `p:modifyVerifier` alone is only a legacy *modify*-protection hash (no content encryption) and gives a false sense of security, so we won't ship it in isolation. |
 
 ## 2. Slide-level objects
@@ -154,7 +154,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, kinsoku, hover links, **ink** (niche but tractable).
+5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, hover links, **ink** (niche but tractable).
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package

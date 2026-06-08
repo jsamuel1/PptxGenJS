@@ -81,6 +81,7 @@ import {
 	AddSlideProps,
 	HeaderFooterProps,
 	IPresentationProps,
+	KinsokuProps,
 	LayoutGridProps,
 	LayoutGridResult,
 	PresLayout,
@@ -216,6 +217,20 @@ export default class PptxGenJS implements IPresentationProps {
 
 	public get notesMaster(): HeaderFooterProps {
 		return this._notesMaster
+	}
+
+	/**
+	 * Presentation-level kinsoku (East-Asian line-break) rules.
+	 * Emits `<p:kinsoku>` into `presentation.xml` when set (default-off).
+	 * @type {KinsokuProps}
+	 */
+	private _kinsoku: KinsokuProps
+	public set kinsoku(value: KinsokuProps) {
+		this._kinsoku = value
+	}
+
+	public get kinsoku(): KinsokuProps {
+		return this._kinsoku
 	}
 
 	/**

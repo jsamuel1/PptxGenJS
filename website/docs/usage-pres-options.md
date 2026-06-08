@@ -97,6 +97,38 @@ Notes:
 * You may also need to set an RTL lang value such as `lang='he'` as the default lang is 'EN-US'
 * See [Issue#600](https://github.com/gitbrent/PptxGenJS/issues/600) for more
 
+## Kinsoku (East-Asian Line Breaks)
+
+### Kinsoku Options
+
+Kinsoku rules control which characters may not start or end a line in CJK
+(Chinese/Japanese/Korean) typography. Set the `kinsoku` presentation property to
+emit a `<p:kinsoku>` element in `presentation.xml`.
+
+| Option          | Type     | Default            | Description                              |
+| :-------------- | :------- | :----------------- | :--------------------------------------- |
+| `lang`          | string   | `'ja-JP'`          | language tag for the kinsoku rule set    |
+| `invalStChars`  | string   | ja-JP default set  | characters not allowed to **start** a line |
+| `invalEndChars` | string   | ja-JP default set  | characters not allowed to **end** a line   |
+
+Sensible Japanese (`ja-JP`) defaults are provided, so most users need only set
+`lang`. Character lists are XML-escaped automatically. Default-off: when
+`kinsoku` is not set, no `<p:kinsoku>` element is emitted.
+
+### Kinsoku Examples
+
+```javascript
+// Use the built-in ja-JP defaults
+pptx.kinsoku = { lang: "ja-JP" };
+
+// Or supply custom character lists
+pptx.kinsoku = {
+  lang: "ja-JP",
+  invalStChars: "!),.:;?]}…",
+  invalEndChars: "([{‘“",
+};
+```
+
 ## Default Font
 
 ### Default Font Options

@@ -588,6 +588,35 @@ module.exports = [
 		}
 	},
 	{
+		name: 'kinsoku East-Asian line-break rules (pptx.kinsoku -> p:kinsoku)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.kinsoku = { lang: 'ja-JP' }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presXml = await readEntry(zip, 'ppt/presentation.xml')
+			// Raw-emission: <p:kinsoku> carries lang + both char-list attrs (ja-JP defaults applied)
+			assert(/<p:kinsoku lang="ja-JP" invalStChars="[^"]+" invalEndChars="[^"]+"\/>/.test(presXml), 'kinsoku: expected <p:kinsoku lang="ja-JP" invalStChars=… invalEndChars=…/>')
+			// Child-order (CT_Presentation): <p:kinsoku> must sit AFTER </...notesSz...> and BEFORE <p:defaultTextStyle>
+			assert(/<p:notesSz [^>]*\/><p:kinsoku [^>]*\/><p:defaultTextStyle>/.test(presXml), 'kinsoku: <p:kinsoku> must be between <p:notesSz> and <p:defaultTextStyle>')
+			// XML-escape proof: custom char lists containing & and < emit escaped, not raw
+			const { zip: zipEsc } = await build(p => {
+				p.kinsoku = { lang: 'en-US', invalStChars: '&<x', invalEndChars: '>"y' }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presEsc = await readEntry(zipEsc, 'ppt/presentation.xml')
+			assert(/invalStChars="&amp;&lt;x"/.test(presEsc), 'kinsoku: invalStChars must XML-escape & and <')
+			assert(!/invalStChars="&<x"/.test(presEsc), 'kinsoku: raw & / < must NOT appear in invalStChars')
+			// Default-off invariant: a deck with NO kinsoku config must emit NO <p:kinsoku>
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presDefault = await readEntry(zip2, 'ppt/presentation.xml')
+			assert(!/<p:kinsoku\b/.test(presDefault), 'kinsoku: default (no config) presentation.xml must NOT emit <p:kinsoku>')
+			await expectNoSchemaErrors(buf, 'kinsoku')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {
