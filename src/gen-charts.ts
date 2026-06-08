@@ -1645,7 +1645,12 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			// 4: Close "SERIES"
 			strXml += '  </c:ser>'
 			strXml += `  <c:firstSliceAng val="${opts.firstSliceAng ? Math.round(opts.firstSliceAng) : 0}"/>`
-			if (chartType === CHART_TYPE.DOUGHNUT) strXml += `<c:holeSize val="${typeof opts.holeSize === 'number' ? opts.holeSize : '50'}"/>`
+			if (chartType === CHART_TYPE.DOUGHNUT) {
+				// ST_HoleSize restricts to [10,90]; clamp out-of-range input (clamp-don't-crash)
+				const rawHoleSize = typeof opts.holeSize === 'number' ? opts.holeSize : 50
+				const holeSizeVal = Math.max(10, Math.min(90, Math.round(rawHoleSize)))
+				strXml += `<c:holeSize val="${holeSizeVal}"/>`
+			}
 			strXml += '</c:' + chartType + 'Chart>'
 
 			// Done with Doughnut/Pie

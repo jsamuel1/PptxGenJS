@@ -574,37 +574,31 @@ module.exports = [
 		}
 	},
 	{
-		// GAP-7 (BUG-EXPOSURE / xfail-style): doughnut holeSize is TYPE-checked only,
-		// NOT range-clamped. gen-charts.ts:1636 emits
-		//   <c:holeSize val="${typeof opts.holeSize === 'number' ? opts.holeSize : '50'}"/>
-		// so holeSize:500 is emitted verbatim as <c:holeSize val="500"/>. The schema type
+		// GAP-7 (REGRESSION-GUARD): doughnut holeSize is now range-clamped in source.
+		// gen-charts.ts emits a clamped value:
+		//   const holeSizeVal = Math.max(10, Math.min(90, Math.round(rawHoleSize)))
+		//   <c:holeSize val="${holeSizeVal}"/>
+		// so holeSize:500 is clamped to <c:holeSize val="90"/>. The schema type
 		// c:holeSize = ST_HoleSize is a restriction of xsd:unsignedByte (max 255; doughnut
-		// restriction 10-90), so val="500" is DEFINITIVELY schema-invalid -> a clean
-		// schema-backed catch (unlike the CT_Double exact-value paths in GAP-3/GAP-6).
-		//
-		// This fixture asserts the COMPLIANT outcome (expectNoSchemaErrors), which FAILS
-		// TODAY because the emitted value violates ST_HoleSize. That failure is the intended
-		// signal: it documents the real compliance bug (a doughnut "type" that does NOT
-		// produce zero-error output) and will flip to PASS only when source adds a holeSize
-		// range clamp (then guards against re-regression). Per harness rules false fails are
-		// acceptable; false passes are not. DO NOT add a source clamp here (test loop).
-		name: 'doughnut chart out-of-range holeSize emits schema-invalid <c:holeSize> (BUG-EXPOSURE: expected to FAIL until clamped)',
+		// restriction 10-90), so val="500" would be DEFINITIVELY schema-invalid -> the clamp
+		// keeps the emission compliant. This fixture asserts BOTH the clamped raw emission
+		// (val="90") and zero schema errors; it guards against re-regression of the clamp.
+		name: 'doughnut chart out-of-range holeSize is clamped into ST_HoleSize range [10,90]',
 		fn: async () => {
 			const { buf, zip } = await build(p => {
 				p.addSlide().addChart(p.charts.DOUGHNUT, [
 					{ name: 'Share', labels: ['A', 'B', 'C', 'D'], values: [10, 20, 30, 40] }
 				], { x: 1, y: 1, w: 5, h: 4, holeSize: 500 })
 			})
-			// Record the exact invalid emission the validator rejects. chartId is a
+			// Record the clamped emission the validator accepts. chartId is a
 			// module-global counter, so locate the single chart entry generically (mem-7).
 			const chartPath = listEntries(zip).find(e => /^ppt\/charts\/chart\d+\.xml$/.test(e))
 			assert(chartPath, `holeSize: expected a ppt/charts/chartN.xml entry (got: ${listEntries(zip).filter(e => e.includes('chart')).join(', ')})`)
 			const xml = await readEntry(zip, chartPath)
 			const holeVal = (xml.match(/<c:holeSize\s+val="(-?[\d.]+)"/) || [])[1]
-			// Proof the unclamped value reached the XML verbatim (drives the schema failure).
-			assert(holeVal === '500', `holeSize: expected unclamped raw emission <c:holeSize val="500"/>, got val="${holeVal}" (chart xml: ${xml.slice(0, 400)})`)
-			// COMPLIANT-outcome assertion: FAILS today (val=500 violates ST_HoleSize) and
-			// flips to PASS only when source clamps holeSize into the valid range.
+			// Proof the out-of-range value was clamped to the ST_HoleSize max (regression guard).
+			assert(holeVal === '90', `holeSize: expected clamped emission <c:holeSize val="90"/>, got val="${holeVal}" (chart xml: ${xml.slice(0, 400)})`)
+			// COMPLIANT-outcome assertion: passes now that holeSize is clamped into [10,90].
 			await expectNoSchemaErrors(buf, 'chart-doughnut-holesize-oob')
 		}
 	},
