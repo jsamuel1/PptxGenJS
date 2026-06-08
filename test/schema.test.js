@@ -667,5 +667,49 @@ module.exports = [
 			// COMPLIANT-outcome assertion: a:pattFill with valid ST_PresetPatternVal prst is schema-clean.
 			await expectNoSchemaErrors(buf, 'shape-patternfill')
 		}
+	},
+	{
+		// Phase 1.2 — picture/blip fill on shapes: `<a:blipFill>` with a registered `r:embed`
+		// relationship (media part + slide `_rels` + `[Content_Types].xml` Default). Exercises
+		// stretch (default) and tile sizing, plus optional transparency (`<a:alphaModFix>`). The
+		// two shapes share ONE base64 PNG → dedupe to a single media part (two rels, one Target).
+		// Per the run's RUNNER/ASSESSOR memory a clean schema pass alone does NOT close the gap:
+		// the fixture asserts the raw emission (blipFill / blip r:embed / stretch vs tile / alphaModFix)
+		// AND the media-rel + Content_Types Default presence, so a regression in the emitter or the
+		// rel-registration (gen-objects/gen-xml) fails an exact assert.
+		name: 'picture-fill shapes (stretch + tile + transparency) — a:blipFill',
+		fn: async () => {
+			const b64 =
+				'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const dataUri = 'image/png;base64,' + b64
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+					// stretch (default sizing omitted) + transparency
+				s.addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 4, h: 2, fill: { type: 'image', data: dataUri, transparency: 20 } })
+				// tile sizing
+				s.addShape(p.shapes.RECTANGLE, { x: 1, y: 3.5, w: 4, h: 2, fill: { type: 'image', data: dataUri, sizing: 'tile' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// REGRESSION-CATCH 1: both shapes emit a <a:blipFill> with an embedded blip relationship.
+			assert((xml.match(/<a:blipFill>/g) || []).length === 2, `picture: expected 2 <a:blipFill>, got ${(xml.match(/<a:blipFill>/g) || []).length} — xml: ${xml.slice(0, 900)}`)
+			assert((xml.match(/<a:blip r:embed="rId\d+">/g) || []).length === 2, `picture: expected 2 <a:blip r:embed="rIdN">, xml: ${xml.slice(0, 900)}`)
+			// REGRESSION-CATCH 2: stretch (default) emits <a:stretch><a:fillRect/>; tile emits <a:tile ...>.
+			assert(xml.includes('<a:stretch><a:fillRect/></a:stretch>'), `picture: expected <a:stretch><a:fillRect/></a:stretch> for default sizing, xml: ${xml.slice(0, 900)}`)
+			assert(xml.includes('<a:tile tx="0" ty="0" sx="100000" sy="100000" algn="tl"/>'), `picture: expected <a:tile ...> for sizing:'tile', xml: ${xml.slice(0, 900)}`)
+			// REGRESSION-CATCH 3: transparency:20 → <a:alphaModFix amt="80000"/> inside the blip.
+			assert(xml.includes('<a:alphaModFix amt="80000"/>'), `picture: expected <a:alphaModFix amt="80000"/> (transparency 20), xml: ${xml.slice(0, 900)}`)
+			// MEDIA-PIPELINE PROOF 1: the slide _rels carries image relationship(s) for the shape fills.
+			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			const imgRels = (rels.match(/Type="[^"]*\/relationships\/image"/g) || [])
+			// data-only images are not deduped (consistent with addImage(), which dedupes by `path`):
+			// two data-URI fills → two image rels + two media parts.
+			assert(imgRels.length === 2, `picture: expected 2 image <Relationship> in slide1.xml.rels, got ${imgRels.length} — rels: ${rels}`)
+			assert(listEntries(zip).filter(e => /^ppt\/media\/image-[^/]+\.png$/.test(e)).length === 2, `picture: expected 2 media parts written, got entries: ${listEntries(zip).filter(e => e.includes('media')).join(', ')}`)
+			// MEDIA-PIPELINE PROOF 2: [Content_Types].xml has the png Default extension override.
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			assert(/<Default Extension="png" ContentType="image\/png"\/>/.test(ct), `picture: expected png Default in [Content_Types].xml — ct: ${ct.slice(0, 600)}`)
+			// COMPLIANT-outcome assertion: the picture fill is schema-clean.
+			await expectNoSchemaErrors(buf, 'shape-picturefill')
+		}
 	}
 ]

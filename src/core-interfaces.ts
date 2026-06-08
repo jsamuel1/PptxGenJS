@@ -322,6 +322,29 @@ export interface PatternFillProps {
 	/** Optional background colour — hex or ThemeColor. Omitted → no `<a:bgClr>` (transparent background). */
 	backColor?: Color
 }
+/**
+ * Picture (image) fill properties (accepted anywhere a solid `ShapeFillProps` fill is).
+ * Fills a shape with an image via `<a:blipFill>` and a registered `r:embed` relationship
+ * (a media part + `_rels` entry + `[Content_Types].xml` Default — reuses the `addImage()` pipeline).
+ * @since v4.2.0
+ * @see ECMA-376 §20.1.8.14 (blipFill)
+ */
+export interface ImageFillProps {
+	type: 'image'
+	/** Image path (URL or local file) — like `addImage()`. Provide `path` OR `data`. */
+	path?: string
+	/** Base64 data URI (e.g. `'image/png;base64,iVBOR...'`) — like `addImage()`. Provide `path` OR `data`. */
+	data?: string
+	/**
+	 * Fill mode: `'stretch'` scales the image to the shape bounds; `'tile'` repeats it.
+	 * @default 'stretch'
+	 */
+	sizing?: 'stretch' | 'tile'
+	/** Optional transparency 0–100 (%) → `<a:alphaModFix>` inside `<a:blip>`. */
+	transparency?: number
+	/** @internal Resolved media relationship id (set during slide processing; do not set manually). */
+	_rId?: number
+}
 export interface ShapeLineProps extends ShapeFillProps {
 	/**
 	 * Line width (pt)
@@ -764,7 +787,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @example { color:pptx.SchemeColor.accent1 } // Theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false
@@ -869,7 +892,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	/** Callout text (single run, centred by default). */
 	text: string
 	/** Background fill (hex color or fill props). @default '7C3AED' */
-	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | HexColor
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
 	/** Text color (hex). @default 'FFFFFF' */
 	fontColor?: HexColor
 	/** Font size (points). @default 12 */
@@ -924,7 +947,7 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	/** Optional badge, positioned top-right. */
 	badge?: CardBadgeProps
 	/** Card background fill (hex or fill props). @default '1a1a24' */
-	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | HexColor
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
 	/** Card border. */
 	border?: { color?: HexColor, width?: number }
 	/** Corner radius in inches. @default 0.12 */
@@ -1090,7 +1113,7 @@ export interface TableCellProps extends TextBaseProps {
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps
 	hyperlink?: HyperlinkProps
 	/**
 	 * Cell margin (inches)
@@ -1303,7 +1326,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } // gradient fill
 	 */
-	fill?: ShapeFillProps | GradientFillProps | PatternFillProps
+	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps
 	/**
 	 * Flip shape horizontally?
 	 * @default false

@@ -34,6 +34,7 @@ import {
 	IChartOptsLib,
 	IOptsChartData,
 	ISlideObject,
+	ImageFillProps,
 	ImageProps,
 	MediaProps,
 	ObjectOptions,
@@ -733,6 +734,59 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
 	if (typeof options.lineDash === 'string') options.line.dashType = options.lineDash // @deprecated (part of `ShapeLineProps` now)
 	if (typeof options.lineHead === 'string') options.line.beginArrowType = options.lineHead // @deprecated (part of `ShapeLineProps` now)
 	if (typeof options.lineTail === 'string') options.line.endArrowType = options.lineTail // @deprecated (part of `ShapeLineProps` now)
+
+	// 3b: Picture/blip fill — register a media relationship so the shape can be filled with an image.
+	// NOTE: This is NOT the gradient/pattern precedent: an image fill needs a registered media part
+	// (+ `_rels` entry + `[Content_Types].xml` Default). We reuse the `addImageDefinition` rel logic
+	// (derive extn → dedupe by path → push to `_relsMedia`) and stash the resolved rId on
+	// `options.fill._rId` for the inline `<a:blipFill>` emit (gen-xml.ts). Done BEFORE
+	// `createHyperlinkRels` so any hyperlink rels allocate after the fill rel (deterministic rId order).
+	if (typeof options.fill === 'object' && (options.fill as ImageFillProps).type === 'image') {
+		const imgFill = options.fill as ImageFillProps
+		const strImagePath = imgFill.path || ''
+		const strImageData = imgFill.data || ''
+		if (!strImagePath && !strImageData) {
+			// Guard-don't-crash (ground rule 4): missing both path+data → warn + drop the fill so the
+			// shape emits `<a:noFill/>`; do NOT register a dangling media rel.
+			console.warn('Warning: shape image fill requires either `path` or `data` - falling back to no fill')
+			delete options.fill
+		} else {
+			// Derive extension (mirrors addImageDefinition): path-based, then mime-from-data override.
+			let strImgExtn = (
+				strImagePath
+					.substring(strImagePath.lastIndexOf('/') + 1)
+					.split('?')[0]
+					.split('.')
+					.pop()
+					.split('#')[0] || 'png'
+			).toLowerCase()
+			if (strImageData && /image\/(\w+);/.exec(strImageData) && /image\/(\w+);/.exec(strImageData).length > 0) {
+				strImgExtn = /image\/(\w+);/.exec(strImageData)[1]
+			} else if (strImageData?.toLowerCase().includes('image/svg+xml')) {
+				strImgExtn = 'svg'
+			}
+
+			if (strImgExtn === 'svg') {
+				// SVG-as-shape-fill (dual-rId + `svgBlip` extLst) is out of scope for this slice → warn + noFill.
+				console.warn('Warning: SVG image fill on shapes is not supported - falling back to no fill')
+				delete options.fill
+			} else {
+				const imageRelId = getNewRelId(target)
+				// PERF: reuse an existing media part for the same path (dedupe) — same filter as addImage.
+				const dupeItem = target._relsMedia.filter(item => item.path && item.path === strImagePath && item.type === 'image/' + strImgExtn && !item.isDuplicate)[0]
+				target._relsMedia.push({
+					path: strImagePath || 'preencoded.' + strImgExtn,
+					type: 'image/' + strImgExtn,
+					extn: strImgExtn,
+					data: strImageData || '',
+					rId: imageRelId,
+					isDuplicate: !!(dupeItem?.Target),
+					Target: dupeItem?.Target ? dupeItem.Target : `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.${strImgExtn}`,
+				})
+				imgFill._rId = imageRelId
+			}
+		}
+	}
 
 	// 4: Create hyperlink rels
 	createHyperlinkRels(target, newObject)

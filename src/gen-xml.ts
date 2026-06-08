@@ -527,7 +527,28 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				}
 
 				// Option: FILL
-				strSlideXml += slideItemObj.options.fill ? genXmlColorSelection(slideItemObj.options.fill) : '<a:noFill/>'
+				{
+					const shapeFill = slideItemObj.options.fill
+					if (shapeFill && typeof shapeFill === 'object' && 'type' in shapeFill && shapeFill.type === 'image') {
+						// Picture/blip fill: the `r:embed` rId was resolved at add-time (gen-objects.ts) and
+						// stashed on `_rId`. Emit `<a:blipFill>` with optional `<a:alphaModFix>` (same
+						// thousandths-% mapping as the image object), then stretch (default) or tile.
+						if (shapeFill._rId) {
+							strSlideXml += `<a:blipFill><a:blip r:embed="rId${shapeFill._rId}">`
+							strSlideXml += shapeFill.transparency ? `<a:alphaModFix amt="${Math.round((100 - shapeFill.transparency) * 1000)}"/>` : ''
+							strSlideXml += '</a:blip>'
+							strSlideXml += shapeFill.sizing === 'tile'
+								? '<a:tile tx="0" ty="0" sx="100000" sy="100000" algn="tl"/>'
+								: '<a:stretch><a:fillRect/></a:stretch>'
+							strSlideXml += '</a:blipFill>'
+						} else {
+							// rel registration was skipped (missing path+data, or SVG) → no fill
+							strSlideXml += '<a:noFill/>'
+						}
+					} else {
+						strSlideXml += shapeFill ? genXmlColorSelection(shapeFill) : '<a:noFill/>'
+					}
+				}
 
 				// shape Type: LINE: line color
 				if (slideItemObj.options.line) {

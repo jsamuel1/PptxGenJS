@@ -1,8 +1,16 @@
 # Feature: Picture / Blip Fill on Shapes (`a:blipFill`)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** High — Phase 1 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §3 Fills — "Picture/blip fill (shapes)"
+>
+> **Implemented:** `ImageFillProps` (`src/core-interfaces.ts`, added to the 5 shape
+> `fill?` unions); media-rel registration in `addShapeDefinition`
+> (`src/gen-objects.ts`, reuses the `addImage` pipeline, before `createHyperlinkRels`);
+> inline `<a:blipFill>` stretch/tile + `<a:alphaModFix>` emit at the shape-fill site
+> (`src/gen-xml.ts`); `genXmlColorSelection` image guard (`src/gen-utils.ts`). Tests:
+> `test/schema.test.js` → `shape-picturefill` (stretch + tile + transparency,
+> media-rel + `[Content_Types].xml` Default proof).
 
 ## Problem
 

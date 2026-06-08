@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, pattern/picture fills, emphasis/exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, emphasis/exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -103,7 +103,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Gradient fill | `a:gradFill` | ✅ Done | multi-stop, linear/radial, per-stop alpha |
 | No fill | `a:noFill` | ✅ Done | |
 | Pattern fill | `a:pattFill` | ✅ Done | preset hatch patterns (54 `ST_PresetPatternVal`) on shapes |
-| Picture/blip fill (shapes) | `a:blipFill` on `p:sp` | ❌ Missing | image-fill a shape (tile/stretch) |
+| Picture/blip fill (shapes) | `a:blipFill` on `p:sp` | ✅ Done | image-fill a shape (`type:'image'`, stretch/tile, transparency) |
 | Line / border | `a:ln` | ✅ Done | width, dash, cap, color |
 | Outer shadow | `a:outerShdw` | ✅ Done | `shadow` option |
 | Glow | `a:glow` | ✅ Done | `glow` option |

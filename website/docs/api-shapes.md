@@ -25,6 +25,16 @@ slide.addShape(pres.ShapeType.rect, {
   },
 });
 
+// Picture (image) fill
+slide.addShape(pres.ShapeType.rect, {
+  fill: {
+    type: "image",
+    path: "./assets/bg.png", // or data: "image/png;base64,iVBOR..." (like addImage)
+    sizing: "stretch", // "stretch" (default, scales to the shape) | "tile" (repeats)
+    transparency: 20, // optional 0–100 (%)
+  },
+});
+
 // Shapes with text
 slide.addText("ShapeType.rect", {
   shape: pres.ShapeType.rect,

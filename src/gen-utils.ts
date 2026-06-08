@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -193,10 +193,10 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 
 /**
  * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps} props fill props
+ * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps | ImageFillProps} props fill props
  * @returns XML string
  */
-export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps): string {
+export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps | ImageFillProps): string {
 	let fillType = 'solid'
 	let colorVal = ''
 	let internalElements = ''
@@ -211,6 +211,11 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		} else if (props.type === 'pattern') {
 			// Pattern fills are emitted as a self-contained `<a:pattFill>` (replaces `<a:solidFill>`)
 			return genXmlPatternFill(props)
+		} else if (props.type === 'image') {
+			// Image/blip fills require a registered media relationship (an `r:embed` rId), which this
+			// context-free helper has no access to — they are emitted inline at the shape-fill site
+			// (gen-xml.ts). Reaching here means no rId was resolved → emit nothing (caller falls back).
+			return ''
 		} else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
