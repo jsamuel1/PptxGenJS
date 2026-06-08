@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.3 @ 2026-06-08T02:14:12.609Z */
+/* PptxGenJS 4.1.3 @ 2026-06-08T02:31:32.742Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -3995,7 +3995,7 @@ function makeXmlCharts(rel) {
  * @example '<c:lineChart>'
  * @return {string} XML chart
  */
-function makeChartType(chartType, data, opts, valAxisId, catAxisId, isMultiTypeChart) {
+function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiTypeChart) {
     // NOTE: "Chart Range" (as shown in "select Chart Area dialog") is calculated.
     // ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
     let colorIndex = -1; // Maintain the color index by region
