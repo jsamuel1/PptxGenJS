@@ -77,12 +77,27 @@ slide.addText("ShapeType.line", {
 | `line`       | [ShapeLineProps](/PptxGenJS/docs/types#shape-line-props-shapelineprops) | border line props   | (see type link)                                             |
 | `rectRadius` | number                                                                  | rounding radius     | 0 to 1. (Ex: 0.5. Only for `pptx.shapes.ROUNDED_RECTANGLE`) |
 | `rotate`     | number                                                                  | rotation (degrees)  | -360 to 360. Default: `0`                                   |
+| `reflection` | [ReflectionProps](/PptxGenJS/docs/types#reflection-props-reflectionprops) | reflection effect props | Ex: `{ blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }` |
 | `shadow`     | [ShadowProps](/PptxGenJS/docs/types#shadow-props-shadowprops)           | shadow props        | (see type link)                                             |
 | `shapeName`  | string                                                                  | optional shape name | Ex: "Customer Network Diagram 99"                           |
 
 ## Examples
 
 ![Shapes with Text Demo](./assets/ex-shape-slide.png)
+
+### Reflection effect
+
+Add a mirror-style reflection beneath a shape (or image). Coexists with `shadow`/`glow` in a single effect list.
+
+```javascript
+let slide = pptx.addSlide();
+slide.addShape(pptx.shapes.RECTANGLE, {
+	x: 1, y: 1, w: 4, h: 2, fill: { color: "7C3AED" },
+	reflection: { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 },
+});
+```
+
+All `reflection` fields are optional and default to `{ blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }`. Units: `blur`/`distance` in points, `size`/`opacity` as percent (0–100), `fadeDirection` in degrees.
 
 ## Samples
 

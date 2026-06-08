@@ -68,6 +68,52 @@ module.exports = [
 		}
 	},
 	{
+		name: 'shape with reflection (a:reflection) — alone + combined canonical order + default-off',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				// slide1: reflection alone
+				const s1 = p.addSlide()
+				s1.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 2, fill: { color: '7C3AED' },
+					reflection: { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }
+				})
+				// slide2: shadow + reflection + glow together (canonical CT_EffectList order)
+				const s2 = p.addSlide()
+				s2.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 2, fill: { color: '00B0B9' },
+					shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 },
+					glow: { size: 5, color: 'FFFF00', opacity: 0.3 },
+					reflection: { blur: 0.5, distance: 0, size: 40, opacity: 60, fadeDirection: 90 }
+				})
+				// slide3: no effects (default-off proof)
+				p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
+			})
+
+			// slide1: exact reflection emission (regression-catch on the converted attrs + fixed constants)
+			const s1xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(
+				/<a:reflection blurRad="6350" stA="50000" endA="300" endPos="50000" dist="0" dir="5400000" sy="-100000" rotWithShape="0"\/>/.test(s1xml),
+				'reflection: expected <a:reflection blurRad="6350" stA="50000" endA="300" endPos="50000" dist="0" dir="5400000" sy="-100000" rotWithShape="0"/>'
+			)
+
+			// slide2: single effectLst with canonical child order glow < outerShdw < reflection (regression-catch for RI-15 reorder)
+			const s2xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert((s2xml.match(/<a:effectLst>/g) || []).length === 1, 'combined: expected exactly one <a:effectLst>')
+			const idxGlow = s2xml.indexOf('<a:glow')
+			const idxShdw = s2xml.indexOf('<a:outerShdw')
+			const idxRefl = s2xml.indexOf('<a:reflection')
+			assert(idxGlow >= 0 && idxShdw >= 0 && idxRefl >= 0, 'combined: expected glow + outerShdw + reflection all present')
+			assert(idxGlow < idxShdw && idxShdw < idxRefl, 'combined: expected canonical CT_EffectList order glow < outerShdw < reflection')
+
+			// slide3: no reflection / no effectLst when no effects set (default-off)
+			const s3xml = await readEntry(zip, 'ppt/slides/slide3.xml')
+			assert(!/<a:reflection\b/.test(s3xml), 'default-off: plain shape must NOT emit <a:reflection>')
+			assert(!/<a:effectLst>/.test(s3xml), 'default-off: plain shape must NOT emit <a:effectLst>')
+
+			await expectNoSchemaErrors(buf, 'shape-reflection')
+		}
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build(p => {

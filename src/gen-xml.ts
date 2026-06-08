@@ -38,6 +38,7 @@ import {
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
+	createReflectionElement,
 	encodeXmlEntities,
 	genXmlColorSelection,
 	getSmartParseNumber,
@@ -562,13 +563,21 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 					strSlideXml += '</a:ln>'
 				}
 
-				// EFFECTS > SHADOW + GLOW (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
-				// Both effects share a single <a:effectLst>; emit it once if either is present.
+				// EFFECTS > GLOW + SHADOW + REFLECTION (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
+				// All effects share a single <a:effectLst>; emit it once if any is present.
+				// NOTE: children MUST follow canonical CT_EffectList order:
+				//   blur, fillOverlay, glow, innerShdw, outerShdw, prstShdw, reflection, softEdge
+				// → glow before shadow, reflection after shadow.
 				{
 					const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none')
 					const hasGlow = !!slideItemObj.options.glow
-					if (hasShadow || hasGlow) {
+					const hasReflection = !!slideItemObj.options.reflection
+					if (hasShadow || hasGlow || hasReflection) {
 						strSlideXml += '<a:effectLst>'
+
+						if (hasGlow) {
+							strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW)
+						}
 
 						if (hasShadow) {
 							// derive emit-time values into locals so we don't mutate the user's options.shadow
@@ -587,8 +596,8 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 							strSlideXml += `</a:${shadowType}Shdw>`
 						}
 
-						if (hasGlow) {
-							strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW)
+						if (hasReflection) {
+							strSlideXml += createReflectionElement(slideItemObj.options.reflection)
 						}
 
 						strSlideXml += '</a:effectLst>'
@@ -673,24 +682,37 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += ' </a:xfrm>'
 				strSlideXml += ` <a:prstGeom prst="${rounding ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>`
 
-				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// derive emit-time values into locals so we don't mutate the user's options.shadow
-					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-					const sh = slideItemObj.options.shadow
-					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur || 8)
-					const shadowOffset = valToPts(sh.offset || 4)
-					const shadowAngle = Math.round((sh.angle || 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
-					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
+				// EFFECTS > SHADOW + REFLECTION: REF: @see http://officeopenxml.com/drwSp-effects.php
+				// Canonical CT_EffectList order: outerShdw before reflection. (Images have no glow.)
+				{
+					const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none')
+					const hasReflection = !!slideItemObj.options.reflection
+					if (hasShadow || hasReflection) {
+						strSlideXml += '<a:effectLst>'
 
-					strSlideXml += '<a:effectLst>'
-					strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
-					strSlideXml += `<a:srgbClr val="${shadowColor}">`
-					strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`
-					strSlideXml += `</a:${shadowType}Shdw>`
-					strSlideXml += '</a:effectLst>'
+						if (hasShadow) {
+							// derive emit-time values into locals so we don't mutate the user's options.shadow
+							// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+							const sh = slideItemObj.options.shadow
+							const shadowType = sh.type || 'outer'
+							const shadowBlur = valToPts(sh.blur || 8)
+							const shadowOffset = valToPts(sh.offset || 4)
+							const shadowAngle = Math.round((sh.angle || 270) * 60000)
+							const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+							const shadowColor = sh.color || DEF_TEXT_SHADOW.color
+
+							strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
+							strSlideXml += `<a:srgbClr val="${shadowColor}">`
+							strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`
+							strSlideXml += `</a:${shadowType}Shdw>`
+						}
+
+						if (hasReflection) {
+							strSlideXml += createReflectionElement(slideItemObj.options.reflection)
+						}
+
+						strSlideXml += '</a:effectLst>'
+					}
 				}
 				strSlideXml += '</p:spPr>'
 				strSlideXml += '</p:pic>'

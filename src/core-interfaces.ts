@@ -241,6 +241,34 @@ export interface ShadowProps {
 	 */
 	rotateWithShape?: boolean
 }
+// used by: shape, image
+export interface ReflectionProps {
+	/**
+	 * blur radius (points)
+	 * @default 0.5
+	 */
+	blur?: number
+	/**
+	 * distance — gap between object and its reflection (points)
+	 * @default 0
+	 */
+	distance?: number
+	/**
+	 * size — how much of the object is reflected (percent, 0-100)
+	 * @default 50
+	 */
+	size?: number
+	/**
+	 * opacity — start alpha of the reflection (percent, 0-100)
+	 * @default 50
+	 */
+	opacity?: number
+	/**
+	 * fade direction (degrees)
+	 * @default 90 // downward fade
+	 */
+	fadeDirection?: number
+}
 // used by: shape, table, text
 export interface ShapeFillProps {
 	/**
@@ -669,6 +697,13 @@ export interface ImageProps extends PositionProps, DataOrPathProps, ObjectNamePr
 	 */
 	shadow?: ShadowProps
 	/**
+	 * Reflection effect options.
+	 * Emits `<a:reflection>` inside the image's `<a:effectLst>`.
+	 * @example { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }
+	 * @since v4.2.0
+	 */
+	reflection?: ReflectionProps
+	/**
 	 * Image sizing options
 	 */
 	sizing?: {
@@ -858,6 +893,13 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @since v4.1.0
 	 */
 	glow?: TextGlowProps
+	/**
+	 * Reflection effect options.
+	 * Emits `<a:reflection>` inside the shape's `<a:effectLst>`.
+	 * @example { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }
+	 * @since v4.2.0
+	 */
+	reflection?: ReflectionProps
 
 	/**
 	 * @deprecated v3.3.0

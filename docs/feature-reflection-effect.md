@@ -1,8 +1,14 @@
 # Feature: Reflection Effect (`a:reflection`)
 
-> **Status:** Proposed
+> **Status:** Implemented (slice 2.1)
 > **Priority:** Medium — Phase 2 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §3 Fills/effects — "Reflection"
+>
+> **Implemented:** `ReflectionProps` + `reflection?` on `ShapeProps`/`ImageProps`
+> (`src/core-interfaces.ts`); `createReflectionElement` helper (`src/gen-utils.ts`);
+> wired into both `<a:effectLst>` emit sites in `src/gen-xml.ts` (shape + image)
+> in canonical `CT_EffectList` order. Tests: `shape-reflection` fixture in
+> `test/schema.test.js`.
 
 ## Problem
 
@@ -46,7 +52,10 @@ Unit conversions: pt → EMU (×12700), degrees → 60,000ths, % → thousandths
 ## Edge cases
 
 - Must coexist with shadow + glow in **one** `<a:effectLst>` in the correct
-  child order (shadow, reflection, glow, softEdge per `CT_EffectList`).
+  child order. The canonical `CT_EffectList` sequence is `blur, fillOverlay,
+  glow, innerShdw, outerShdw, prstShdw, reflection, softEdge` — i.e. **glow
+  before the shadows, reflection after the shadows**. (An earlier draft of this
+  spec listed "shadow, reflection, glow" — that was incorrect.)
 - Default-off preserved.
 
 ## Test cases

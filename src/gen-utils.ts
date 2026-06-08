@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -189,6 +189,24 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 	strXml += '</a:glow>'
 
 	return strXml
+}
+
+/**
+ * Creates `a:reflection` element
+ * @param {ReflectionProps} options reflection properties
+ * @see http://officeopenxml.com/drwSp-effects.php
+ * Defaults: { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }
+ */
+export function createReflectionElement (options: ReflectionProps): string {
+	const opts = { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90, ...options }
+	const blurRad = Math.round(opts.blur * ONEPT) // pt → EMU
+	const stA = Math.round(opts.opacity * 1000) // % → thousandths
+	const endPos = Math.round(opts.size * 1000) // % → thousandths
+	const dist = Math.round(opts.distance * ONEPT) // pt → EMU
+	const dir = Math.round(opts.fadeDirection * 60000) // degrees → 60,000ths
+
+	// `endA`, `sy`, `rotWithShape` are fixed constants (no props exposed for them)
+	return `<a:reflection blurRad="${blurRad}" stA="${stA}" endA="300" endPos="${endPos}" dist="${dist}" dir="${dir}" sy="-100000" rotWithShape="0"/>`
 }
 
 /**
