@@ -1736,10 +1736,14 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	strXml += ' </c:txPr>'
 	strXml += ' <c:crossAx val="' + valAxisId + '"/>'
 	strXml += ` <c:${typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'} val="${opts.valAxisCrossesAt || 'autoZero'}"/>`
-	strXml += ' <c:auto val="1"/>'
-	strXml += ' <c:lblAlgn val="ctr"/>'
-	strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`
-	if (opts.catAxisLabelFrequency) strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>'
+	// NOTE: `auto`/`lblAlgn`/`noMultiLvlLbl`/`tickLblSkip` are CT_CatAx-only children and are invalid on the
+	// CT_ValAx that scatter/bubble/bubble3D charts emit for their (numeric) x-axis. Gate them to the catAx/dateAx case.
+	if (!(opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D)) {
+		strXml += ' <c:auto val="1"/>'
+		strXml += ' <c:lblAlgn val="ctr"/>'
+		strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`
+		if (opts.catAxisLabelFrequency) strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>'
+	}
 
 	// Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	// Allow major and minor units to be set for double value axis charts
