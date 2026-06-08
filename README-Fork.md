@@ -30,6 +30,7 @@ capabilities into the library as first-class, schema-validated APIs.
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
 | **Header/footer (master config)** | `defineSlideMaster({ headerFooter: { slideNumber?, dateTime?, footer? } })` | ✅ Done (master/layout `<p:hf>` + footer/date placeholders) |
 | **Header/footer (per-slide)** | `slide.headerFooter = { footer?, dateTime? }` | ✅ Done (per-slide ftr/dt placeholders; footer + date only) |
+| **Header/footer (notes master)** | `pptx.notesMaster = { header?, footer?, slideNumber?, dateTime? }` | ✅ Done (notes-master `<p:hf>` + hdr/ftr placeholder text) |
 | **Gradient fills** | `fill: { type: 'gradient', stops[], direction? }` | ✅ Done |
 
 ### Bug Fixes (not yet in upstream)
@@ -204,6 +205,23 @@ slide.headerFooter = {
   // dateTime: { format: 'datetime1' }, // ...or an auto-updating date field
 }
 // A slide that never sets `headerFooter` emits no footer/date placeholders (default-off).
+```
+
+The **notes master** (shared by every notes page) is configured at the
+presentation level. Unlike slide layouts, it supports a **header**, so `header`
+text is honoured. It injects a `<p:hf>` and fills the notes-master header/footer
+placeholder text:
+
+```ts
+const pptx = new pptxgen()
+pptx.notesMaster = {
+  header: 'Internal Draft',          // notes-master <p:ph type="hdr"> text
+  footer: 'Confidential — Notes',    // notes-master <p:ph type="ftr"> text
+  slideNumber: true,                 // <p:hf sldNum="1">
+  dateTime: true,                    // <p:hf dt="1">
+}
+// A presentation that never sets `notesMaster` emits a byte-identical notesMaster1.xml (default-off).
+// Handout-master headers are out of scope (no handout-master writer).
 ```
 
 ### Gradient fill

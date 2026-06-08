@@ -1,8 +1,8 @@
 # Feature: First-Class Header / Footer Configuration (`p:hf`)
 
-> **Status:** Partially Implemented — master/layout config (slice 1.5) + per-slide override (slice 1.6) done; notes-master headers remain (slice 1.7), handout-master out-of-scope (no handout-master writer)
+> **Status:** Implemented — master/layout config (slice 1.5) + per-slide override (slice 1.6) + notes-master header/footer (slice 1.7) done; handout-master out-of-scope (no handout-master writer)
 > **Priority:** Medium — Phase 1 (matrix `⚠️ Partial`/`❌` → `✅`)
-> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (✅ Done), "Notes/handout headers" (❌ Missing → notes slice 1.7; handout out-of-scope)
+> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (✅ Done), "Notes/handout headers" (⚠️ Notes done via slice 1.7; handout out-of-scope)
 >
 > **Implemented:** `HeaderFooterProps` (`src/core-interfaces.ts`) + `headerFooter`
 > on `SlideMasterProps`; `createSlideMaster` STEP-4 stash (`src/gen-objects.ts`);
@@ -13,8 +13,17 @@
 > STEP-4b per-slide ftr/dt placeholders; `<p:hf>` is invalid on `CT_Slide` so the
 > per-slide `slideNumber` flag is a no-op (use `slide.slideNumber`) and the scope
 > is footer + date only. Tested by the `header-footer` + `header-footer-per-slide`
-> schema fixtures (`test/schema.test.js`). The master's hardcoded
+>> schema fixtures (`test/schema.test.js`). The master's hardcoded
 > `<p:hf sldNum="0" .../>` is intentionally left untouched.
+> Notes-master (slice 1.7): a presentation-level `notesMaster` accessor +
+> `_notesMaster` field on the `PptxGenJS` class (`src/pptxgen.ts`, mirroring the
+> `theme` setter) feeds the parameterized `makeXmlNotesMaster(headerFooter?)`
+> (`src/gen-xml.ts`), which injects `<p:hf>` after `</p:clrMap>` (CT_NotesMaster
+> child order, before `<p:notesStyle>`) and fills the existing empty hdr/ftr
+> placeholder text. The notes master DOES support a header, so `hdr` is live.
+> Default-off emits a byte-identical `notesMaster1.xml`. Tested by the
+> `header-footer-notes-master` schema fixture. Handout-master headers remain
+> out-of-scope (no `makeXmlHandoutMaster` writer exists).
 
 ## Problem
 

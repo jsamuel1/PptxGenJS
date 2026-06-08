@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, notes/handout header-footer controls, custom shows, photo album, handout master, kinsoku, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, custom shows, photo album, handout master, kinsoku, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -142,7 +142,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Date/time placeholder | `a:fld type="datetime"` | ✅ Done | |
 | Footer text placeholder | `p:hf` + `ph type="ftr"` | ✅ Done | `defineSlideMaster({ headerFooter })` → derived layout `<p:hf>` + footer/date placeholders |
 | Per-slide hf show/hide | `p:hf` attributes | ✅ Done | `slide.headerFooter = { footer, dateTime }` → per-slide ftr/dt placeholders (footer+date only; `<p:hf>` invalid on `CT_Slide` so slidenum toggle is a no-op — use `slide.slideNumber`) |
-| Notes/handout headers | notes `p:hf` | ❌ Missing | |
+| Notes/handout headers | notes `p:hf` | ⚠️ Notes done; handout n/a | `pptx.notesMaster = { header, footer, slideNumber, dateTime }` → derived `<p:hf>` + hdr/ftr placeholder text in `notesMaster1.xml`. Handout master has no writer (out of scope) |
 
 ---
 

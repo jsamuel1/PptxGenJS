@@ -327,6 +327,31 @@ module.exports = [
 		}
 	},
 	{
+		name: 'notes-master header/footer (pptx.notesMaster p:hf + hdr/ftr text)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				p.notesMaster = { header: 'Internal Draft', footer: 'Confidential — Notes', slideNumber: true, dateTime: true }
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const notesMaster = await readEntry(zip, 'ppt/notesMasters/notesMaster1.xml')
+			// Regression-catch: injected <p:hf> reflects the config (all four flags = 1) in the correct CT_NotesMaster position
+			assert(/<p:hf sldNum="1" hdr="1" ftr="1" dt="1"\/>/.test(notesMaster), 'notes-hf: expected <p:hf sldNum="1" hdr="1" ftr="1" dt="1"/>')
+			// <p:hf> must sit after </p:clrMap> and before <p:notesStyle> (CT_NotesMaster child order)
+			assert(/folHlink="folHlink"\/><p:hf [^>]*\/><p:notesStyle>/.test(notesMaster), 'notes-hf: <p:hf> must be between </p:clrMap> and <p:notesStyle>')
+			// Header placeholder filled with literal text
+			assert(/<a:t>Internal Draft<\/a:t>/.test(notesMaster), 'notes-hf: expected header literal text "Internal Draft"')
+			// Footer placeholder filled with literal text
+			assert(/<a:t>Confidential — Notes<\/a:t>/.test(notesMaster), 'notes-hf: expected footer literal text "Confidential — Notes"')
+			// Default-off invariant: a deck with NO notesMaster config must emit NO <p:hf> in notesMaster1.xml
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const notesMasterDefault = await readEntry(zip2, 'ppt/notesMasters/notesMaster1.xml')
+			assert(!/<p:hf\b/.test(notesMasterDefault), 'notes-hf: default (no config) notesMaster1.xml must NOT emit <p:hf>')
+			await expectNoSchemaErrors(buf, 'header-footer-notes-master')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

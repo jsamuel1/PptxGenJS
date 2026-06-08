@@ -79,6 +79,7 @@ import {
 } from './core-enums'
 import {
 	AddSlideProps,
+	HeaderFooterProps,
 	IPresentationProps,
 	LayoutGridProps,
 	LayoutGridResult,
@@ -201,6 +202,20 @@ export default class PptxGenJS implements IPresentationProps {
 
 	public get theme(): ThemeProps {
 		return this._theme
+	}
+
+	/**
+	 * Presentation-level notes-master header/footer config.
+	 * Injects `<p:hf>` + fills the header/footer placeholder text in `notesMaster1.xml`.
+	 * @type {HeaderFooterProps}
+	 */
+	private _notesMaster: HeaderFooterProps
+	public set notesMaster(value: HeaderFooterProps) {
+		this._notesMaster = value
+	}
+
+	public get notesMaster(): HeaderFooterProps {
+		return this._notesMaster
 	}
 
 	/**
@@ -550,7 +565,7 @@ export default class PptxGenJS implements IPresentationProps {
 			})
 			zip.file('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this.masterSlide, this.slideLayouts))
 			zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this.masterSlide, this.slideLayouts))
-			zip.file('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
+			zip.file('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster(this._notesMaster))
 			zip.file('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
 
 			// D: Create all Rels (images, media, chart data)
