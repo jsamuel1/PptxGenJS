@@ -184,48 +184,19 @@ These are listed `⚠️ Partial` in the matrix — already half-built, lowest r
 highest reuse. The animation timing engine already emits real
 `<p:seq nodeType="mainSeq">` build steps, so animation work reuses it.
 
-### 1.1 — Pattern fill on shapes (`a:pattFill`)
-- **API:** extend `ShapeFillProps.type` to accept `'pattern'` with
-  `{ type:'pattern', preset:<ST_PresetPatternVal>, foreColor, backColor }`.
-- **OOXML:** `<a:pattFill prst="..."><a:fgClr>…</a:fgClr><a:bgClr>…</a:bgClr></a:pattFill>`.
-- **Touch points:** `core-interfaces.ts` (`ShapeFillProps`), the fill emitter
-  in `gen-xml.ts` / `genXmlColorSelection` in `gen-utils.ts`.
-- **Tests:** schema fixture per preset family; default-off check.
+Each feature has a detailed spec in `docs/feature-*.md` — **read the spec
+before implementing** (API, emitted OOXML, touch points, edge cases, tests):
 
-### 1.2 — Picture/blip fill on shapes (`a:blipFill`)
-- **API:** `fill: { type:'image', path|data, sizing:'stretch'|'tile', transparency? }`.
-- **OOXML:** `<a:blipFill><a:blip r:embed="rIdN"/><a:stretch>|<a:tile>…</a:blipFill>`
-  — requires registering an image relationship on the slide (reuse the image
-  rel pipeline in `gen-objects.ts`/`pptxgen.ts`).
-- **Tests:** stretch + tile fixtures; confirm the media rel + Content_Types
-  override are added.
-
-### 1.3 — Emphasis animations (`p:animClr`, `p:animScale`, `p:animRot`)
-- **API:** extend `AnimationType` with emphasis effects
-  (`pulse`, `spin`, `grow`, `colorPulse` — pick a minimal initial set).
-- **OOXML:** emphasis effects sit in the same `<p:par>` build-step structure
-  as entrance effects but with `presetClass="emph"`. Reuse `genXmlTiming`.
-- **Tests:** one fixture per effect; verify `presetClass="emph"` and the
-  correct behavior node (`animScale`/`animRot`/`animClr`).
-
-### 1.4 — Exit animations
-- **API:** `AnimationType` exit variants (`disappear`, `fadeOut`, `flyOut`,
-  `zoomOut`) or an `{ kind:'exit', type }` discriminator.
-- **OOXML:** `presetClass="exit"`; visibility `<p:set>` to hidden / reverse of
-  entrance. Infra already exists (counter sugar already does an exit-style
-  visibility toggle).
-- **Tests:** fixture per exit type; verify ordering relative to entrance.
-
-### 1.5 — First-class header/footer config
-- **API:** presentation/master-level `{ slideNumber?, dateTime?, footer? }`
-  config + per-slide show/hide.
-- **OOXML:** `<p:hf>` attributes on master/layout; `<a:fld>` placeholders.
-  Footer placeholder is already `⚠️ Partial`.
-- **Tests:** master hf fixture; per-slide override fixture.
+- 1.1 — [`docs/feature-pattern-fill.md`](docs/feature-pattern-fill.md) — `a:pattFill`
+- 1.2 — [`docs/feature-picture-fill.md`](docs/feature-picture-fill.md) — `a:blipFill`
+- 1.3 — [`docs/feature-emphasis-animations.md`](docs/feature-emphasis-animations.md) — `p:animClr`/`p:animScale`/`p:animRot`
+- 1.4 — [`docs/feature-exit-animations.md`](docs/feature-exit-animations.md)
+- 1.5 — [`docs/feature-header-footer.md`](docs/feature-header-footer.md) — `p:hf`
 
 ### Phase 1 exit criteria
 - All sub-features schema-validated with fixtures; full verify gate clean;
-  **docs + CHANGELOG + matrix updated** (`⚠️ Partial`/`❌` → `✅`).
+  **docs + CHANGELOG + matrix updated** (`⚠️ Partial`/`❌` → `✅`), and each
+  spec's `Status` flipped to `Implemented`.
 - **🚀 RELEASE: cut a minor version** once `master` is green — run the
   [Release procedure](#release-procedure-cut-a-version) with `bump=minor`
   (new features). You may release after the whole phase, or after a coherent
@@ -236,15 +207,16 @@ highest reuse. The animation timing engine already emits real
 
 ## Phase 2 — Further shape effects
 
-### 2.1 — Reflection (`a:reflection`)
-### 2.2 — Soft edge (`a:softEdge`)
-### 2.3 — 3-D bevel/extrusion on shapes (`a:sp3d`, `a:scene3d`)
-- A `bevel` enum already exists for charts; generalize to shapes.
-- Each: extend `ShapeProps`/effect options, emit inside `<a:effectLst>` /
-  `<a:sp3d>`/`<a:scene3d>`, schema fixture, default-off guard.
+- 2.1 — [`docs/feature-reflection-effect.md`](docs/feature-reflection-effect.md) — `a:reflection`
+- 2.2 — [`docs/feature-soft-edge-effect.md`](docs/feature-soft-edge-effect.md) — `a:softEdge`
+- 2.3 — [`docs/feature-shape-3d.md`](docs/feature-shape-3d.md) — `a:sp3d`/`a:scene3d`
+
+All three extend the shared `<a:effectLst>` / `<p:spPr>` emit; mind the
+canonical `CT_EffectList` child order when combining with shadow/glow.
 
 ### Phase 2 exit criteria
-- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated.
+- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated; specs
+  flipped to `Implemented`.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
   [Release procedure](#release-procedure-cut-a-version).
 
@@ -252,13 +224,12 @@ highest reuse. The animation timing engine already emits real
 
 ## Phase 3 — Timing depth & links
 
-### 3.1 — Motion paths (`p:animMotion`)
-### 3.2 — Hover hyperlinks (`a:hlinkHover`)
-### 3.3 — Action jumps (`a:hlinkClick action="ppaction://..."`: next/prev/first/last/named slide)
-- Extend `HyperlinkProps` with an action discriminator; emit `action=` URIs.
+- 3.1 — [`docs/feature-motion-paths.md`](docs/feature-motion-paths.md) — `p:animMotion`
+- 3.2 & 3.3 — [`docs/feature-hyperlink-actions.md`](docs/feature-hyperlink-actions.md) — `a:hlinkHover` + action jumps
 
 ### Phase 3 exit criteria
-- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated.
+- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated; specs
+  flipped to `Implemented`.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
   [Release procedure](#release-procedure-cut-a-version).
 
@@ -266,27 +237,69 @@ highest reuse. The animation timing engine already emits real
 
 ## Phase 4 — Presentation-level features
 
-In rough priority order; each is self-contained:
+In rough priority order; each is self-contained and has its own spec:
 
-### 4.1 — Comments (`p:cm`, `cmAuthorLst`) — modern threaded review comments
-### 4.2 — Embedded fonts (`p:embeddedFontLst` + `/ppt/fonts/*`)
-- High value (portable decks); the README already markets "Asian fonts" but no
-  embedding exists. Needs font part packaging + rels + Content_Types.
-### 4.3 — Custom shows (`p:custShowLst`)
-### 4.4 — Photo album (`p:photoAlbum`)
-### 4.5 — Handout master (`p:handoutMasterIdLst`)
-### 4.6 — Kinsoku (`p:kinsoku`) — East-Asian line-break rules
-### 4.7 — SmartArt / diagrams (`dgm:*`, `dsp:*`) — large; scope a minimal subset first
-### 4.8 — Talking-points / structured notes export
-### 4.9 — Ink (`p:contentPart` + InkML) — niche; tractable (plain XML + rel)
+- 4.1 — [`docs/feature-comments.md`](docs/feature-comments.md) — `p:cm`/`cmAuthorLst`
+- 4.2 — [`docs/feature-embedded-fonts.md`](docs/feature-embedded-fonts.md) — `p:embeddedFontLst` (high value)
+- 4.3 — [`docs/feature-custom-shows.md`](docs/feature-custom-shows.md) — `p:custShowLst`
+- 4.4 — [`docs/feature-photo-album.md`](docs/feature-photo-album.md) — `p:photoAlbum`
+- 4.5 — [`docs/feature-handout-master.md`](docs/feature-handout-master.md) — `p:handoutMasterIdLst`
+- 4.6 — [`docs/feature-kinsoku.md`](docs/feature-kinsoku.md) — `p:kinsoku`
+- 4.7 — [`docs/feature-smartart.md`](docs/feature-smartart.md) — `dgm:*`/`dsp:*` (large; minimal subset first)
+- 4.8 — [`docs/feature-structured-notes.md`](docs/feature-structured-notes.md) — talking-points notes
+- 4.9 — [`docs/feature-ink.md`](docs/feature-ink.md) — `p:contentPart` + InkML (niche)
 
 ### Phase 4 exit criteria
 - Each feature (or coherent subset) schema-validated with fixtures; verify gate
-  clean; docs + CHANGELOG + matrix updated.
+  clean; docs + CHANGELOG + matrix updated; specs flipped to `Implemented`.
 - **🚀 RELEASE: cut a minor version** (`bump=minor`) after each shipped feature
   set, on a green build, via the
   [Release procedure](#release-procedure-cut-a-version). Don't batch many
   large features into one release — ship incrementally.
+
+---
+
+## Phase 5 — Standalone feature specs (`docs/feature-*.md`)
+
+**Discover and implement every `docs/feature-*.md` spec that is not yet done.**
+This directory is the backlog of feature specs — including developer-experience
+helpers not tied to a single OOXML element. The Phase 1–4 specs above are also
+`docs/feature-*.md` files; this phase covers **the rest** plus any specs added
+later.
+
+### Procedure for each spec
+
+1. **Scan** `docs/feature-*.md` (excluding `FEATURE-MATRIX.md`). For each,
+   check its `> **Status:**` line.
+2. **Skip** specs marked `Implemented` / `Done`. Implement those marked
+   `Proposed` (or with no status).
+3. **Confirm it isn't already built** — grep the codebase for the proposed API
+   (e.g. the method/option name) before starting; a spec may predate an
+   existing implementation.
+4. **Implement** per the spec's API / Implementation location / Edge cases,
+   following all [ground rules](#ground-rules-apply-to-every-task) (schema
+   validation, default-off, clamping, tests).
+5. **On completion, mark the spec complete:** change its
+   `> **Status:** Proposed` to `> **Status:** Implemented (vX.Y.Z)` and add a
+   one-line "Implemented:" note pointing at the source + tests.
+6. **Document it** per ground rule 8: CHANGELOG `Added` entry, update
+   `docs/FEATURE-MATRIX.md` if it maps to a matrix row, and add user-facing
+   docs in `website/docs/*.md`.
+
+### Known standalone specs (DX helpers — implement if still `Proposed`)
+
+- [`docs/feature-layout-grid.md`](docs/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
+- [`docs/feature-card-helper.md`](docs/feature-card-helper.md) — `slide.addCard()` structured card
+- [`docs/feature-animation-stagger.md`](docs/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
+- [`docs/feature-theme-extraction.md`](docs/feature-theme-extraction.md) — HTML/CSS theme extraction utility (review its "should this be in PptxGenJS?" question first)
+
+### Phase 5 exit criteria
+- No `docs/feature-*.md` remains `Proposed` (each is either `Implemented` or has
+  a documented decision not to build it, e.g. theme-extraction may land as an
+  optional util or be declined — record the decision in the spec).
+- Each implemented spec: tests + verify gate clean; docs + CHANGELOG updated;
+  `Status` flipped to `Implemented`.
+- **🚀 RELEASE: cut a minor version** (`bump=minor`) per shipped feature set.
 
 ---
 
