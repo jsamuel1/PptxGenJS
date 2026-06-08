@@ -46,6 +46,9 @@ slide.addCard({
   iconFill?: '7C3AED12',      // icon background (with alpha); 'none' or false = bare icon (no tile)
   iconColor?: 'A78BFA',       // icon glyph accent colour (independent of the tile)
 
+  // Left accent bar (category colour-coding / brand accent), drawn behind content
+  accentBar?: { color?: '38BDF8', width?: 0.05 },  // color: hex OR a gradient fill; width inches (default 0.03)
+
   // Layout
   align?: 'center' | 'left',  // content alignment within card
   iconPosition?: 'top' | 'left',  // icon placement

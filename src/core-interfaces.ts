@@ -1107,6 +1107,13 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	 * `titleFont.color` then `'E4E4ED'` when omitted.
 	 */
 	iconColor?: HexColor
+	/**
+	 * Thin vertical accent bar on the card's left edge (category colour-coding / brand accent).
+	 * Drawn behind the icon/title/description. `color` is a solid hex or a gradient fill
+	 * (default a sensible accent when omitted); `width` is in inches.
+	 * @default { color: '7C3AED', width: 0.03 }
+	 */
+	accentBar?: { color?: HexColor | GradientFillProps, width?: number }
 	/** Content alignment within the card. @default 'center' */
 	align?: 'center' | 'left'
 	/** Icon placement. @default 'top' */

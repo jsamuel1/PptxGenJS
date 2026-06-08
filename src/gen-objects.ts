@@ -919,6 +919,19 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 	if (options.glow) bgOpts.glow = options.glow
 	group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, bgOpts)
 
+	// 1a) Optional left accent bar (drawn behind content). Inset vertically by cornerRadius so the
+	//     square bar corners stay within the card's rounded outline.
+	if (options.accentBar) {
+		const barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03
+		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '7C3AED'
+		const barH = Math.max(0, h - 2 * cornerRadius)
+		group.addShape(SHAPE_TYPE.RECTANGLE, {
+			x: 0, y: cornerRadius, w: barW, h: barH,
+			fill: typeof barColor === 'string' ? { color: barColor } : barColor,
+			line: { type: 'none' },
+		})
+	}
+
 	// 2) Layout anchors for icon / title / description (group-relative inches)
 	let iconX = (w - iconSize) / 2
 	let iconY = padding

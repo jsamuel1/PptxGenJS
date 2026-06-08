@@ -22,6 +22,14 @@ function groupInner(xml) {
 	return xml.substring(start, end)
 }
 
+// The accent bar is the only shape that is a `prst="rect"` WITH a fill (solid or gradient).
+// Card text frames (title/desc/emoji) are also `prst="rect"` but always carry `<a:noFill/>`,
+// and the background/icon tiles are `prst="roundRect"`. This matches a filled accent rect only.
+function accentRectFills(inner) {
+	const re = /prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom>(<a:solidFill>|<a:gradFill)/g
+	return (inner.match(re) || [])
+}
+
 module.exports = [
 	{
 		name: 'addCard: minimal → group with roundRect bg + title text',
@@ -190,6 +198,48 @@ module.exports = [
 			// tile still drawn (icon present), but no typeface run for the icon glyph
 			assert(inner.indexOf('typeface="undefined"') === -1, 'must not emit a font-icon run with undefined typeface; got: ' + inner)
 			assert(inner.indexOf('<a:t>G</a:t>') !== -1, 'title still rendered; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: accentBar (solid) → extra rect with solidFill in the bar color',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'X', accentBar: { color: '38BDF8', width: 0.05 } }))
+			const inner = groupInner(xml)
+			const fills = accentRectFills(inner)
+			assert(fills.length === 1 && fills[0].endsWith('<a:solidFill>'), 'expected exactly one solid-filled accent rect; got: ' + fills)
+			assert(inner.indexOf('<a:srgbClr val="38BDF8"/>') !== -1, 'expected accent bar solid fill 38BDF8; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: accentBar (gradient) → accent rect emits <a:gradFill> with both stops',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'Y',
+				accentBar: { color: { type: 'gradient', stops: [{ position: 0, color: '7C3AED' }, { position: 100, color: '38BDF8' }], direction: 90 } },
+			}))
+			const inner = groupInner(xml)
+			const fills = accentRectFills(inner)
+			assert(fills.length === 1 && fills[0].endsWith('<a:gradFill'), 'expected exactly one gradient-filled accent rect; got: ' + fills)
+			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected gradient stop 7C3AED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="38BDF8"/>') !== -1, 'expected gradient stop 38BDF8; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: accentBar ({}) guard → default-colour bar (7C3AED), no throw',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'G', accentBar: {} }))
+			const inner = groupInner(xml)
+			const fills = accentRectFills(inner)
+			assert(fills.length === 1 && fills[0].endsWith('<a:solidFill>'), 'expected one solid accent rect; got: ' + fills)
+			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected default accent color 7C3AED; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: DEFAULT-OFF — v1 card (no accentBar) emits NO filled accent rect',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'Z', description: 'body', icon: '🚀' }))
+			const inner = groupInner(xml)
+			assert(accentRectFills(inner).length === 0, 'v1 card must emit no filled accent rect; got: ' + inner)
 		},
 	},
 	{

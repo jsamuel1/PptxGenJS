@@ -835,6 +835,44 @@ module.exports = [
 		}
 	},
 	{
+		name: 'addCard v2 accent bar (solid + gradient left-edge bar)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				// solid accent bar
+				s.addCard({ x: 0.5, y: 0.5, w: 3, h: 2, title: 'Solid Bar', accentBar: { color: '38BDF8', width: 0.05 } })
+				// gradient accent bar
+				s.addCard({
+					x: 4, y: 0.5, w: 3, h: 2, title: 'Gradient Bar',
+					accentBar: { color: { type: 'gradient', stops: [{ position: 0, color: '7C3AED' }, { position: 100, color: '38BDF8' }], direction: 90 } },
+				})
+			})
+			// Baseline: the accent bar composes a single already-validated primitive (a filled
+			// rect) — the deck is schema-clean.
+			await expectNoSchemaErrors(buf, 'card-v2-accentbar')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): the accent bar is the only
+			// `prst="rect"` shape WITH a fill (text frames carry <a:noFill/>, tiles are roundRect).
+			// A regress-to-no-bar or a solid<->gradient flip fails these. ST_FillProperties choice
+			// is not something the validator catches semantically — hence explicit assertions.
+			const solidRe = /prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill>/g
+			const gradRe = /prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:gradFill/g
+			assert((slideXml.match(solidRe) || []).length === 1, 'accentbar: expected exactly 1 solid-filled accent rect; got: ' + (slideXml.match(solidRe) || []).length)
+			assert((slideXml.match(gradRe) || []).length === 1, 'accentbar: expected exactly 1 gradient-filled accent rect; got: ' + (slideXml.match(gradRe) || []).length)
+			assert(slideXml.indexOf('<a:srgbClr val="38BDF8"/>') !== -1, 'accentbar: expected solid bar color 38BDF8')
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on the accent XML —
+			// corrupt the accent rect's preset geometry to an invalid ST_ShapeType enum.
+			const badSlide = slideXml.replace('prst="rect"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'accentbar: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'accentbar: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {
