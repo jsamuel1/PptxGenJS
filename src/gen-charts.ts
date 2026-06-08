@@ -1142,7 +1142,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				// Option: scatter data point labels
 				if (opts.showLabel) {
 					const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-					if (obj.labels[0] && (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY')) {
+					if (obj.labels?.[0] && (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY')) {
 						strXml += '<c:dLbls>'
 						obj.labels[0].forEach((label, idx) => {
 							if (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY') {
