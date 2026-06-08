@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.3 @ 2026-06-08T02:31:32.742Z */
+/* PptxGenJS 4.1.6 @ 2026-06-08T13:02:12.471Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -66,6 +66,19 @@ const AXIS_ID_VALUE_SECONDARY = '2094734553';
 const AXIS_ID_CATEGORY_PRIMARY = '2094734554';
 const AXIS_ID_CATEGORY_SECONDARY = '2094734555';
 const AXIS_ID_SERIES_PRIMARY = '2094734556';
+/**
+ * ECMA-376 `ST_PresetPatternVal` — the 54 preset hatch/pattern fills accepted by `<a:pattFill prst="...">`.
+ * Used to validate the `preset` of a `PatternFillProps` before emission (unknown values are skipped with a warn).
+ * @see ECMA-376 §20.1.10.58 (ST_PresetPatternVal)
+ */
+const PRESET_PATTERN_VALS = [
+    'pct5', 'pct10', 'pct20', 'pct25', 'pct30', 'pct40', 'pct50', 'pct60', 'pct70', 'pct75', 'pct80', 'pct90',
+    'horz', 'vert', 'ltHorz', 'ltVert', 'dkHorz', 'dkVert', 'narHorz', 'narVert', 'dashHorz', 'dashVert',
+    'cross', 'dnDiag', 'upDiag', 'ltDnDiag', 'ltUpDiag', 'dkDnDiag', 'dkUpDiag', 'wdDnDiag', 'wdUpDiag',
+    'dashDnDiag', 'dashUpDiag', 'diagCross', 'smCheck', 'lgCheck', 'smGrid', 'lgGrid', 'dotGrid',
+    'smConfetti', 'lgConfetti', 'horzBrick', 'diagBrick', 'solidDmnd', 'openDmnd', 'dotDmnd', 'plaid',
+    'sphere', 'weave', 'divot', 'shingle', 'wave', 'trellis', 'zigZag'
+];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const BARCHART_COLORS = [
     'C0504D',
@@ -118,6 +131,49 @@ var TEXT_VALIGN;
     TEXT_VALIGN["ctr"] = "ctr";
     TEXT_VALIGN["t"] = "t";
 })(TEXT_VALIGN || (TEXT_VALIGN = {}));
+/**
+ * Shape 3-D bevel preset (`<a:bevelT>`/`<a:bevelB>` `@prst`)
+ * @see ECMA-376 ST_BevelPresetType
+ * @since v4.2.0
+ */
+var BevelPresetType;
+(function (BevelPresetType) {
+    BevelPresetType["relaxedInset"] = "relaxedInset";
+    BevelPresetType["circle"] = "circle";
+    BevelPresetType["slope"] = "slope";
+    BevelPresetType["cross"] = "cross";
+    BevelPresetType["angle"] = "angle";
+    BevelPresetType["softRound"] = "softRound";
+    BevelPresetType["convex"] = "convex";
+    BevelPresetType["coolSlant"] = "coolSlant";
+    BevelPresetType["divot"] = "divot";
+    BevelPresetType["riblet"] = "riblet";
+    BevelPresetType["hardEdge"] = "hardEdge";
+    BevelPresetType["artDeco"] = "artDeco";
+})(BevelPresetType || (BevelPresetType = {}));
+/**
+ * Shape 3-D surface material (`<a:sp3d>` `@prstMaterial`)
+ * @see ECMA-376 ST_PresetMaterialType
+ * @since v4.2.0
+ */
+var PresetMaterialType;
+(function (PresetMaterialType) {
+    PresetMaterialType["legacyMatte"] = "legacyMatte";
+    PresetMaterialType["legacyPlastic"] = "legacyPlastic";
+    PresetMaterialType["legacyMetal"] = "legacyMetal";
+    PresetMaterialType["legacyWireframe"] = "legacyWireframe";
+    PresetMaterialType["matte"] = "matte";
+    PresetMaterialType["plastic"] = "plastic";
+    PresetMaterialType["metal"] = "metal";
+    PresetMaterialType["warmMatte"] = "warmMatte";
+    PresetMaterialType["translucentPowder"] = "translucentPowder";
+    PresetMaterialType["powder"] = "powder";
+    PresetMaterialType["dkEdge"] = "dkEdge";
+    PresetMaterialType["softEdge"] = "softEdge";
+    PresetMaterialType["clear"] = "clear";
+    PresetMaterialType["flat"] = "flat";
+    PresetMaterialType["softmetal"] = "softmetal";
+})(PresetMaterialType || (PresetMaterialType = {}));
 const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}';
 // ENUM
 // TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case!
@@ -792,8 +848,73 @@ function createGlowElement(options, defaults) {
     return strXml;
 }
 /**
+ * Creates `a:reflection` element
+ * @param {ReflectionProps} options reflection properties
+ * @see http://officeopenxml.com/drwSp-effects.php
+ * Defaults: { blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }
+ */
+function createReflectionElement(options) {
+    const opts = Object.assign({ blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }, options);
+    const blurRad = Math.round(opts.blur * ONEPT); // pt → EMU
+    const stA = Math.round(opts.opacity * 1000); // % → thousandths
+    const endPos = Math.round(opts.size * 1000); // % → thousandths
+    const dist = Math.round(opts.distance * ONEPT); // pt → EMU
+    const dir = Math.round(opts.fadeDirection * 60000); // degrees → 60,000ths
+    // `endA`, `sy`, `rotWithShape` are fixed constants (no props exposed for them)
+    return `<a:reflection blurRad="${blurRad}" stA="${stA}" endA="300" endPos="${endPos}" dist="${dist}" dir="${dir}" sy="-100000" rotWithShape="0"/>`;
+}
+/**
+ * Create a soft-edge (feathered edge) effect element
+ * @param {SoftEdgeProps} options soft-edge properties
+ * @see http://officeopenxml.com/drwSp-effects.php
+ */
+function createSoftEdgeElement(options) {
+    const rad = Math.round(options.radius * EMU); // inches → EMU
+    return `<a:softEdge rad="${rad}"/>`;
+}
+/**
+ * Create a 3-D bevel/extrusion element pair (`<a:scene3d>` + `<a:sp3d>`)
+ * - emitted as siblings of `<a:effectLst>` inside `<p:spPr>`
+ * - canonical CT_ShapeProperties order requires `scene3d` BEFORE `sp3d`
+ * - `<a:sp3d>` requires a `<a:scene3d>` to render; a default camera/light rig is always emitted
+ * @param {Shape3DProps} options 3-D bevel properties
+ * @see http://officeopenxml.com/drwSp-3D.php
+ */
+function createShape3DElement(options) {
+    var _a, _b, _c, _d;
+    const BEVEL_DEF = 76200; // CT_Bevel default w/h (EMU) == 0.083in
+    const bevelXml = (b, tag) => {
+        const w = b.width != null ? Math.round(b.width * EMU) : BEVEL_DEF;
+        const h = b.height != null ? Math.round(b.height * EMU) : BEVEL_DEF;
+        const prst = b.preset || 'circle';
+        return `<a:${tag} w="${w}" h="${h}" prst="${prst}"/>`;
+    };
+    // scene3d: fixed default camera/light rig (camera/lightRig override is out of scope)
+    const scene3d = '<a:scene3d><a:camera prst="orthographicFront"/><a:lightRig rig="threePt" dir="t"/></a:scene3d>';
+    // sp3d attrs (only emit set values)
+    let sp3dAttrs = '';
+    if (((_a = options.depth) === null || _a === void 0 ? void 0 : _a.amount) != null)
+        sp3dAttrs += ` extrusionH="${Math.round(options.depth.amount * EMU)}"`;
+    if (((_b = options.contour) === null || _b === void 0 ? void 0 : _b.width) != null)
+        sp3dAttrs += ` contourW="${Math.round(options.contour.width * EMU)}"`;
+    if (options.material)
+        sp3dAttrs += ` prstMaterial="${options.material}"`;
+    // sp3d children — canonical CT_Shape3D order: bevelT, bevelB, extrusionClr, contourClr
+    let sp3dChildren = '';
+    if (options.top)
+        sp3dChildren += bevelXml(options.top, 'bevelT');
+    if (options.bottom)
+        sp3dChildren += bevelXml(options.bottom, 'bevelB');
+    if ((_c = options.depth) === null || _c === void 0 ? void 0 : _c.color)
+        sp3dChildren += `<a:extrusionClr><a:srgbClr val="${options.depth.color}"/></a:extrusionClr>`;
+    if ((_d = options.contour) === null || _d === void 0 ? void 0 : _d.color)
+        sp3dChildren += `<a:contourClr><a:srgbClr val="${options.contour.color}"/></a:contourClr>`;
+    const sp3d = sp3dChildren ? `<a:sp3d${sp3dAttrs}>${sp3dChildren}</a:sp3d>` : `<a:sp3d${sp3dAttrs}/>`;
+    return scene3d + sp3d;
+}
+/**
  * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps} props fill props
+ * @param {Color | ShapeFillProps | ShapeLineProps | GradientFillProps | PatternFillProps | ImageFillProps} props fill props
  * @returns XML string
  */
 function genXmlColorSelection(props) {
@@ -808,6 +929,16 @@ function genXmlColorSelection(props) {
         else if (props.type === 'gradient') {
             // Gradient fills are emitted as a self-contained `<a:gradFill>` (replaces `<a:solidFill>`)
             return genXmlGradientFill(props);
+        }
+        else if (props.type === 'pattern') {
+            // Pattern fills are emitted as a self-contained `<a:pattFill>` (replaces `<a:solidFill>`)
+            return genXmlPatternFill(props);
+        }
+        else if (props.type === 'image') {
+            // Image/blip fills require a registered media relationship (an `r:embed` rId), which this
+            // context-free helper has no access to — they are emitted inline at the shape-fill site
+            // (gen-xml.ts). Reaching here means no rId was resolved → emit nothing (caller falls back).
+            return '';
         }
         else {
             if (props.type)
@@ -844,11 +975,14 @@ function genXmlGradientFill(props) {
     const stops = [...props.stops].sort((a, b) => (a.position || 0) - (b.position || 0));
     const gsList = stops
         .map(stop => {
-        // position 0–100 → `pos` in thousandths of a percent (× 1000)
-        const pos = Math.round((stop.position || 0) * 1000);
+        // position 0–100 → `pos` in thousandths of a percent (× 1000).
+        // `pos` is ST_PositiveFixedPercentage [0,100000]; clamp the 0–100 input
+        // before scaling so out-of-range stops stay schema-valid (clamp-don't-crash).
+        const pos = Math.round(Math.max(0, Math.min(100, stop.position || 0)) * 1000);
         // Per-stop transparency uses PROMPT.md direct mapping (100 = opaque → 100000; 40 → 40000).
         // NOTE: this differs from the solid-fill path which inverts via `(100 - transparency) * 1000`.
-        const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(stop.transparency * 1000)}"/>` : '';
+        // `a:alpha@val` is also ST_PositiveFixedPercentage [0,100000]; clamp into [0,100] first.
+        const inner = typeof stop.transparency === 'number' ? `<a:alpha val="${Math.round(Math.max(0, Math.min(100, stop.transparency)) * 1000)}"/>` : '';
         return `<a:gs pos="${pos}">${createColorElement(stop.color, inner)}</a:gs>`;
     })
         .join('');
@@ -864,6 +998,27 @@ function genXmlGradientFill(props) {
         ang = 0; // 'horizontal' (0°) or undefined
     const rotWithShape = props.rotWithShape === false ? '0' : '1';
     return `<a:gradFill rotWithShape="${rotWithShape}"><a:gsLst>${gsList}</a:gsLst><a:lin ang="${ang}" scaled="1"/></a:gradFill>`;
+}
+/**
+ * Create a preset pattern (hatch) fill element (`<a:pattFill>`), replacing the solid fill in a shape's `<p:spPr>`.
+ * Reuses `createColorElement()` for fore/back colours so hex and scheme colours are handled consistently.
+ * @param {PatternFillProps} props pattern fill props
+ * @returns {string} XML string (empty string when the preset is unknown — guard-don't-crash, keeps output schema-valid)
+ * @see ECMA-376 §20.1.8.32 (pattFill) / §20.1.10.58 (ST_PresetPatternVal)
+ */
+function genXmlPatternFill(props) {
+    if (!props || !props.preset)
+        return '';
+    // Validate the preset against ST_PresetPatternVal; on unknown value warn + skip emit so the
+    // part stays schema-valid (an invalid `prst` would otherwise fail OOXML validation).
+    if (!PRESET_PATTERN_VALS.includes(props.preset)) {
+        console.warn(`"${props.preset}" is not a valid preset pattern! Pattern fill skipped. Use an ECMA-376 ST_PresetPatternVal value (e.g. 'ltUpDiag', 'cross', 'pct50').`);
+        return '';
+    }
+    const fgClr = `<a:fgClr>${createColorElement(props.foreColor)}</a:fgClr>`;
+    // Missing backColor → omit <a:bgClr> entirely (PowerPoint treats as no background).
+    const bgClr = props.backColor ? `<a:bgClr>${createColorElement(props.backColor)}</a:bgClr>` : '';
+    return `<a:pattFill prst="${props.preset}">${fgClr}${bgClr}</a:pattFill>`;
 }
 /**
  * Get a new rel ID (rId) for charts, media, etc.
@@ -1090,6 +1245,75 @@ function svgPathToOoxml(svgPathD, width, height) {
         }
     }
     return `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst><a:path w="${pathW}" h="${pathH}">${xml}</a:path></a:pathLst></a:custGeom>`;
+}
+/**
+ * Compute evenly-spaced grid cell positions within a bounding area.
+ * - Pure math utility (no OOXML emission); returns one `{ x, y, w, h }` (inches) per item, in item order.
+ * - Eliminates repetitive grid-math when positioning capability cards, icon grids, comparison layouts, etc.
+ *
+ * Calculation (per item `i`):
+ *   cellW = (area.w - (columns - 1) * gapX) / columns
+ *   rows  = ceil(items / columns)
+ *   cellH = (area.h - (rows - 1) * gapY) / rows
+ *   col = i % columns; row = floor(i / columns)
+ *   x = area.x + col * (cellW + gapX); y = area.y + row * (cellH + gapY)
+ *
+ * @param {LayoutGridProps} props - grid options
+ * @returns {LayoutGridResult} array of `{ x, y, w, h }` cells (inches), one per item
+ * @throws {Error} when `area` has zero/negative width or height
+ * @example pptx.layoutGrid({ items: 6, columns: 3, area: { x: 0.5, y: 2, w: 12, h: 4 }, gap: 0.2 })
+ */
+function layoutGrid(props) {
+    var _a, _b, _c, _d, _e;
+    const { items, columns, area } = props;
+    const gap = (_a = props.gap) !== null && _a !== void 0 ? _a : 0.2;
+    const gapX = (_b = props.gapX) !== null && _b !== void 0 ? _b : gap;
+    const gapY = (_c = props.gapY) !== null && _c !== void 0 ? _c : gap;
+    const padding = (_d = props.padding) !== null && _d !== void 0 ? _d : 0;
+    const align = (_e = props.align) !== null && _e !== void 0 ? _e : 'start';
+    // Edge case: no items -> empty result
+    if (!items || items <= 0)
+        return [];
+    // Guard: a zero/negative area can't be subdivided
+    if (!area || !(area.w > 0) || !(area.h > 0))
+        throw new Error('layoutGrid: `area` requires positive `w` and `h`');
+    if (!(columns > 0))
+        throw new Error('layoutGrid: `columns` must be a positive number');
+    const rows = Math.ceil(items / columns);
+    const cellW = (area.w - (columns - 1) * gapX) / columns;
+    const cellH = (area.h - (rows - 1) * gapY) / rows;
+    const result = [];
+    for (let i = 0; i < items; i++) {
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        // Items on the final (possibly partial) row can be re-aligned within the area
+        let rowCellW = cellW;
+        let rowOffsetX = 0;
+        const isLastRow = row === rows - 1;
+        const lastRowCount = items - (rows - 1) * columns;
+        if (isLastRow && lastRowCount < columns && lastRowCount > 0) {
+            const rowCols = lastRowCount;
+            if (align === 'stretch') {
+                // Widen the partial row's cells to fill the full area width
+                rowCellW = (area.w - (rowCols - 1) * gapX) / rowCols;
+            }
+            else if (align === 'center') {
+                // Centre the partial row (cells keep their size)
+                const rowWidth = rowCols * cellW + (rowCols - 1) * gapX;
+                rowOffsetX = (area.w - rowWidth) / 2;
+            }
+        }
+        const x = area.x + rowOffsetX + col * (rowCellW + gapX);
+        const y = area.y + row * (cellH + gapY);
+        // `padding` insets each cell box on all sides
+        result.push({
+            x: x + padding,
+            y: y + padding,
+            w: rowCellW - 2 * padding,
+            h: cellH - 2 * padding,
+        });
+    }
+    return result;
 }
 
 /**
@@ -1850,6 +2074,9 @@ function createSlideMaster(props, target) {
     // STEP 3: Add Slide Numbers (NOTE: Do this last so numbers are not covered by objects!)
     if (props.slideNumber && typeof props.slideNumber === 'object')
         target._slideNumberProps = props.slideNumber;
+    // STEP 4: Stash header/footer config (drives derived `<p:hf>` + ftr/dt placeholders on the layout)
+    if (props.headerFooter && typeof props.headerFooter === 'object')
+        target._headerFooter = props.headerFooter;
 }
 /**
  * Generate the chart based on input data.
@@ -2398,14 +2625,28 @@ function addMediaDefinition(target, opt) {
 /**
  * Adds Notes to a slide.
  * @param {PresSlide} `target` slide object
- * @param {string} `notes`
+ * @param {string | NoteParagraph[]} `notes` plain string (single paragraph) or structured talking-points
  * @since 2.3.0
  */
 function addNotesDefinition(target, notes) {
-    target._slideObjects.push({
-        _type: SLIDE_OBJECT_TYPES.notes,
-        text: [{ text: notes }],
-    });
+    if (typeof notes === 'string') {
+        // String path is UNCHANGED — single-paragraph notes, byte-identical to prior behavior (supports multi-call concat).
+        target._slideObjects.push({
+            _type: SLIDE_OBJECT_TYPES.notes,
+            text: [{ text: notes }],
+        });
+    }
+    else {
+        // Structured path: store one notes object whose `text` carries per-paragraph `options`.
+        // The presence of an `options` key on a `text` entry is the structured discriminator (see buildNotesBodyParagraphs).
+        target._slideObjects.push({
+            _type: SLIDE_OBJECT_TYPES.notes,
+            text: (notes || []).map(para => ({
+                text: para.text,
+                options: { bullet: para.bullet, indentLevel: para.indentLevel },
+            })),
+        });
+    }
 }
 /**
  * Map of common friendly shape names users pass as bare strings to their
@@ -2476,6 +2717,58 @@ function addShapeDefinition(target, shapeName, opts) {
         options.line.beginArrowType = options.lineHead; // @deprecated (part of `ShapeLineProps` now)
     if (typeof options.lineTail === 'string')
         options.line.endArrowType = options.lineTail; // @deprecated (part of `ShapeLineProps` now)
+    // 3b: Picture/blip fill — register a media relationship so the shape can be filled with an image.
+    // NOTE: This is NOT the gradient/pattern precedent: an image fill needs a registered media part
+    // (+ `_rels` entry + `[Content_Types].xml` Default). We reuse the `addImageDefinition` rel logic
+    // (derive extn → dedupe by path → push to `_relsMedia`) and stash the resolved rId on
+    // `options.fill._rId` for the inline `<a:blipFill>` emit (gen-xml.ts). Done BEFORE
+    // `createHyperlinkRels` so any hyperlink rels allocate after the fill rel (deterministic rId order).
+    if (typeof options.fill === 'object' && options.fill.type === 'image') {
+        const imgFill = options.fill;
+        const strImagePath = imgFill.path || '';
+        const strImageData = imgFill.data || '';
+        if (!strImagePath && !strImageData) {
+            // Guard-don't-crash (ground rule 4): missing both path+data → warn + drop the fill so the
+            // shape emits `<a:noFill/>`; do NOT register a dangling media rel.
+            console.warn('Warning: shape image fill requires either `path` or `data` - falling back to no fill');
+            delete options.fill;
+        }
+        else {
+            // Derive extension (mirrors addImageDefinition): path-based, then mime-from-data override.
+            let strImgExtn = (strImagePath
+                .substring(strImagePath.lastIndexOf('/') + 1)
+                .split('?')[0]
+                .split('.')
+                .pop()
+                .split('#')[0] || 'png').toLowerCase();
+            if (strImageData && /image\/(\w+);/.exec(strImageData) && /image\/(\w+);/.exec(strImageData).length > 0) {
+                strImgExtn = /image\/(\w+);/.exec(strImageData)[1];
+            }
+            else if (strImageData === null || strImageData === void 0 ? void 0 : strImageData.toLowerCase().includes('image/svg+xml')) {
+                strImgExtn = 'svg';
+            }
+            if (strImgExtn === 'svg') {
+                // SVG-as-shape-fill (dual-rId + `svgBlip` extLst) is out of scope for this slice → warn + noFill.
+                console.warn('Warning: SVG image fill on shapes is not supported - falling back to no fill');
+                delete options.fill;
+            }
+            else {
+                const imageRelId = getNewRelId(target);
+                // PERF: reuse an existing media part for the same path (dedupe) — same filter as addImage.
+                const dupeItem = target._relsMedia.filter(item => item.path && item.path === strImagePath && item.type === 'image/' + strImgExtn && !item.isDuplicate)[0];
+                target._relsMedia.push({
+                    path: strImagePath || 'preencoded.' + strImgExtn,
+                    type: 'image/' + strImgExtn,
+                    extn: strImgExtn,
+                    data: strImageData || '',
+                    rId: imageRelId,
+                    isDuplicate: !!(dupeItem === null || dupeItem === void 0 ? void 0 : dupeItem.Target),
+                    Target: (dupeItem === null || dupeItem === void 0 ? void 0 : dupeItem.Target) ? dupeItem.Target : `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.${strImgExtn}`,
+                });
+                imgFill._rId = imageRelId;
+            }
+        }
+    }
     // 4: Create hyperlink rels
     createHyperlinkRels(target, newObject);
     // LAST: Add object to slide
@@ -2514,6 +2807,122 @@ function addCalloutDefinition(target, opts) {
     if (options.objectName)
         textOpts.objectName = options.objectName;
     addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false);
+}
+/**
+ * Adds a structured "card" to a slide definition (docs/feature-card-helper.md).
+ * Builds a single shape group (`<p:grpSp>`) containing a rounded-rect background and,
+ * as applicable, an icon container + icon (SVG path or emoji/text), a title, a description,
+ * and a top-right badge — all positioned with group-relative coordinates. When `animation`
+ * is supplied it is attached to the group object so the whole card animates as one.
+ * @param {PresSlide} target slide the card should be added to
+ * @param {CardProps} opts card options
+ */
+function addCardDefinition(target, opts) {
+    const options = typeof opts === 'object' ? opts : {};
+    const x = options.x !== undefined ? Number(options.x) : 1;
+    const y = options.y !== undefined ? Number(options.y) : 1;
+    const w = options.w !== undefined ? Number(options.w) : 3;
+    const h = options.h !== undefined ? Number(options.h) : 2;
+    const padding = 0.2;
+    const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.12;
+    const fill = options.fill !== undefined ? options.fill : '1a1a24';
+    const align = options.align === 'left' ? 'left' : 'center';
+    const iconPosition = options.iconPosition === 'left' ? 'left' : 'top';
+    const iconSize = options.iconSize !== undefined ? Number(options.iconSize) : 0.4;
+    const hasIcon = options.icon !== undefined && options.icon !== null;
+    const titleFont = options.titleFont || {};
+    const descFont = options.descFont || {};
+    const textAlign = align === 'center' ? 'center' : 'left';
+    // Create the group container; children below use coords relative to the group origin (0,0..w,h)
+    const group = addGroupDefinition(target, { x, y, w, h, objectName: options.objectName });
+    // The group is the just-pushed top-level slide object — grab it so card-level animation can attach
+    const groupObj = target._slideObjects[target._slideObjects.length - 1];
+    if (options.animation && groupObj && groupObj.options)
+        groupObj.options.animation = options.animation;
+    // 1) Background roundRect (fill + optional border/shadow/glow). `rectRadius` maps inches -> adj.
+    const bgOpts = {
+        x: 0, y: 0, w, h,
+        fill: typeof fill === 'string' ? { color: fill } : fill,
+        rectRadius: cornerRadius,
+    };
+    if (options.border)
+        bgOpts.line = { color: options.border.color || '2A2438', width: options.border.width || 1 };
+    if (options.shadow)
+        bgOpts.shadow = Object.assign({ type: 'outer' }, options.shadow);
+    if (options.glow)
+        bgOpts.glow = options.glow;
+    group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, bgOpts);
+    // 2) Layout anchors for icon / title / description (group-relative inches)
+    let iconX = (w - iconSize) / 2;
+    let iconY = padding;
+    let titleX = padding;
+    let titleY = hasIcon ? padding + iconSize + 0.15 : padding;
+    let titleW = w - 2 * padding;
+    const titleH = 0.4;
+    if (iconPosition === 'left' && hasIcon) {
+        iconX = padding;
+        iconY = padding;
+        titleX = padding + iconSize + 0.2;
+        titleY = padding;
+        titleW = w - titleX - padding;
+    }
+    const descX = titleX;
+    const descY = titleY + titleH + 0.05;
+    const descW = titleW;
+    const descH = Math.max(0.2, h - descY - padding);
+    // 3) Icon container + glyph
+    if (hasIcon) {
+        const iconFill = options.iconFill !== undefined ? options.iconFill : '7C3AED';
+        group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+            x: iconX, y: iconY, w: iconSize, h: iconSize,
+            fill: { color: iconFill }, rectRadius: cornerRadius / 2, line: { type: 'none' },
+        });
+        const glyphColor = titleFont.color || 'E4E4ED';
+        if (typeof options.icon === 'string') {
+            // Emoji / text glyph centred in the container
+            group.addText(options.icon, {
+                x: iconX, y: iconY, w: iconSize, h: iconSize,
+                align: 'center', valign: 'middle', fontSize: Math.round(iconSize * 36), color: glyphColor,
+            });
+        }
+        else if (options.icon && typeof options.icon === 'object' && options.icon.svgPath) {
+            // SVG path glyph, inset within the container; emits <a:custGeom>
+            const inset = iconSize * 0.22;
+            group.addShape('rect', {
+                x: iconX + inset, y: iconY + inset, w: iconSize - 2 * inset, h: iconSize - 2 * inset,
+                svgPath: options.icon.svgPath, fill: { color: glyphColor }, line: { type: 'none' },
+            });
+        }
+    }
+    // 4) Title
+    group.addText(options.title || '', {
+        x: titleX, y: titleY, w: titleW, h: titleH,
+        fontFace: titleFont.face, fontSize: titleFont.size !== undefined ? titleFont.size : 13,
+        bold: titleFont.bold !== undefined ? titleFont.bold : true,
+        color: titleFont.color || 'E4E4ED', align: textAlign, valign: 'top',
+    });
+    // 5) Description (shrink-to-fit so overflow stays inside the card)
+    if (options.description) {
+        group.addText(options.description, {
+            x: descX, y: descY, w: descW, h: descH,
+            fontFace: descFont.face, fontSize: descFont.size !== undefined ? descFont.size : 10,
+            bold: descFont.bold !== undefined ? descFont.bold : false,
+            color: descFont.color || '8A8A9A', align: textAlign, valign: 'top', fit: 'shrink',
+        });
+    }
+    // 6) Badge (top-right)
+    if (options.badge && options.badge.text) {
+        const badgeH = 0.28;
+        const badgeW = Math.max(0.5, options.badge.text.length * 0.11 + 0.2);
+        group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+            x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
+            fill: { color: options.badge.fill || '10B981' }, rectRadius: badgeH / 2, line: { type: 'none' },
+        });
+        group.addText(options.badge.text, {
+            x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
+            align: 'center', valign: 'middle', fontSize: 8, bold: true, color: options.badge.color || 'FFFFFF',
+        });
+    }
 }
 /**
  * Feature 6: Adds a shape group to a slide definition and returns a group handle.
@@ -3090,7 +3499,10 @@ function createHyperlinkRels(target, text, options) {
                 console.log('ERROR: text `hyperlink` option should be an object. Ex: `hyperlink: {url:\'https://github.com\'}` ');
             }
             else if (!text.options.hyperlink.url && !text.options.hyperlink.slide) {
-                console.log('ERROR: \'hyperlink requires either: `url` or `slide`\'');
+                // NOTE: Navigation action jumps (e.g. `action: 'nextSlide'`) need NO relationship (they emit `r:id=""`) — skip silently
+                if (!(text.options.hyperlink.action && text.options.hyperlink.action !== 'slide')) {
+                    console.log('ERROR: \'hyperlink requires either: `url` or `slide`\'');
+                }
             }
             else {
                 const relId = getNewRelId(target);
@@ -3141,6 +3553,11 @@ class Slide {
          * so, lastly, add to the Slide now.
          */
         this._slideNumberProps = ((_a = this._slideLayout) === null || _a === void 0 ? void 0 : _a._slideNumberProps) ? this._slideLayout._slideNumberProps : null;
+        /** NOTE: Per-slide header/footer override. `<p:hf>` is invalid on `CT_Slide`, so a per-slide
+         * override is purely placeholder-presence (footer/date `<p:sp>`) in the slide's own `<p:spTree>`,
+         * emitted by `slideObjectToXml` STEP-4b when set. Default `null` keeps slides byte-identical.
+         */
+        this._headerFooter = null;
     }
     set bkgd(value) {
         this._bkgd = value;
@@ -3192,6 +3609,19 @@ class Slide {
     get slideNumber() {
         return this._slideNumberProps;
     }
+    /**
+     * Per-slide header/footer override (footer text + date/time placeholders).
+     * NOTE: `<p:hf>` is not valid on `CT_Slide`, so the `slideNumber` toggle is a no-op here
+     * (use `slideNumber` for the slide-number placeholder); per-slide scope is footer + dateTime only.
+     * @type {HeaderFooterProps}
+     * @example slide.headerFooter = { footer: 'Confidential', dateTime: { value: 'Q1 2026' } }
+     */
+    set headerFooter(value) {
+        this._headerFooter = value;
+    }
+    get headerFooter() {
+        return this._headerFooter;
+    }
     get newAutoPagedSlides() {
         return this._newAutoPagedSlides;
     }
@@ -3231,7 +3661,7 @@ class Slide {
     /**
      * Add speaker notes to Slide
      * @docs https://gitbrent.github.io/PptxGenJS/docs/speaker-notes.html
-     * @param {string} notes - notes to add to slide
+     * @param {string | NoteParagraph[]} notes - notes to add to slide; a string is a single paragraph, an array authors structured talking-points (bullets + indent levels)
      * @return {Slide} this Slide
      */
     addNotes(notes) {
@@ -3272,6 +3702,16 @@ class Slide {
      */
     addCallout(options) {
         addCalloutDefinition(this, options);
+        return this;
+    }
+    /**
+     * Add a structured card (rounded-rect background + optional icon/title/description/badge)
+     * to Slide as a single shape group.
+     * @param {CardProps} options - card options
+     * @return {Slide} this Slide
+     */
+    addCard(options) {
+        addCardDefinition(this, options);
         return this;
     }
     /**
@@ -4020,6 +4460,11 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
             if (chartType === CHART_TYPE.RADAR) {
                 strXml += '<c:radarStyle val="' + opts.radarStyle + '"/>';
             }
+            // `c:grouping` is a required first child of CT_LineChart (EG_LineChartShared, minOccurs=1)
+            // and must precede `c:varyColors`. Without it, line/combo charts fail schema validation.
+            if (chartType === CHART_TYPE.LINE) {
+                strXml += '<c:grouping val="standard"/>';
+            }
             strXml += '<c:varyColors val="0"/>';
             // 2: "Series" block for every data row
             /* EX1:
@@ -4095,7 +4540,26 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
                 }
                 strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW);
                 strXml += '  </c:spPr>';
-                strXml += '  <c:invertIfNegative val="0"/>';
+                // `c:invertIfNegative` is only valid on bar/bar3D series (CT_BarSer). Emitting it for
+                // area/line/radar series violates the OOXML schema (invalid child of CT_AreaSer/CT_LineSer/CT_RadarSer).
+                if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) {
+                    strXml += '  <c:invertIfNegative val="0"/>';
+                }
+                // 'c:marker' tag: `lineDataSymbol`
+                // NOTE: CT_LineSer requires `marker` to precede `dLbls` (sequence: …spPr, marker?, dPt*, dLbls?…),
+                // so this block must be emitted before the `c:dLbls` block below or line/combo charts fail schema validation.
+                if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
+                    strXml += '<c:marker>';
+                    strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>';
+                    if (opts.lineDataSymbolSize)
+                        strXml += `<c:size val="${opts.lineDataSymbolSize}"/>`; // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
+                    strXml += '  <c:spPr>';
+                    strXml += `    <a:solidFill>${createColorElement(opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex])}</a:solidFill>`;
+                    strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`;
+                    strXml += '    <a:effectLst/>';
+                    strXml += '  </c:spPr>';
+                    strXml += '</c:marker>';
+                }
                 // Data Labels per series
                 // NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
                 if (chartType !== CHART_TYPE.RADAR) {
@@ -4115,19 +4579,6 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
                     strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`;
                     strXml += `<c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`;
                     strXml += '</c:dLbls>';
-                }
-                // 'c:marker' tag: `lineDataSymbol`
-                if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
-                    strXml += '<c:marker>';
-                    strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>';
-                    if (opts.lineDataSymbolSize)
-                        strXml += `<c:size val="${opts.lineDataSymbolSize}"/>`; // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
-                    strXml += '  <c:spPr>';
-                    strXml += `    <a:solidFill>${createColorElement(opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex])}</a:solidFill>`;
-                    strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`;
-                    strXml += '    <a:effectLst/>';
-                    strXml += '  </c:spPr>';
-                    strXml += '</c:marker>';
                 }
                 // Allow users with a single data set to pass their own array of colors (check for this using != ours)
                 // Color chart bars various colors when >1 color
@@ -4277,6 +4728,7 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
             // 2: Series: (One for each Y-Axis)
             colorIndex = -1;
             data.filter((_obj, idx) => idx > 0).forEach((obj, idx) => {
+                var _a;
                 colorIndex++;
                 strXml += '<c:ser>';
                 strXml += `  <c:idx val="${idx}"/>`;
@@ -4329,7 +4781,7 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
                 // Option: scatter data point labels
                 if (opts.showLabel) {
                     const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx');
-                    if (obj.labels[0] && (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY')) {
+                    if (((_a = obj.labels) === null || _a === void 0 ? void 0 : _a[0]) && (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY')) {
                         strXml += '<c:dLbls>';
                         obj.labels[0].forEach((label, idx) => {
                             if (opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY') {
@@ -4798,8 +5250,12 @@ function makeChartType(chartType, data, opts, valAxisId, catAxisId, _isMultiType
             // 4: Close "SERIES"
             strXml += '  </c:ser>';
             strXml += `  <c:firstSliceAng val="${opts.firstSliceAng ? Math.round(opts.firstSliceAng) : 0}"/>`;
-            if (chartType === CHART_TYPE.DOUGHNUT)
-                strXml += `<c:holeSize val="${typeof opts.holeSize === 'number' ? opts.holeSize : '50'}"/>`;
+            if (chartType === CHART_TYPE.DOUGHNUT) {
+                // ST_HoleSize restricts to [10,90]; clamp out-of-range input (clamp-don't-crash)
+                const rawHoleSize = typeof opts.holeSize === 'number' ? opts.holeSize : 50;
+                const holeSizeVal = Math.max(10, Math.min(90, Math.round(rawHoleSize)));
+                strXml += `<c:holeSize val="${holeSizeVal}"/>`;
+            }
             strXml += '</c:' + chartType + 'Chart>';
             // Done with Doughnut/Pie
             break;
@@ -4892,11 +5348,15 @@ function makeCatAxis(opts, axisId, valAxisId) {
     strXml += ' </c:txPr>';
     strXml += ' <c:crossAx val="' + valAxisId + '"/>';
     strXml += ` <c:${typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'} val="${opts.valAxisCrossesAt || 'autoZero'}"/>`;
-    strXml += ' <c:auto val="1"/>';
-    strXml += ' <c:lblAlgn val="ctr"/>';
-    strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`;
-    if (opts.catAxisLabelFrequency)
-        strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>';
+    // NOTE: `auto`/`lblAlgn`/`noMultiLvlLbl`/`tickLblSkip` are CT_CatAx-only children and are invalid on the
+    // CT_ValAx that scatter/bubble/bubble3D charts emit for their (numeric) x-axis. Gate them to the catAx/dateAx case.
+    if (!(opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D)) {
+        strXml += ' <c:auto val="1"/>';
+        strXml += ' <c:lblAlgn val="ctr"/>';
+        strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`;
+        if (opts.catAxisLabelFrequency)
+            strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>';
+    }
     // Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
     // Allow major and minor units to be set for double value axis charts
     if (opts.catLabelFormatCode || opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
@@ -5467,6 +5927,18 @@ function getSizeFromImage (inImgUrl: string): { width: number, height: number } 
 /**
  * PptxGenJS: XML Generation
  */
+/**
+ * Navigation action-jump verb map: `HyperlinkProps.action` value → the `ppaction://hlinkshowjump?jump=<verb>` verb.
+ * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
+ * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
+ */
+const HLINK_ACTION_VERBS = {
+    nextSlide: 'nextslide',
+    prevSlide: 'previousslide',
+    firstSlide: 'firstslide',
+    lastSlide: 'lastslide',
+    endShow: 'endshow',
+};
 const ImageSizingXml = {
     cover: function (imgSize, boxDim) {
         const imgRatio = imgSize.h / imgSize.w;
@@ -5527,7 +5999,7 @@ function slideObjectToXml(slide) {
     strSlideXml += '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
     // STEP 3: Loop over all Slide.data objects and add them to this slide
     slide._slideObjects.forEach((slideItemObj, idx) => {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
         let x = 0;
         let y = 0;
         let cx = getSmartParseNumber('75%', 'X', slide._presLayout);
@@ -5843,14 +6315,20 @@ function slideObjectToXml(slide) {
                 strSlideXml += `<p:nvSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}">`;
                 // <Hyperlink>
                 if ((_c = slideItemObj.options.hyperlink) === null || _c === void 0 ? void 0 : _c.url) {
-                    strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`;
+                    const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`;
                 }
                 if ((_d = slideItemObj.options.hyperlink) === null || _d === void 0 ? void 0 : _d.slide) {
-                    strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`;
+                    const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`;
+                }
+                if (((_e = slideItemObj.options.hyperlink) === null || _e === void 0 ? void 0 : _e.action) && slideItemObj.options.hyperlink.action !== 'slide' && !slideItemObj.options.hyperlink.url && HLINK_ACTION_VERBS[slideItemObj.options.hyperlink.action]) {
+                    const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${HLINK_ACTION_VERBS[slideItemObj.options.hyperlink.action]}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`;
                 }
                 // </Hyperlink>
                 strSlideXml += '</p:cNvPr>';
-                strSlideXml += '<p:cNvSpPr' + (((_e = slideItemObj.options) === null || _e === void 0 ? void 0 : _e.isTextBox) ? ' txBox="1"/>' : '/>');
+                strSlideXml += '<p:cNvSpPr' + (((_f = slideItemObj.options) === null || _f === void 0 ? void 0 : _f.isTextBox) ? ' txBox="1"/>' : '/>');
                 strSlideXml += `<p:nvPr>${slideItemObj._type === 'placeholder' ? genXmlPlaceholder(slideItemObj) : genXmlPlaceholder(placeholderObj)}</p:nvPr>`;
                 strSlideXml += '</p:nvSpPr><p:spPr>';
                 strSlideXml += `<a:xfrm${locationAttr}>`;
@@ -5870,7 +6348,7 @@ function slideObjectToXml(slide) {
                     strSlideXml += '<a:rect l="l" t="t" r="r" b="b" />';
                     strSlideXml += '<a:pathLst>';
                     strSlideXml += `<a:path w="${cx}" h="${cy}">`;
-                    (_f = slideItemObj.options.points) === null || _f === void 0 ? void 0 : _f.forEach((point, i) => {
+                    (_g = slideItemObj.options.points) === null || _g === void 0 ? void 0 : _g.forEach((point, i) => {
                         if ('curve' in point) {
                             switch (point.curve.type) {
                                 case 'arc':
@@ -5926,7 +6404,30 @@ function slideObjectToXml(slide) {
                     strSlideXml += '</a:avLst></a:prstGeom>';
                 }
                 // Option: FILL
-                strSlideXml += slideItemObj.options.fill ? genXmlColorSelection(slideItemObj.options.fill) : '<a:noFill/>';
+                {
+                    const shapeFill = slideItemObj.options.fill;
+                    if (shapeFill && typeof shapeFill === 'object' && 'type' in shapeFill && shapeFill.type === 'image') {
+                        // Picture/blip fill: the `r:embed` rId was resolved at add-time (gen-objects.ts) and
+                        // stashed on `_rId`. Emit `<a:blipFill>` with optional `<a:alphaModFix>` (same
+                        // thousandths-% mapping as the image object), then stretch (default) or tile.
+                        if (shapeFill._rId) {
+                            strSlideXml += `<a:blipFill><a:blip r:embed="rId${shapeFill._rId}">`;
+                            strSlideXml += shapeFill.transparency ? `<a:alphaModFix amt="${Math.round((100 - shapeFill.transparency) * 1000)}"/>` : '';
+                            strSlideXml += '</a:blip>';
+                            strSlideXml += shapeFill.sizing === 'tile'
+                                ? '<a:tile tx="0" ty="0" sx="100000" sy="100000" algn="tl"/>'
+                                : '<a:stretch><a:fillRect/></a:stretch>';
+                            strSlideXml += '</a:blipFill>';
+                        }
+                        else {
+                            // rel registration was skipped (missing path+data, or SVG) → no fill
+                            strSlideXml += '<a:noFill/>';
+                        }
+                    }
+                    else {
+                        strSlideXml += shapeFill ? genXmlColorSelection(shapeFill) : '<a:noFill/>';
+                    }
+                }
                 // shape Type: LINE: line color
                 if (slideItemObj.options.line) {
                     strSlideXml += slideItemObj.options.line.width ? `<a:ln w="${valToPts(slideItemObj.options.line.width)}">` : '<a:ln>';
@@ -5941,13 +6442,21 @@ function slideObjectToXml(slide) {
                     // FUTURE: `endArrowSize` < a: headEnd type = "arrow" w = "lg" len = "lg" /> 'sm' | 'med' | 'lg'(values are 1 - 9, making a 3x3 grid of w / len possibilities)
                     strSlideXml += '</a:ln>';
                 }
-                // EFFECTS > SHADOW + GLOW (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
-                // Both effects share a single <a:effectLst>; emit it once if either is present.
+                // EFFECTS > GLOW + SHADOW + REFLECTION (Feature 10): REF: @see http://officeopenxml.com/drwSp-effects.php
+                // All effects share a single <a:effectLst>; emit it once if any is present.
+                // NOTE: children MUST follow canonical CT_EffectList order:
+                //   blur, fillOverlay, glow, innerShdw, outerShdw, prstShdw, reflection, softEdge
+                // → glow before shadow, reflection after shadow, softEdge last.
                 {
                     const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none');
                     const hasGlow = !!slideItemObj.options.glow;
-                    if (hasShadow || hasGlow) {
+                    const hasReflection = !!slideItemObj.options.reflection;
+                    const hasSoftEdge = !!(slideItemObj.options.softEdge && slideItemObj.options.softEdge.radius > 0);
+                    if (hasShadow || hasGlow || hasReflection || hasSoftEdge) {
                         strSlideXml += '<a:effectLst>';
+                        if (hasGlow) {
+                            strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW);
+                        }
                         if (hasShadow) {
                             // derive emit-time values into locals so we don't mutate the user's options.shadow
                             // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
@@ -5963,10 +6472,21 @@ function slideObjectToXml(slide) {
                             strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
                             strSlideXml += `</a:${shadowType}Shdw>`;
                         }
-                        if (hasGlow) {
-                            strSlideXml += createGlowElement(slideItemObj.options.glow, DEF_TEXT_GLOW);
+                        if (hasReflection) {
+                            strSlideXml += createReflectionElement(slideItemObj.options.reflection);
+                        }
+                        if (hasSoftEdge) {
+                            strSlideXml += createSoftEdgeElement(slideItemObj.options.softEdge);
                         }
                         strSlideXml += '</a:effectLst>';
+                    }
+                }
+                // 3-D BEVEL / EXTRUSION (a:scene3d + a:sp3d): siblings of effectLst inside <p:spPr>.
+                // Canonical CT_ShapeProperties order: ...effectLst, scene3d, sp3d, extLst → emit AFTER effectLst.
+                {
+                    const bevel = slideItemObj.options.bevel;
+                    if (bevel && (bevel.top || bevel.bottom || bevel.depth || bevel.contour || bevel.material)) {
+                        strSlideXml += createShape3DElement(bevel);
                     }
                 }
                 /* TODO: FUTURE: Text wrapping (copied from MS-PPTX export)
@@ -5990,11 +6510,17 @@ function slideObjectToXml(slide) {
                 strSlideXml += '<p:pic>';
                 strSlideXml += '  <p:nvPicPr>';
                 strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || slideItemObj.image)}">`;
-                if ((_g = slideItemObj.hyperlink) === null || _g === void 0 ? void 0 : _g.url) {
-                    strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''}"/>`;
+                if ((_h = slideItemObj.hyperlink) === null || _h === void 0 ? void 0 : _h.url) {
+                    const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''}"/>`;
                 }
-                if ((_h = slideItemObj.hyperlink) === null || _h === void 0 ? void 0 : _h.slide) {
-                    strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`;
+                if ((_j = slideItemObj.hyperlink) === null || _j === void 0 ? void 0 : _j.slide) {
+                    const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`;
+                }
+                if (((_k = slideItemObj.hyperlink) === null || _k === void 0 ? void 0 : _k.action) && slideItemObj.hyperlink.action !== 'slide' && !slideItemObj.hyperlink.url && HLINK_ACTION_VERBS[slideItemObj.hyperlink.action]) {
+                    const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick';
+                    strSlideXml += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${HLINK_ACTION_VERBS[slideItemObj.hyperlink.action]}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''}"/>`;
                 }
                 strSlideXml += '    </p:cNvPr>';
                 strSlideXml += '    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>';
@@ -6037,23 +6563,37 @@ function slideObjectToXml(slide) {
                 strSlideXml += `  <a:ext cx="${imgWidth}" cy="${imgHeight}"/>`;
                 strSlideXml += ' </a:xfrm>';
                 strSlideXml += ` <a:prstGeom prst="${rounding ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>`;
-                // EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-                if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-                    // derive emit-time values into locals so we don't mutate the user's options.shadow
-                    // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-                    const sh = slideItemObj.options.shadow;
-                    const shadowType = sh.type || 'outer';
-                    const shadowBlur = valToPts(sh.blur || 8);
-                    const shadowOffset = valToPts(sh.offset || 4);
-                    const shadowAngle = Math.round((sh.angle || 270) * 60000);
-                    const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
-                    const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
-                    strSlideXml += '<a:effectLst>';
-                    strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
-                    strSlideXml += `<a:srgbClr val="${shadowColor}">`;
-                    strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
-                    strSlideXml += `</a:${shadowType}Shdw>`;
-                    strSlideXml += '</a:effectLst>';
+                // EFFECTS > SHADOW + REFLECTION: REF: @see http://officeopenxml.com/drwSp-effects.php
+                // Canonical CT_EffectList order: outerShdw before reflection before softEdge. (Images have no glow.)
+                {
+                    const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none');
+                    const hasReflection = !!slideItemObj.options.reflection;
+                    const hasSoftEdge = !!(slideItemObj.options.softEdge && slideItemObj.options.softEdge.radius > 0);
+                    if (hasShadow || hasReflection || hasSoftEdge) {
+                        strSlideXml += '<a:effectLst>';
+                        if (hasShadow) {
+                            // derive emit-time values into locals so we don't mutate the user's options.shadow
+                            // (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+                            const sh = slideItemObj.options.shadow;
+                            const shadowType = sh.type || 'outer';
+                            const shadowBlur = valToPts(sh.blur || 8);
+                            const shadowOffset = valToPts(sh.offset || 4);
+                            const shadowAngle = Math.round((sh.angle || 270) * 60000);
+                            const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000);
+                            const shadowColor = sh.color || DEF_TEXT_SHADOW.color;
+                            strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`;
+                            strSlideXml += `<a:srgbClr val="${shadowColor}">`;
+                            strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`;
+                            strSlideXml += `</a:${shadowType}Shdw>`;
+                        }
+                        if (hasReflection) {
+                            strSlideXml += createReflectionElement(slideItemObj.options.reflection);
+                        }
+                        if (hasSoftEdge) {
+                            strSlideXml += createSoftEdgeElement(slideItemObj.options.softEdge);
+                        }
+                        strSlideXml += '</a:effectLst>';
+                    }
                 }
                 strSlideXml += '</p:spPr>';
                 strSlideXml += '</p:pic>';
@@ -6193,6 +6733,43 @@ function slideObjectToXml(slide) {
         strSlideXml += `<a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr b="${slide._slideNumberProps.bold ? 1 : 0}" lang="en-US"/>`;
         strSlideXml += `<a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p>`;
         strSlideXml += '</p:txBody></p:sp>';
+    }
+    // STEP 4b: Header/footer placeholders (footer text + date) — gated on `_headerFooter` config.
+    // `<p:hf>` itself is emitted on the layout (see `makeXmlLayout`); here we emit the matching
+    // `<p:sp>` placeholders inside the `<p:spTree>`. Emission is fully gated so masters/slides
+    // without `headerFooter` config stay byte-identical (default-off invariant).
+    if (slide._headerFooter) {
+        const hf = slide._headerFooter;
+        // Footer placeholder (ftr): emit only when a non-empty footer string is provided
+        if (typeof hf.footer === 'string' && hf.footer.length > 0) {
+            strSlideXml += '<p:sp>';
+            strSlideXml += ' <p:nvSpPr>';
+            strSlideXml += '  <p:cNvPr id="26" name="Footer Placeholder 25"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>';
+            strSlideXml += '  <p:nvPr><p:ph type="ftr" sz="quarter" idx="4"/></p:nvPr>';
+            strSlideXml += ' </p:nvSpPr>';
+            strSlideXml += ' <p:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>';
+            strSlideXml += ` <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(hf.footer)}</a:t></a:r></a:p></p:txBody>`;
+            strSlideXml += '</p:sp>';
+        }
+        // Date/time placeholder (dt): auto field by default, or literal text when `value` is set
+        if (hf.dateTime) {
+            const dtOpts = typeof hf.dateTime === 'object' ? hf.dateTime : {};
+            strSlideXml += '<p:sp>';
+            strSlideXml += ' <p:nvSpPr>';
+            strSlideXml += '  <p:cNvPr id="27" name="Date Placeholder 26"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>';
+            strSlideXml += '  <p:nvPr><p:ph type="dt" idx="1"/></p:nvPr>';
+            strSlideXml += ' </p:nvSpPr>';
+            strSlideXml += ' <p:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>';
+            strSlideXml += ' <p:txBody><a:bodyPr/><a:lstStyle/><a:p>';
+            if (typeof dtOpts.value === 'string' && dtOpts.value.length > 0) {
+                strSlideXml += `<a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(dtOpts.value)}</a:t></a:r>`;
+            }
+            else {
+                strSlideXml += `<a:fld id="{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}" type="${dtOpts.format || 'datetimeFigureOut'}"><a:rPr lang="en-US"/><a:t></a:t></a:fld>`;
+            }
+            strSlideXml += '<a:endParaRPr lang="en-US"/></a:p></p:txBody>';
+            strSlideXml += '</p:sp>';
+        }
     }
     // STEP 5: Close spTree and finalize slide XML
     strSlideXml += '</p:spTree>';
@@ -6484,14 +7061,21 @@ function genXmlTextRunProperties(opts, isDefault) {
     if (opts.hyperlink) {
         if (typeof opts.hyperlink !== 'object')
             throw new Error('ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:\'https://github.com\'}` ');
-        else if (!opts.hyperlink.url && !opts.hyperlink.slide)
-            throw new Error('ERROR: \'hyperlink requires either `url` or `slide`\'');
-        else if (opts.hyperlink.url) {
+        const navVerb = opts.hyperlink.action && opts.hyperlink.action !== 'slide' ? HLINK_ACTION_VERBS[opts.hyperlink.action] : undefined;
+        if (!opts.hyperlink.url && !opts.hyperlink.slide && !navVerb)
+            throw new Error('ERROR: \'hyperlink requires either `url`, `slide`, or `action`\'');
+        if (opts.hyperlink.url && opts.hyperlink.action)
+            console.warn('WARNING: hyperlink `url` and `action` are mutually exclusive; using `url`');
+        const hlinkTag = opts.hyperlink.on === 'hover' ? 'a:hlinkMouseOver' : 'a:hlinkClick';
+        if (opts.hyperlink.url) {
             // runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010! (Issue#74)
-            runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`;
+            runProps += `<${hlinkTag} r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`;
         }
         else if (opts.hyperlink.slide) {
-            runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''}"${opts.color ? '>' : '/>'}`;
+            runProps += `<${hlinkTag} r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''}"${opts.color ? '>' : '/>'}`;
+        }
+        else if (navVerb) {
+            runProps += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${navVerb}" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''}"${opts.color ? '>' : '/>'}`;
         }
         if (opts.color) {
             runProps += ' <a:extLst>';
@@ -6499,7 +7083,7 @@ function genXmlTextRunProperties(opts, isDefault) {
             runProps += '   <ahyp:hlinkClr xmlns:ahyp="http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor" val="tx"/>';
             runProps += '  </a:ext>';
             runProps += ' </a:extLst>';
-            runProps += '</a:hlinkClick>';
+            runProps += `</${hlinkTag}>`;
         }
     }
     // END runProperties
@@ -7088,6 +7672,27 @@ function genXmlTransition(trans) {
     return `<p:transition spd="${spd}">${child}</p:transition>`;
 }
 /**
+ * Emphasis animation types draw attention to an already-visible object (`presetClass="emph"`).
+ * They must NOT emit the entrance visibility `<p:set>` (the object is already shown).
+ */
+const EMPHASIS_TYPES = new Set(['pulse', 'spin', 'grow', 'colorPulse']);
+const isEmphasisAnim = (type) => EMPHASIS_TYPES.has(type);
+/**
+ * Exit animation types make an already-visible object leave (`presetClass="exit"`).
+ * Like emphasis, they target a visible object and must NOT emit the entrance visibility `<p:set>`.
+ */
+const EXIT_TYPES = new Set(['disappear', 'fadeOut', 'flyOut', 'zoomOut']);
+const isExitAnim = (type) => EXIT_TYPES.has(type);
+/**
+ * Motion-path animation types move an already-visible object along a custom path
+ * (`presetClass="path"`). Like emphasis/exit they target a visible object and must
+ * NOT emit the entrance visibility `<p:set>`.
+ */
+const MOTION_TYPES = new Set(['motionPath']);
+const isMotionAnim = (type) => MOTION_TYPES.has(type);
+/** Allowed token set for a motion `path` string (also an injection guard: rejects `<`/`>`/`&`/`"`). */
+const MOTION_PATH_REGEX = /^[MLCZmlcze0-9.,+\-\s]+$/;
+/**
  * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
  * @param {AnimationProps} anim - the animation options
  * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
@@ -7095,17 +7700,22 @@ function genXmlTransition(trans) {
  * @return {string} XML payload
  */
 function genXmlAnimPayload(anim, spid, nextId) {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const dur = typeof anim.duration === 'number' ? anim.duration : 500;
-    // ALL types emit the visibility <p:set> (instant show)
-    let payload = '<p:set>' +
-        '<p:cBhvr>' +
-        `<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
-        `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
-        '<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
-        '</p:cBhvr>' +
-        '<p:to><p:strVal val="visible"/></p:to>' +
-        '</p:set>';
+    // Entrance types emit a leading visibility <p:set> (instant show); emphasis, exit AND
+    // motion-path types target an already-visible object and MUST NOT emit it.
+    let payload = '';
+    if (!isEmphasisAnim(anim.type) && !isExitAnim(anim.type) && !isMotionAnim(anim.type)) {
+        payload =
+            '<p:set>' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+                '</p:cBhvr>' +
+                '<p:to><p:strVal val="visible"/></p:to>' +
+                '</p:set>';
+    }
     // fadeIn ADDS a fade <p:animEffect>; appear = visibility-only (flyIn/zoomIn add motion below)
     if (anim.type === 'fadeIn') {
         payload +=
@@ -7160,6 +7770,147 @@ function genXmlAnimPayload(anim, spid, nextId) {
                     '</p:anim>';
         });
     }
+    // --- Emphasis effects (presetClass="emph") --------------------------------
+    // spin -> <p:animRot by> (60000ths of a degree: 360° = 21600000), animating "r"
+    if (anim.type === 'spin') {
+        const by = Math.round((typeof anim.spinDegrees === 'number' ? anim.spinDegrees : 360) * 60000);
+        payload +=
+            `<p:animRot by="${by}">` +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '<p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst>' +
+                '</p:cBhvr>' +
+                '</p:animRot>';
+    }
+    // grow -> <p:animScale> with <p:by x/y> (100000ths: 1.5× = 150000), animating ScaleX/ScaleY
+    if (anim.type === 'grow') {
+        const scale = Math.round((typeof anim.growScale === 'number' ? anim.growScale : 1.5) * 100000);
+        payload +=
+            '<p:animScale>' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '</p:cBhvr>' +
+                `<p:by x="${scale}" y="${scale}"/>` +
+                '</p:animScale>';
+    }
+    // colorPulse -> <p:animClr clrSpc="rgb"> targeting style.color, <p:to> the target srgbClr
+    if (anim.type === 'colorPulse') {
+        const color = (typeof anim.color === 'string' ? anim.color : '000000').replace('#', '').toUpperCase();
+        payload +=
+            '<p:animClr clrSpc="rgb">' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '<p:attrNameLst><p:attrName>style.color</p:attrName></p:attrNameLst>' +
+                '</p:cBhvr>' +
+                `<p:to><a:srgbClr val="${color}"/></p:to>` +
+                '</p:animClr>';
+    }
+    // pulse -> <p:anim> on style.opacity dipping 100000 -> 0 -> 100000 (fade out + back in)
+    if (anim.type === 'pulse') {
+        payload +=
+            '<p:anim calcmode="lin" valueType="num">' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst>' +
+                '</p:cBhvr>' +
+                '<p:tavLst>' +
+                '<p:tav tm="0"><p:val><p:fltVal val="100000"/></p:val></p:tav>' +
+                '<p:tav tm="50000"><p:val><p:fltVal val="0"/></p:val></p:tav>' +
+                '<p:tav tm="100000"><p:val><p:fltVal val="100000"/></p:val></p:tav>' +
+                '</p:tavLst>' +
+                '</p:anim>';
+    }
+    // --- Exit effects (presetClass="exit") ------------------------------------
+    // disappear -> <p:set> visibility hidden (instant hide; reverse of the entrance show-<p:set>)
+    if (anim.type === 'disappear') {
+        payload +=
+            '<p:set>' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+                '</p:cBhvr>' +
+                '<p:to><p:strVal val="hidden"/></p:to>' +
+                '</p:set>';
+    }
+    // fadeOut -> fade <p:animEffect> transition="out" (reverse of fadeIn's transition="in")
+    if (anim.type === 'fadeOut') {
+        payload +=
+            '<p:animEffect transition="out" filter="fade">' +
+                '<p:cBhvr>' +
+                `<p:cTn id="${nextId()}" dur="${dur}"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                '</p:cBhvr>' +
+                '</p:animEffect>';
+    }
+    // flyOut -> <p:anim> that translates the shape from its position OUT to offscreen
+    // (reverse of flyIn: tm="0" starts at #ppt_x/#ppt_y, tm="100000" ends one slide offscreen).
+    // direction names the side the shape exits toward.
+    if (anim.type === 'flyOut') {
+        const flyOutMap = {
+            left: { attr: 'ppt_x', end: '#ppt_x-1slide' },
+            right: { attr: 'ppt_x', end: '#ppt_x+1slide' },
+            up: { attr: 'ppt_y', end: '#ppt_y-1slide' },
+            down: { attr: 'ppt_y', end: '#ppt_y+1slide' },
+        };
+        const { attr, end } = (_d = flyOutMap[(_c = anim.direction) !== null && _c !== void 0 ? _c : 'left']) !== null && _d !== void 0 ? _d : flyOutMap.left;
+        payload +=
+            '<p:anim calcmode="lin" valueType="num">' +
+                '<p:cBhvr additive="base">' +
+                `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                `<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+                '</p:cBhvr>' +
+                '<p:tavLst>' +
+                `<p:tav tm="0"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+                `<p:tav tm="100000"><p:val><p:strVal val="${end}"/></p:val></p:tav>` +
+                '</p:tavLst>' +
+                '</p:anim>';
+    }
+    // zoomOut -> two <p:anim> blocks that scale the shape from full size DOWN to collapsed (0).
+    // One on ppt_w, one on ppt_h, each #ppt_w/#ppt_h at tm="0" -> 0 at tm="100000" (reverse of zoomIn).
+    if (anim.type === 'zoomOut') {
+        ['ppt_w', 'ppt_h'].forEach(attr => {
+            payload +=
+                '<p:anim calcmode="lin" valueType="num">' +
+                    '<p:cBhvr additive="base">' +
+                    `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                    `<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+                    '</p:cBhvr>' +
+                    '<p:tavLst>' +
+                    `<p:tav tm="0"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+                    '<p:tav tm="100000"><p:val><p:strVal val="0"/></p:val></p:tav>' +
+                    '</p:tavLst>' +
+                    '</p:anim>';
+        });
+    }
+    // --- Motion path (presetClass="path") -------------------------------------
+    // motionPath -> <p:animMotion> animating ppt_x/ppt_y along a normalized 0–1 SVG-like path.
+    // The path string is passed through VERBATIM (NOT routed through svgPathToOoxml, which builds
+    // <a:custGeom> EMU geometry) with an appended " E" end marker. Validate against an allowed
+    // token set (also an XML-attr injection guard); invalid/missing -> warn + omit the payload.
+    if (anim.type === 'motionPath') {
+        const rawPath = typeof anim.path === 'string' ? anim.path.trim() : '';
+        if (rawPath.length > 0 && MOTION_PATH_REGEX.test(rawPath)) {
+            const path = /[Ee]\s*$/.test(rawPath) ? rawPath : `${rawPath} E`;
+            payload +=
+                `<p:animMotion origin="layout" path="${path}" pathEditMode="relative">` +
+                    '<p:cBhvr>' +
+                    `<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+                    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+                    '<p:attrNameLst><p:attrName>ppt_x</p:attrName><p:attrName>ppt_y</p:attrName></p:attrNameLst>' +
+                    '</p:cBhvr>' +
+                    '</p:animMotion>';
+        }
+        else {
+            console.warn('Warning: animation type "motionPath" requires a valid `path` (M/L/C/Z commands, normalized 0–1 coords); skipping');
+        }
+    }
     return payload;
 }
 /**
@@ -7181,9 +7932,39 @@ function genXmlTiming(slide) {
     let idCounter = 3;
     const nextId = () => idCounter++;
     // presetID labels the effect in the PowerPoint UI
-    const presetMap = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23 };
+    const presetMap = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2, disappear: 1, fadeOut: 10, flyOut: 2, zoomOut: 23, motionPath: 0 };
     // trigger -> build-step wrapper nodeType
     const wrapNodeTypeMap = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' };
+    // --- Pre-process group/stagger sugar into trigger/delay -------------------
+    // `group` is syntactic sugar over `trigger` (spec: docs/feature-animation-stagger.md).
+    // Walking the animated objects in order: the first object of each consecutive `group`
+    // run becomes the group leader (-> afterPrevious, starting a new build step); the rest
+    // of the run join it (-> withPrevious). When `stagger` is set, the Nth item within the
+    // run (0-indexed) gets `delay = N * stagger`. Objects without a `group` are left untouched
+    // so the explicit `trigger` behaviour stays byte-for-byte identical (backwards-compat).
+    // Entries are shallow-copied before mutation so the caller's `options.animation` is never
+    // modified (keeps repeated `stream()`/`write()` calls deterministic).
+    let prevGroup;
+    let groupIndex = 0;
+    animated.forEach(entry => {
+        const a = entry.anim;
+        if (typeof a.group === 'number') {
+            const isNewGroup = a.group !== prevGroup;
+            if (isNewGroup)
+                groupIndex = 0;
+            else
+                groupIndex++;
+            const resolved = Object.assign(Object.assign({}, a), { trigger: isNewGroup ? 'afterPrevious' : 'withPrevious' });
+            if (typeof a.stagger === 'number')
+                resolved.delay = groupIndex * a.stagger;
+            entry.anim = resolved;
+            prevGroup = a.group;
+        }
+        else {
+            // Ungrouped object forms its own step; reset so a later same-numbered group is a fresh run
+            prevGroup = undefined;
+        }
+    });
     const steps = [];
     animated.forEach(entry => {
         var _a;
@@ -7200,6 +7981,7 @@ function genXmlTiming(slide) {
         var _a;
         const { anim, spid, exitMs } = entry;
         const presetID = (_a = presetMap[anim.type]) !== null && _a !== void 0 ? _a : 1;
+        const presetClass = isMotionAnim(anim.type) ? 'path' : isExitAnim(anim.type) ? 'exit' : isEmphasisAnim(anim.type) ? 'emph' : 'entr';
         const effectId = nextId();
         // Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
         // Isolated here so genXmlAnimPayload stays scoped to the public animation types.
@@ -7225,7 +8007,7 @@ function genXmlTiming(slide) {
         // Members are always withEffect: the step trigger lives on the wrapper, and
         // members of a step play in parallel relative to the step's start.
         return ('<p:par>' +
-            `<p:cTn id="${effectId}" presetID="${presetID}" presetClass="entr" presetSubtype="0" fill="hold" grpId="0" nodeType="withEffect">` +
+            `<p:cTn id="${effectId}" presetID="${presetID}" presetClass="${presetClass}" presetSubtype="0" fill="hold" grpId="0" nodeType="withEffect">` +
             `<p:stCondLst><p:cond delay="${memberDelay}"/></p:stCondLst>` +
             '<p:childTnLst>' +
             genXmlAnimPayload(anim, spid, nextId) +
@@ -7300,10 +8082,67 @@ function getNotesFromSlide(slide) {
 }
 /**
  * Generate XML for Notes Master (notesMaster1.xml)
+ * @param {HeaderFooterProps} headerFooter - presentation-level notes-master header/footer config (optional)
  * @returns {string} XML
  */
-function makeXmlNotesMaster() {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notesMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Header Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="hdr" sz="quarter"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Date Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="dt" idx="1"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{5282F153-3F37-0F45-9E97-73ACFA13230C}" type="datetimeFigureOut"><a:rPr lang="en-US"/><a:t>7/23/19</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Image Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg" idx="2"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="685800" y="1143000"/><a:ext cx="5486400" cy="3086100"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln w="12700"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="5" name="Notes Placeholder 4"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" sz="quarter" idx="3"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="685800" y="4400550"/><a:ext cx="5486400" cy="3600450"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle/><a:p><a:pPr lvl="0"/><a:r><a:rPr lang="en-US"/><a:t>Click to edit Master text styles</a:t></a:r></a:p><a:p><a:pPr lvl="1"/><a:r><a:rPr lang="en-US"/><a:t>Second level</a:t></a:r></a:p><a:p><a:pPr lvl="2"/><a:r><a:rPr lang="en-US"/><a:t>Third level</a:t></a:r></a:p><a:p><a:pPr lvl="3"/><a:r><a:rPr lang="en-US"/><a:t>Fourth level</a:t></a:r></a:p><a:p><a:pPr lvl="4"/><a:r><a:rPr lang="en-US"/><a:t>Fifth level</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="6" name="Footer Placeholder 5"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="ftr" sz="quarter" idx="4"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="7" name="Slide Number Placeholder 6"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="5"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{CE5E9CC1-C706-0F49-92D6-E571CC5EEA8F}" type="slidenum"><a:rPr lang="en-US"/><a:t>‹#›</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/><p:notesStyle><a:lvl1pPr marL="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr><a:lvl2pPr marL="457200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl2pPr><a:lvl3pPr marL="914400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl3pPr><a:lvl4pPr marL="1371600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl4pPr><a:lvl5pPr marL="1828800" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl5pPr><a:lvl6pPr marL="2286000" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl6pPr><a:lvl7pPr marL="2743200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl7pPr><a:lvl8pPr marL="3200400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl8pPr><a:lvl9pPr marL="3657600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl9pPr></p:notesStyle></p:notesMaster>`;
+function makeXmlNotesMaster(headerFooter) {
+    // Default-off: when no `headerFooter` config is supplied these emit the EXACT original
+    // literals, so `notesMaster1.xml` stays byte-identical (regression-suite guard).
+    let hfXml = '';
+    let hdrTextXml = '<a:p><a:endParaRPr lang="en-US"/></a:p>';
+    let ftrTextXml = '<a:p><a:endParaRPr lang="en-US"/></a:p>';
+    if (headerFooter) {
+        const sldNum = headerFooter.slideNumber ? 1 : 0;
+        const hdr = typeof headerFooter.header === 'string' && headerFooter.header.length > 0 ? 1 : 0;
+        const ftr = typeof headerFooter.footer === 'string' && headerFooter.footer.length > 0 ? 1 : 0;
+        const dt = headerFooter.dateTime ? 1 : 0;
+        // CT_NotesMaster child order: cSld, clrMap, hf?, notesStyle? — inject `<p:hf>` after `</p:clrMap>`, before `<p:notesStyle>`
+        hfXml = `<p:hf sldNum="${sldNum}" hdr="${hdr}" ftr="${ftr}" dt="${dt}"/>`;
+        if (hdr)
+            hdrTextXml = `<a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(headerFooter.header)}</a:t></a:r></a:p>`;
+        if (ftr)
+            ftrTextXml = `<a:p><a:r><a:rPr lang="en-US"/><a:t>${encodeXmlEntities(headerFooter.footer)}</a:t></a:r></a:p>`;
+    }
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notesMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Header Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="hdr" sz="quarter"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle>${hdrTextXml}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Date Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="dt" idx="1"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="0"/><a:ext cx="2971800" cy="458788"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{5282F153-3F37-0F45-9E97-73ACFA13230C}" type="datetimeFigureOut"><a:rPr lang="en-US"/><a:t>7/23/19</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Image Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg" idx="2"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="685800" y="1143000"/><a:ext cx="5486400" cy="3086100"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln w="12700"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="5" name="Notes Placeholder 4"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" sz="quarter" idx="3"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="685800" y="4400550"/><a:ext cx="5486400" cy="3600450"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle/><a:p><a:pPr lvl="0"/><a:r><a:rPr lang="en-US"/><a:t>Click to edit Master text styles</a:t></a:r></a:p><a:p><a:pPr lvl="1"/><a:r><a:rPr lang="en-US"/><a:t>Second level</a:t></a:r></a:p><a:p><a:pPr lvl="2"/><a:r><a:rPr lang="en-US"/><a:t>Third level</a:t></a:r></a:p><a:p><a:pPr lvl="3"/><a:r><a:rPr lang="en-US"/><a:t>Fourth level</a:t></a:r></a:p><a:p><a:pPr lvl="4"/><a:r><a:rPr lang="en-US"/><a:t>Fifth level</a:t></a:r></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="6" name="Footer Placeholder 5"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="ftr" sz="quarter" idx="4"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="l"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle>${ftrTextXml}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="7" name="Slide Number Placeholder 6"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="5"/></p:nvPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="3884613" y="8685213"/><a:ext cx="2971800" cy="458787"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/><a:lstStyle><a:lvl1pPr algn="r"><a:defRPr sz="1200"/></a:lvl1pPr></a:lstStyle><a:p><a:fld id="{CE5E9CC1-C706-0F49-92D6-E571CC5EEA8F}" type="slidenum"><a:rPr lang="en-US"/><a:t>‹#›</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>${hfXml}<p:notesStyle><a:lvl1pPr marL="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr><a:lvl2pPr marL="457200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl2pPr><a:lvl3pPr marL="914400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl3pPr><a:lvl4pPr marL="1371600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl4pPr><a:lvl5pPr marL="1828800" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl5pPr><a:lvl6pPr marL="2286000" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl6pPr><a:lvl7pPr marL="2743200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl7pPr><a:lvl8pPr marL="3200400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl8pPr><a:lvl9pPr marL="3657600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl9pPr></p:notesStyle></p:notesMaster>`;
+}
+/**
+ * Build the body-placeholder paragraph XML for a notes slide.
+ * Default-off (no structured notes): returns the EXACT original single-paragraph
+ * literal so `notesSlideN.xml` stays byte-identical for all string `addNotes` callers.
+ * Structured (any notes object authored via `addNotes(NoteParagraph[])`, detected by
+ * a `text` entry carrying an `options` key): emits one `<a:p>` per paragraph with
+ * gated `<a:pPr>` (indent `lvl` + `<a:buChar char="•"/>`).
+ * @param {PresSlide} slide - the slide object
+ * @return {string} `<a:p>…</a:p>` body XML (≥1 paragraph, per CT_TextBody)
+ */
+function buildNotesBodyParagraphs(slide) {
+    // Discriminator: structured notes store per-paragraph `options`; the string path never does.
+    const hasStructured = slide._slideObjects.some(data => data._type === SLIDE_OBJECT_TYPES.notes && Array.isArray(data.text) && data.text.some(t => t.options));
+    if (!hasStructured) {
+        // UNCHANGED original literal — byte-identical default-off.
+        return `<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p>`;
+    }
+    const paras = [];
+    slide._slideObjects.forEach(data => {
+        if (data._type !== SLIDE_OBJECT_TYPES.notes || !Array.isArray(data.text))
+            return;
+        data.text.forEach(entry => {
+            const text = entry.text || '';
+            const opts = entry.options;
+            if (opts) {
+                const lvl = typeof opts.indentLevel === 'number' && opts.indentLevel > 0 ? opts.indentLevel : 0;
+                const bullet = !!opts.bullet;
+                const pPr = lvl > 0 || bullet ? `<a:pPr${lvl > 0 ? ` lvl="${lvl}"` : ''}>${bullet ? '<a:buChar char="•"/>' : ''}</a:pPr>` : '';
+                paras.push(`<a:p>${pPr}<a:r><a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>`);
+            }
+            else {
+                // A non-structured notes object encountered in the structured path → single plain paragraph.
+                paras.push(`<a:p><a:r><a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>`);
+            }
+        });
+    });
+    // CT_TextBody requires ≥1 `<a:p>`
+    return paras.length > 0 ? paras.join('') : '<a:p/>';
 }
 /**
  * Creates Notes Slide (`ppt/notesSlides/notesSlide1.xml`)
@@ -7311,7 +8150,7 @@ function makeXmlNotesMaster() {
  * @return {string} XML
  */
 function makeXmlNotesSlide(slide) {
-    return (`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`);
+    return (`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>${buildNotesBodyParagraphs(slide)}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`);
 }
 /**
  * Generates the XML layout resource from a layout object
@@ -7319,10 +8158,21 @@ function makeXmlNotesSlide(slide) {
  * @return {string} XML
  */
 function makeXmlLayout(layout) {
+    // CT_SlideLayout child order: cSld, clrMapOvr, transition?, timing?, hf?, extLst?
+    // Emit a derived `<p:hf>` only when `headerFooter` config is present, so existing layouts stay byte-identical.
+    let hfXml = '';
+    if (layout._headerFooter) {
+        const hf = layout._headerFooter;
+        const sldNum = hf.slideNumber ? 1 : 0;
+        const ftr = (typeof hf.footer === 'string' && hf.footer.length > 0) ? 1 : 0;
+        const dt = hf.dateTime ? 1 : 0;
+        // `hdr` stays 0 on slide layouts — header placeholders are notes/handout only (slice 1.6)
+        hfXml = `<p:hf sldNum="${sldNum}" hdr="0" ftr="${ftr}" dt="${dt}"/>`;
+    }
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 		<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" preserve="1">
 		${slideObjectToXml(layout)}
-		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`;
+		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${hfXml}</p:sldLayout>`;
 }
 /**
  * Creates Slide Master 1 (`ppt/slideMasters/slideMaster1.xml`)
@@ -7477,6 +8327,7 @@ function makeXmlTheme(pres) {
  * @return {string} XML
  */
 function makeXmlPresentation(pres) {
+    var _a, _b, _c;
     let strXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
         '<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
         `xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} saveSubsetFonts="1" autoCompressPictures="0">`;
@@ -7496,6 +8347,43 @@ function makeXmlPresentation(pres) {
     // STEP 4: Add sizes
     strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`;
     strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`;
+    // STEP 4a: Add custom shows (named slide subsets) — default-off.
+    // Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+    // <p:custShowLst> after <p:notesSz> and before <p:kinsoku>. Each
+    // <p:sld r:id> reuses the slide's existing presentation relationship id
+    // (`slide._rId`, the same number used by <p:sldId> above).
+    if (pres.customShows && pres.customShows.length > 0) {
+        strXml += '<p:custShowLst>';
+        pres.customShows.forEach((show, idx) => {
+            strXml += `<p:custShow name="${encodeXmlEntities(show.name)}" id="${idx}"><p:sldLst>`;
+            show.slides.forEach(slide => (strXml += `<p:sld r:id="rId${slide._rId}"/>`));
+            strXml += '</p:sldLst></p:custShow>';
+        });
+        strXml += '</p:custShowLst>';
+    }
+    // STEP 4a-bis: Add photo album metadata — default-off.
+    // Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+    // <p:photoAlbum> after <p:custShowLst> and before <p:kinsoku>.
+    // `bw`/`showCaptions` are emitted always (boolean -> "0"/"1"); `layout`/`frame`
+    // have schema defaults so they are emitted only when explicitly provided.
+    if (pres.photoAlbum) {
+        let albumAttrs = `bw="${pres.photoAlbum.blackWhite ? '1' : '0'}" showCaptions="${pres.photoAlbum.showCaptions ? '1' : '0'}"`;
+        if (pres.photoAlbum.layout)
+            albumAttrs += ` layout="${pres.photoAlbum.layout}"`;
+        if (pres.photoAlbum.frame)
+            albumAttrs += ` frame="${pres.photoAlbum.frame}"`;
+        strXml += `<p:photoAlbum ${albumAttrs}/>`;
+    }
+    // STEP 4b: Add kinsoku (East-Asian line-break rules) — default-off.
+    // Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+    // <p:kinsoku> after <p:notesSz> and immediately before <p:defaultTextStyle>.
+    if (pres.kinsoku) {
+        const lang = encodeXmlEntities((_a = pres.kinsoku.lang) !== null && _a !== void 0 ? _a : 'ja-JP');
+        // Sensible Japanese (ja-JP) defaults so most users need only set `lang`.
+        const invalStChars = encodeXmlEntities((_b = pres.kinsoku.invalStChars) !== null && _b !== void 0 ? _b : '!),.:;?]}\u2026');
+        const invalEndChars = encodeXmlEntities((_c = pres.kinsoku.invalEndChars) !== null && _c !== void 0 ? _c : '([{\u2018\u201C');
+        strXml += `<p:kinsoku lang="${lang}" invalStChars="${invalStChars}" invalEndChars="${invalEndChars}"/>`;
+    }
     // STEP 5: Add text styles
     strXml += '<p:defaultTextStyle>';
     for (let idy = 1; idy < 10; idy++) {
@@ -7576,7 +8464,7 @@ function makeXmlViewProps() {
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
  */
-const VERSION = '4.1.3';
+const VERSION = '4.1.6';
 class PptxGenJS {
     set layout(value) {
         const newLayout = this.LAYOUTS[value];
@@ -7624,6 +8512,24 @@ class PptxGenJS {
     get theme() {
         return this._theme;
     }
+    set notesMaster(value) {
+        this._notesMaster = value;
+    }
+    get notesMaster() {
+        return this._notesMaster;
+    }
+    set kinsoku(value) {
+        this._kinsoku = value;
+    }
+    get kinsoku() {
+        return this._kinsoku;
+    }
+    set photoAlbum(value) {
+        this._photoAlbum = value;
+    }
+    get photoAlbum() {
+        return this._photoAlbum;
+    }
     set title(value) {
         this._title = value;
     }
@@ -7644,6 +8550,9 @@ class PptxGenJS {
     }
     get sections() {
         return this._sections;
+    }
+    get customShows() {
+        return this._customShows;
     }
     get slideLayouts() {
         return this._slideLayouts;
@@ -7854,7 +8763,7 @@ class PptxGenJS {
                 });
                 zip.file('ppt/slideMasters/slideMaster1.xml', makeXmlMaster(this.masterSlide, this.slideLayouts));
                 zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', makeXmlMasterRel(this.masterSlide, this.slideLayouts));
-                zip.file('ppt/notesMasters/notesMaster1.xml', makeXmlNotesMaster());
+                zip.file('ppt/notesMasters/notesMaster1.xml', makeXmlNotesMaster(this._notesMaster));
                 zip.file('ppt/notesMasters/_rels/notesMaster1.xml.rels', makeXmlNotesMasterRel());
                 // D: Create all Rels (images, media, chart data)
                 this.slideLayouts.forEach(layout => {
@@ -7924,11 +8833,13 @@ class PptxGenJS {
         ];
         this._slides = [];
         this._sections = [];
+        this._customShows = [];
         this._masterSlide = {
             addChart: null,
             addImage: null,
             addMedia: null,
             addNotes: null,
+            addCard: null,
             addShape: null,
             addTable: null,
             addText: null,
@@ -8033,6 +8944,26 @@ class PptxGenJS {
             this._sections.push(newSection);
     }
     /**
+     * Add a new Custom Show (named subset/ordering of slides) to Presentation
+     * @param {CustomShowProps} show - custom show properties
+     * @example pptx.addCustomShow({ name:'Exec Summary', slides:[slide1, slide3] });
+     */
+    addCustomShow(show) {
+        if (!show) {
+            console.warn('addCustomShow requires an argument');
+            return;
+        }
+        if (!show.name) {
+            console.warn('addCustomShow requires a `name`');
+            return;
+        }
+        if (!show.slides || !Array.isArray(show.slides) || show.slides.length === 0) {
+            console.warn('addCustomShow requires a non-empty `slides` array');
+            return;
+        }
+        this._customShows.push({ name: show.name, slides: show.slides });
+    }
+    /**
      * Add a new Slide to Presentation
      * @param {AddSlideProps} options - slide options
      * @returns {PresSlide} the new Slide
@@ -8090,6 +9021,16 @@ class PptxGenJS {
             }
         }
         return newSlide;
+    }
+    /**
+     * Compute evenly-spaced grid cell positions within a bounding area.
+     * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per item; emits no slide content.
+     * @param {LayoutGridProps} props - grid options
+     * @returns {LayoutGridResult} array of `{ x, y, w, h }` cells (inches), one per item
+     * @example const grid = pptx.layoutGrid({ items: 6, columns: 3, area: { x: 0.5, y: 2, w: 12, h: 4 }, gap: 0.2 })
+     */
+    layoutGrid(props) {
+        return layoutGrid(props);
     }
     /**
      * Create a custom Slide Layout in any size
