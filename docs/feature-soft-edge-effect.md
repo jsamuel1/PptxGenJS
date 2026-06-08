@@ -1,8 +1,15 @@
 # Feature: Soft Edge Effect (`a:softEdge`)
 
-> **Status:** Proposed
+> **Status:** Implemented (slice 2.2)
 > **Priority:** Medium — Phase 2 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §3 Fills/effects — "Soft edge"
+>
+> **Implemented:** `SoftEdgeProps` (`src/core-interfaces.ts`) + `softEdge?` on
+> `ShapeProps`/`ImageProps`; `createSoftEdgeElement` (`src/gen-utils.ts`, inches →
+> EMU × 914400); wired as the last `<a:effectLst>` child in both the shape and
+> image emit sites (`src/gen-xml.ts`). Tests: `shape-softedge` fixture in
+> `test/schema.test.js` (alone exact `rad="91440"` + combined canonical order
+> `glow < outerShdw < reflection < softEdge` + default-off + `radius <= 0` omit).
 
 ## Problem
 

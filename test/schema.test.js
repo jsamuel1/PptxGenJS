@@ -114,6 +114,61 @@ module.exports = [
 		}
 	},
 	{
+		name: 'shape with soft edge (a:softEdge) — alone + combined canonical order + default-off + radius<=0 omit',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				// slide1: softEdge alone
+				const s1 = p.addSlide()
+				s1.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 2, fill: { color: '7C3AED' },
+					softEdge: { radius: 0.1 }
+				})
+				// slide2: shadow + glow + reflection + softEdge together (canonical CT_EffectList order)
+				const s2 = p.addSlide()
+				s2.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 4, h: 2, fill: { color: '00B0B9' },
+					shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 },
+					glow: { size: 5, color: 'FFFF00', opacity: 0.3 },
+					reflection: { blur: 0.5, distance: 0, size: 40, opacity: 60, fadeDirection: 90 },
+					softEdge: { radius: 0.05 }
+				})
+				// slide3: no effects (default-off proof)
+				p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
+				// slide4: radius <= 0 (gate omit proof)
+				p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: '00FF00' }, softEdge: { radius: 0 } })
+			})
+
+			// slide1: exact softEdge emission (regression-catch on the inches→EMU conversion: 0.1 × 914400 = 91440)
+			const s1xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(
+				/<a:softEdge rad="91440"\/>/.test(s1xml),
+				'softEdge: expected <a:softEdge rad="91440"/>'
+			)
+
+			// slide2: single effectLst, canonical child order glow < outerShdw < reflection < softEdge (softEdge-last regression-catch)
+			const s2xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert((s2xml.match(/<a:effectLst>/g) || []).length === 1, 'combined: expected exactly one <a:effectLst>')
+			const idxGlow = s2xml.indexOf('<a:glow')
+			const idxShdw = s2xml.indexOf('<a:outerShdw')
+			const idxRefl = s2xml.indexOf('<a:reflection')
+			const idxSoft = s2xml.indexOf('<a:softEdge')
+			assert(idxGlow >= 0 && idxShdw >= 0 && idxRefl >= 0 && idxSoft >= 0, 'combined: expected glow + outerShdw + reflection + softEdge all present')
+			assert(idxGlow < idxShdw && idxShdw < idxRefl && idxRefl < idxSoft, 'combined: expected canonical CT_EffectList order glow < outerShdw < reflection < softEdge')
+
+			// slide3: no softEdge / no effectLst when no effects set (default-off)
+			const s3xml = await readEntry(zip, 'ppt/slides/slide3.xml')
+			assert(!/<a:softEdge\b/.test(s3xml), 'default-off: plain shape must NOT emit <a:softEdge>')
+			assert(!/<a:effectLst>/.test(s3xml), 'default-off: plain shape must NOT emit <a:effectLst>')
+
+			// slide4: radius <= 0 omits the effect (and, as sole effect, no effectLst)
+			const s4xml = await readEntry(zip, 'ppt/slides/slide4.xml')
+			assert(!/<a:softEdge\b/.test(s4xml), 'radius<=0: must NOT emit <a:softEdge>')
+			assert(!/<a:effectLst>/.test(s4xml), 'radius<=0: sole effect omitted must NOT emit <a:effectLst>')
+
+			await expectNoSchemaErrors(buf, 'shape-softedge')
+		}
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build(p => {

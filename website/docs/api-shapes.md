@@ -78,6 +78,7 @@ slide.addText("ShapeType.line", {
 | `rectRadius` | number                                                                  | rounding radius     | 0 to 1. (Ex: 0.5. Only for `pptx.shapes.ROUNDED_RECTANGLE`) |
 | `rotate`     | number                                                                  | rotation (degrees)  | -360 to 360. Default: `0`                                   |
 | `reflection` | [ReflectionProps](/PptxGenJS/docs/types#reflection-props-reflectionprops) | reflection effect props | Ex: `{ blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }` |
+| `softEdge`   | [SoftEdgeProps](/PptxGenJS/docs/types#soft-edge-props-softedgeprops)     | soft-edge (feather) props | Ex: `{ radius: 0.1 }` (radius in inches)                  |
 | `shadow`     | [ShadowProps](/PptxGenJS/docs/types#shadow-props-shadowprops)           | shadow props        | (see type link)                                             |
 | `shapeName`  | string                                                                  | optional shape name | Ex: "Customer Network Diagram 99"                           |
 
@@ -98,6 +99,20 @@ slide.addShape(pptx.shapes.RECTANGLE, {
 ```
 
 All `reflection` fields are optional and default to `{ blur: 0.5, distance: 0, size: 50, opacity: 50, fadeDirection: 90 }`. Units: `blur`/`distance` in points, `size`/`opacity` as percent (0–100), `fadeDirection` in degrees.
+
+### Soft-edge effect
+
+Feather (soften) a shape or image edge. Coexists with `shadow`/`glow`/`reflection` in a single effect list (emitted last, per the OOXML canonical order).
+
+```javascript
+let slide = pptx.addSlide();
+slide.addShape(pptx.shapes.ELLIPSE, {
+	x: 1, y: 1, w: 3, h: 3, fill: { color: "7C3AED" },
+	softEdge: { radius: 0.1 },
+});
+```
+
+`radius` is required and is given in **inches** (the feather radius); a `radius <= 0` omits the effect.
 
 ## Samples
 

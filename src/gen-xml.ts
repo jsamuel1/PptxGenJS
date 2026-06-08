@@ -39,6 +39,7 @@ import {
 	createColorElement,
 	createGlowElement,
 	createReflectionElement,
+	createSoftEdgeElement,
 	encodeXmlEntities,
 	genXmlColorSelection,
 	getSmartParseNumber,
@@ -567,12 +568,13 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				// All effects share a single <a:effectLst>; emit it once if any is present.
 				// NOTE: children MUST follow canonical CT_EffectList order:
 				//   blur, fillOverlay, glow, innerShdw, outerShdw, prstShdw, reflection, softEdge
-				// → glow before shadow, reflection after shadow.
+				// → glow before shadow, reflection after shadow, softEdge last.
 				{
 					const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none')
 					const hasGlow = !!slideItemObj.options.glow
 					const hasReflection = !!slideItemObj.options.reflection
-					if (hasShadow || hasGlow || hasReflection) {
+					const hasSoftEdge = !!(slideItemObj.options.softEdge && slideItemObj.options.softEdge.radius > 0)
+					if (hasShadow || hasGlow || hasReflection || hasSoftEdge) {
 						strSlideXml += '<a:effectLst>'
 
 						if (hasGlow) {
@@ -598,6 +600,10 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 						if (hasReflection) {
 							strSlideXml += createReflectionElement(slideItemObj.options.reflection)
+						}
+
+						if (hasSoftEdge) {
+							strSlideXml += createSoftEdgeElement(slideItemObj.options.softEdge)
 						}
 
 						strSlideXml += '</a:effectLst>'
@@ -683,11 +689,12 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += ` <a:prstGeom prst="${rounding ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>`
 
 				// EFFECTS > SHADOW + REFLECTION: REF: @see http://officeopenxml.com/drwSp-effects.php
-				// Canonical CT_EffectList order: outerShdw before reflection. (Images have no glow.)
+				// Canonical CT_EffectList order: outerShdw before reflection before softEdge. (Images have no glow.)
 				{
 					const hasShadow = !!(slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none')
 					const hasReflection = !!slideItemObj.options.reflection
-					if (hasShadow || hasReflection) {
+					const hasSoftEdge = !!(slideItemObj.options.softEdge && slideItemObj.options.softEdge.radius > 0)
+					if (hasShadow || hasReflection || hasSoftEdge) {
 						strSlideXml += '<a:effectLst>'
 
 						if (hasShadow) {
@@ -709,6 +716,10 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 						if (hasReflection) {
 							strSlideXml += createReflectionElement(slideItemObj.options.reflection)
+						}
+
+						if (hasSoftEdge) {
+							strSlideXml += createSoftEdgeElement(slideItemObj.options.softEdge)
 						}
 
 						strSlideXml += '</a:effectLst>'

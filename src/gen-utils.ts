@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -207,6 +207,16 @@ export function createReflectionElement (options: ReflectionProps): string {
 
 	// `endA`, `sy`, `rotWithShape` are fixed constants (no props exposed for them)
 	return `<a:reflection blurRad="${blurRad}" stA="${stA}" endA="300" endPos="${endPos}" dist="${dist}" dir="${dir}" sy="-100000" rotWithShape="0"/>`
+}
+
+/**
+ * Create a soft-edge (feathered edge) effect element
+ * @param {SoftEdgeProps} options soft-edge properties
+ * @see http://officeopenxml.com/drwSp-effects.php
+ */
+export function createSoftEdgeElement (options: SoftEdgeProps): string {
+	const rad = Math.round(options.radius * EMU) // inches → EMU
+	return `<a:softEdge rad="${rad}"/>`
 }
 
 /**

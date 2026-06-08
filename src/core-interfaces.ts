@@ -269,6 +269,16 @@ export interface ReflectionProps {
 	 */
 	fadeDirection?: number
 }
+export interface SoftEdgeProps {
+	/**
+	 * Feather radius — softens (feathers) the object edge.
+	 * Value is in **inches**; emitted as `<a:softEdge rad="radius * 914400"/>`.
+	 * Must be greater than 0 (a radius <= 0 omits the effect).
+	 * @example 0.1 // → rad="91440"
+	 * @since v4.2.0
+	 */
+	radius: number
+}
 // used by: shape, table, text
 export interface ShapeFillProps {
 	/**
@@ -704,6 +714,13 @@ export interface ImageProps extends PositionProps, DataOrPathProps, ObjectNamePr
 	 */
 	reflection?: ReflectionProps
 	/**
+	 * Soft-edge (feathered edge) effect options.
+	 * Emits `<a:softEdge>` inside the image's `<a:effectLst>`.
+	 * @example { radius: 0.1 } // radius in inches
+	 * @since v4.2.0
+	 */
+	softEdge?: SoftEdgeProps
+	/**
 	 * Image sizing options
 	 */
 	sizing?: {
@@ -900,6 +917,13 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @since v4.2.0
 	 */
 	reflection?: ReflectionProps
+	/**
+	 * Soft-edge (feathered edge) effect options.
+	 * Emits `<a:softEdge>` inside the shape's `<a:effectLst>`.
+	 * @example { radius: 0.1 } // radius in inches
+	 * @since v4.2.0
+	 */
+	softEdge?: SoftEdgeProps
 
 	/**
 	 * @deprecated v3.3.0
