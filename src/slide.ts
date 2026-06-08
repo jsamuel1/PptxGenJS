@@ -7,6 +7,7 @@ import {
 	AddSlideProps,
 	BackgroundProps,
 	CalloutProps,
+	CardProps,
 	GroupProps,
 	HexColor,
 	IChartMulti,
@@ -257,6 +258,17 @@ export default class Slide {
 	 */
 	addCallout(options: CalloutProps): Slide {
 		genObj.addCalloutDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add a structured card (rounded-rect background + optional icon/title/description/badge)
+	 * to Slide as a single shape group.
+	 * @param {CardProps} options - card options
+	 * @return {Slide} this Slide
+	 */
+	addCard(options: CardProps): Slide {
+		genObj.addCardDefinition(this, options)
 		return this
 	}
 

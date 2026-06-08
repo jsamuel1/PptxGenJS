@@ -28,6 +28,7 @@ import {
 	AddSlideProps,
 	BackgroundProps,
 	CalloutProps,
+	CardProps,
 	GroupProps,
 	IChartMulti,
 	IChartOptsLib,
@@ -775,6 +776,125 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	if (options.objectName) textOpts.objectName = options.objectName
 
 	addTextDefinition(target, [{ text: options.text || '', options: null }], textOpts, false)
+}
+
+/**
+ * Adds a structured "card" to a slide definition (docs/feature-card-helper.md).
+ * Builds a single shape group (`<p:grpSp>`) containing a rounded-rect background and,
+ * as applicable, an icon container + icon (SVG path or emoji/text), a title, a description,
+ * and a top-right badge — all positioned with group-relative coordinates. When `animation`
+ * is supplied it is attached to the group object so the whole card animates as one.
+ * @param {PresSlide} target slide the card should be added to
+ * @param {CardProps} opts card options
+ */
+export function addCardDefinition(target: PresSlide, opts: CardProps): void {
+	const options = typeof opts === 'object' ? opts : ({} as CardProps)
+	const x = options.x !== undefined ? Number(options.x) : 1
+	const y = options.y !== undefined ? Number(options.y) : 1
+	const w = options.w !== undefined ? Number(options.w) : 3
+	const h = options.h !== undefined ? Number(options.h) : 2
+	const padding = 0.2
+	const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.12
+	const fill = options.fill !== undefined ? options.fill : '1a1a24'
+	const align = options.align === 'left' ? 'left' : 'center'
+	const iconPosition = options.iconPosition === 'left' ? 'left' : 'top'
+	const iconSize = options.iconSize !== undefined ? Number(options.iconSize) : 0.4
+	const hasIcon = options.icon !== undefined && options.icon !== null
+	const titleFont = options.titleFont || {}
+	const descFont = options.descFont || {}
+	const textAlign = align === 'center' ? 'center' : 'left'
+
+	// Create the group container; children below use coords relative to the group origin (0,0..w,h)
+	const group = addGroupDefinition(target, { x, y, w, h, objectName: options.objectName })
+	// The group is the just-pushed top-level slide object — grab it so card-level animation can attach
+	const groupObj = target._slideObjects[target._slideObjects.length - 1]
+	if (options.animation && groupObj && groupObj.options) groupObj.options.animation = options.animation
+
+	// 1) Background roundRect (fill + optional border/shadow/glow). `rectRadius` maps inches -> adj.
+	const bgOpts: ShapeProps = {
+		x: 0, y: 0, w, h,
+		fill: typeof fill === 'string' ? { color: fill } : fill,
+		rectRadius: cornerRadius,
+	}
+	if (options.border) bgOpts.line = { color: options.border.color || '2A2438', width: options.border.width || 1 }
+	if (options.shadow) bgOpts.shadow = { type: 'outer', ...options.shadow }
+	if (options.glow) bgOpts.glow = options.glow
+	group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, bgOpts)
+
+	// 2) Layout anchors for icon / title / description (group-relative inches)
+	let iconX = (w - iconSize) / 2
+	let iconY = padding
+	let titleX = padding
+	let titleY = hasIcon ? padding + iconSize + 0.15 : padding
+	let titleW = w - 2 * padding
+	const titleH = 0.4
+	if (iconPosition === 'left' && hasIcon) {
+		iconX = padding
+		iconY = padding
+		titleX = padding + iconSize + 0.2
+		titleY = padding
+		titleW = w - titleX - padding
+	}
+	const descX = titleX
+	const descY = titleY + titleH + 0.05
+	const descW = titleW
+	const descH = Math.max(0.2, h - descY - padding)
+
+	// 3) Icon container + glyph
+	if (hasIcon) {
+		const iconFill = options.iconFill !== undefined ? options.iconFill : '7C3AED'
+		group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+			x: iconX, y: iconY, w: iconSize, h: iconSize,
+			fill: { color: iconFill }, rectRadius: cornerRadius / 2, line: { type: 'none' },
+		})
+		const glyphColor = titleFont.color || 'E4E4ED'
+		if (typeof options.icon === 'string') {
+			// Emoji / text glyph centred in the container
+			group.addText(options.icon, {
+				x: iconX, y: iconY, w: iconSize, h: iconSize,
+				align: 'center', valign: 'middle', fontSize: Math.round(iconSize * 36), color: glyphColor,
+			})
+		} else if (options.icon && typeof options.icon === 'object' && options.icon.svgPath) {
+			// SVG path glyph, inset within the container; emits <a:custGeom>
+			const inset = iconSize * 0.22
+			group.addShape('rect', {
+				x: iconX + inset, y: iconY + inset, w: iconSize - 2 * inset, h: iconSize - 2 * inset,
+				svgPath: options.icon.svgPath, fill: { color: glyphColor }, line: { type: 'none' },
+			})
+		}
+	}
+
+	// 4) Title
+	group.addText(options.title || '', {
+		x: titleX, y: titleY, w: titleW, h: titleH,
+		fontFace: titleFont.face, fontSize: titleFont.size !== undefined ? titleFont.size : 13,
+		bold: titleFont.bold !== undefined ? titleFont.bold : true,
+		color: titleFont.color || 'E4E4ED', align: textAlign, valign: 'top',
+	})
+
+	// 5) Description (shrink-to-fit so overflow stays inside the card)
+	if (options.description) {
+		group.addText(options.description, {
+			x: descX, y: descY, w: descW, h: descH,
+			fontFace: descFont.face, fontSize: descFont.size !== undefined ? descFont.size : 10,
+			bold: descFont.bold !== undefined ? descFont.bold : false,
+			color: descFont.color || '8A8A9A', align: textAlign, valign: 'top', fit: 'shrink',
+		})
+	}
+
+	// 6) Badge (top-right)
+	if (options.badge && options.badge.text) {
+		const badgeH = 0.28
+		const badgeW = Math.max(0.5, options.badge.text.length * 0.11 + 0.2)
+		group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
+			x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
+			fill: { color: options.badge.fill || '10B981' }, rectRadius: badgeH / 2, line: { type: 'none' },
+		})
+		group.addText(options.badge.text, {
+			x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
+			align: 'center', valign: 'middle', fontSize: 8, bold: true, color: options.badge.color || 'FFFFFF',
+		})
+	}
 }
 
 /**

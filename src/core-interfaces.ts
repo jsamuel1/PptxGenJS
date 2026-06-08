@@ -863,6 +863,67 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 }
 
 /**
+ * Structured "card" sugar — a rounded-rectangle background with an optional icon,
+ * a title, an optional description and an optional badge, emitted as a single
+ * shape group (`<p:grpSp>`) via `slide.addCard(...)`. Reduces the 5–8 manual
+ * `addShape`/`addText` calls a card normally needs to one declarative call.
+ * @since v4.1.0
+ * @see docs/feature-card-helper.md
+ */
+export interface CardFontProps {
+	/** Font face. */
+	face?: string
+	/** Font size (points). */
+	size?: number
+	/** Bold? */
+	bold?: boolean
+	/** Text color (hex). */
+	color?: HexColor
+}
+export interface CardBadgeProps {
+	/** Badge label. */
+	text: string
+	/** Badge fill (hex). @default '10B981' */
+	fill?: HexColor
+	/** Badge text color (hex). @default 'FFFFFF' */
+	color?: HexColor
+}
+export interface CardProps extends PositionProps, ObjectNameProps {
+	/** Card title (required). */
+	title: string
+	/** Card description / body text. */
+	description?: string
+	/** Icon: an SVG path (rendered as `<a:custGeom>`) or an emoji/text string. */
+	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string
+	/** Optional badge, positioned top-right. */
+	badge?: CardBadgeProps
+	/** Card background fill (hex or fill props). @default '1a1a24' */
+	fill?: ShapeFillProps | GradientFillProps | HexColor
+	/** Card border. */
+	border?: { color?: HexColor, width?: number }
+	/** Corner radius in inches. @default 0.12 */
+	cornerRadius?: number
+	/** Drop shadow on the card background. */
+	shadow?: ShadowProps
+	/** Glow on the card background. */
+	glow?: TextGlowProps
+	/** Title text styling. @default { size: 13, bold: true, color: 'E4E4ED' } */
+	titleFont?: CardFontProps
+	/** Description text styling. @default { size: 10, color: '8A8A9A' } */
+	descFont?: CardFontProps
+	/** Icon container size (inches). @default 0.4 */
+	iconSize?: number
+	/** Icon container background fill (hex, alpha allowed). @default '7C3AED' */
+	iconFill?: HexColor
+	/** Content alignment within the card. @default 'center' */
+	align?: 'center' | 'left'
+	/** Icon placement. @default 'top' */
+	iconPosition?: 'top' | 'left'
+	/** Entrance animation applied to the whole card (the group). */
+	animation?: AnimationProps
+}
+
+/**
  * Feature 6 — Shape grouping.
  * Options for `slide.addGroup(...)`. Defines the absolute position/size of a group
  * container (`<p:grpSp>`); child shapes/text added to the returned group object use
@@ -2069,6 +2130,7 @@ export interface PresSlide extends SlideBaseProps {
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | TextProps[], options?: TextPropsOptions) => PresSlide
+	addCard: (options: CardProps) => PresSlide
 
 	/**
 	 * Background color or image (`color` | `path` | `data`)
