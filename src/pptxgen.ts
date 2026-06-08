@@ -691,6 +691,10 @@ export default class PptxGenJS implements IPresentationProps {
 				if ((slide._comments || []).length > 0) {
 					zip.file(`ppt/comments/comment${idx + 1}.xml`, genXml.makeXmlComments(slide, this.slides))
 				}
+				// Ink (default-off): write each ink annotation's InkML part to its stashed filename.
+				;((slide._ink) || []).forEach(ink => {
+					zip.file(`ppt/ink/${ink._target}`, genXml.makeXmlInk(ink))
+				})
 			})
 			zip.file('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this.masterSlide, this.slideLayouts))
 			zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this.masterSlide, this.slideLayouts))

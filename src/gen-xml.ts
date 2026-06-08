@@ -217,6 +217,29 @@ export function makeXmlComments (slide: PresSlide, slides: PresSlide[]): string 
 }
 
 /**
+ * Generate a single ink annotation's InkML part (`ppt/ink/ink-{N}-{i}.xml`). Emits one
+ * `<inkml:trace>` per stroke (space-separated `x y` EMU pairs, comma-separated points) plus a
+ * `<inkml:brush>` carrying the optional color/width. Inputs are inches → converted to EMU like
+ * every other coordinate. InkML internals are not schema-validated by the OpenXmlValidator, but
+ * the part is referenced via a `<p:contentPart r:id>` whose id must resolve (asserted in tests).
+ * @param {object} ink - stored ink item (sanitized strokes + optional color/width)
+ * @return {string} XML
+ */
+export function makeXmlInk (ink: { strokes: number[][][], color?: string, width?: number }): string {
+	const color = (ink.color || '000000').replace(/^#/, '')
+	const widthPt = typeof ink.width === 'number' && isFinite(ink.width) ? ink.width : 1
+	// pt -> EMU: 12700 EMU per point.
+	const widthEmu = Math.round(widthPt * 12700)
+	const defs = `<inkml:definitions><inkml:brush xml:id="br0"><inkml:brushProperty name="width" value="${widthEmu}"/><inkml:brushProperty name="color" value="#${color}"/></inkml:brush></inkml:definitions>`
+	let traces = ''
+	;(ink.strokes || []).forEach(stroke => {
+		const pts = stroke.map(pt => `${Math.round(inch2Emu(pt[0]))} ${Math.round(inch2Emu(pt[1]))}`).join(', ')
+		traces += `<inkml:trace brushRef="#br0">${pts}</inkml:trace>`
+	})
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<inkml:ink xmlns:inkml="http://www.w3.org/2003/InkML">${defs}${traces}</inkml:ink>`
+}
+
+/**
  * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
  * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
  */
@@ -1100,6 +1123,15 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 		}
 	}
 
+	// STEP 4c: Ink annotations (default-off). Emit one `<p:contentPart r:id>` per stored ink item,
+	// referencing the per-call InkML part via the slide relationship allocated in `addInkDefinition`.
+	// `contentPart` is a first-class `CT_GroupShape` child in the transitional schema (bare form, no
+	// `mc:AlternateContent` needed). NOTE: `genGroupChildrenXml` temporarily nulls `slide._ink` during
+	// the group-proxy re-render, so these emit EXACTLY ONCE on the real slide and never inside a group.
+	;((slide as PresSlide)._ink || []).forEach(ink => {
+		strSlideXml += `<p:contentPart r:id="rId${ink._rId}"/>`
+	})
+
 	// STEP 5: Close spTree and finalize slide XML
 	strSlideXml += '</p:spTree>'
 	strSlideXml += '</p:cSld>'
@@ -1128,14 +1160,20 @@ function genGroupChildrenXml (slide: PresSlide | SlideLayout, grpObjects: ISlide
 	// footer is emitted inside `<p:spTree>`, so suppress it during the recursive render.
 	const savedObjects = slide._slideObjects
 	const savedSlideNum = (slide as PresSlide)._slideNumberProps
+	const savedInk = (slide as PresSlide)._ink
 	slide._slideObjects = grpObjects
 	;(slide as PresSlide)._slideNumberProps = null
+	// Suppress ink during the group re-render: contentParts belong to the real slide only.
+	// Without this, the proxy's substring extraction (up to lastIndexOf('</p:spTree>')) would
+	// duplicate every contentPart onto any slide that has BOTH ink and a group.
+	;(slide as PresSlide)._ink = []
 	let fullXml: string
 	try {
 		fullXml = slideObjectToXml(slide)
 	} finally {
 		slide._slideObjects = savedObjects
 		;(slide as PresSlide)._slideNumberProps = savedSlideNum
+		;(slide as PresSlide)._ink = savedInk
 	}
 
 	const startMarker = '</p:grpSpPr>'
@@ -1174,6 +1212,8 @@ function slideObjectRelationsToXml (slide: PresSlide | SlideLayout, defaultRels:
 			}
 		} else if (rel.type.toLowerCase().includes('notesSlide')) {
 			strXml += `<Relationship Id="rId${rel.rId}" Target="${rel.Target}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
+		} else if (rel.type.toLowerCase().includes('ink')) {
+			strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${rel.Target}"/>`
 		}
 	})
 	; (slide._relsChart || []).forEach((rel: ISlideRelChart) => {
@@ -1869,6 +1909,10 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 		if ((slide._comments || []).length > 0) {
 			strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`
 		}
+		// Ink (default-off): one Override per ink part on this slide.
+		;((slide._ink) || []).forEach(ink => {
+			strXml += `<Override PartName="/ppt/ink/${ink._target}" ContentType="application/inkml+xml"/>`
+		})
 	})
 	// Comments (default-off): a single shared commentAuthors override when ANY slide has comments.
 	if (slides.some(s => (s._comments || []).length > 0)) {

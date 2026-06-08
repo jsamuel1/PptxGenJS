@@ -1,8 +1,20 @@
 # Feature: Ink Annotations (`p:contentPart` + InkML)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Low (niche, but tractable) — Phase 4 (matrix `❌ Missing (niche)` → `✅`)
 > **Matrix row:** §2 Slide-level objects — "Ink"
+
+## Implementation notes
+
+`slide.addInk({ strokes, color?, width? })` emits, per call, a `ppt/ink/ink-{N}-{i}.xml`
+InkML part referenced from the slide's `<p:spTree>` via a **bare** `<p:contentPart r:id>`
+(a first-class `CT_GroupShape` child in the transitional schema — no `mc:AlternateContent`
+wrapper needed for schema validity) plus a `customXml`-type slide relationship and an
+`application/inkml+xml` Content_Types Override. Stroke points are in **inches**, converted to
+EMU on export. The `<p:contentPart>` `r:id`, the slide `<Relationship>` id, and the written
+part filename are kept in lockstep (cross-entity id invariant). Multiple `addInk` calls per
+slide each get a distinct part/rel/contentPart. Default-off: a deck that never calls `addInk`
+emits no ink part, rel, Override, or contentPart.
 
 ## Problem
 

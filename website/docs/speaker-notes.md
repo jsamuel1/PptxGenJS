@@ -64,6 +64,31 @@ slide.addComment({ author: 'Reviewer', text: 'Confirm the Q3 number', x: 1, y: 1
 slide.addComment({ author: 'Reviewer', text: 'Add a source footnote' });
 ```
 
+## Ink Annotations
+
+Add stylus/handwriting ink to a Slide with `addInk()`. Each call writes an InkML
+part (`ppt/ink/ink-{N}-{i}.xml`) referenced from the slide via a `<p:contentPart>`,
+so multiple ink annotations can coexist on one slide. Strokes are arrays of `[x, y]`
+points in **inches** (converted to EMU on export).
+
+| Option    | Type             | Default    | Description                                            |
+| :-------- | :--------------- | :--------- | :----------------------------------------------------- |
+| `strokes` | `number[][][]`   |            | Strokes, each an array of `[x, y]` points (inches)     |
+| `color`   | `string`         | `'000000'` | Stroke color (6-digit hex, no `#`)                     |
+| `width`   | `number`         | `1`        | Stroke width (points)                                  |
+
+```typescript
+let slide = pptx.addSlide();
+slide.addInk({
+  strokes: [
+    [[1, 1], [1.2, 0.9], [1.5, 1.1]],
+    [[2, 2], [2.3, 2.1]],
+  ],
+  color: '7C3AED',
+  width: 2,
+});
+```
+
 
 ```typescript
 import pptxgen from "pptxgenjs";

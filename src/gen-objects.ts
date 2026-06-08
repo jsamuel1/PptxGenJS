@@ -41,6 +41,7 @@ import {
 	MediaProps,
 	NoteParagraph,
 	CommentProps,
+	InkProps,
 	ObjectOptions,
 	OptsChartGridLine,
 	PresLayout,
@@ -710,6 +711,48 @@ export function addCommentDefinition(target: PresSlide, props: CommentProps): vo
 		x: typeof props.x === 'number' ? props.x : undefined,
 		y: typeof props.y === 'number' ? props.y : undefined,
 		date: props.date,
+	})
+}
+
+/**
+ * Adds an ink (stylus/handwriting) annotation to a slide.
+ * Allocates a slide relationship id via `getNewRelId(target)` and stashes it on the stored
+ * ink item alongside the part filename so the `<p:contentPart r:id>`, the slide `<Relationship>`,
+ * and the written `ppt/ink/...xml` part all reference the SAME id/target (cross-entity invariant).
+ * Clamp-don't-crash: strokes with no valid finite `[x, y]` points are dropped, and a call with no
+ * surviving strokes is a no-op (no part/rel/contentPart/Override) — preserving the default-off invariant.
+ * @param {PresSlide} target - slide object the ink is added to
+ * @param {InkProps} props - ink strokes (inches) + optional color/width
+ */
+export function addInkDefinition(target: PresSlide, props: InkProps): void {
+	// Sanitize: keep only strokes that have >=1 finite [x, y] point.
+	const cleanStrokes: number[][][] = (props?.strokes || [])
+		.filter(stroke => Array.isArray(stroke))
+		.map(stroke => stroke.filter(pt => Array.isArray(pt) && pt.length >= 2 && isFinite(pt[0]) && isFinite(pt[1])))
+		.filter(stroke => stroke.length > 0)
+	if (cleanStrokes.length === 0) {
+		console.warn('addInk requires at least one stroke with a valid [x, y] point')
+		return
+	}
+
+	if (!Array.isArray(target._ink)) target._ink = []
+	const rId = getNewRelId(target)
+	// Per-call part filename, globally unique across the package (slideNum + per-slide index),
+	// mirroring the media `image-{slideNum}-{i}` scheme so multiple inks never collide.
+	const target_file = `ink-${target._slideNum}-${target._ink.length + 1}.xml`
+
+	target._rels.push({
+		type: SLIDE_OBJECT_TYPES.ink,
+		data: 'ink',
+		Target: `../ink/${target_file}`,
+		rId,
+	})
+	target._ink.push({
+		strokes: cleanStrokes,
+		color: props.color,
+		width: props.width,
+		_rId: rId,
+		_target: target_file,
 	})
 }
 

@@ -2612,6 +2612,22 @@ declare namespace PptxGenJS {
 		/** Comment timestamp. A `Date` or ISO-8601 string. @default now */
 		date?: Date | string
 	}
+	/**
+	 * Ink (stylus/handwriting) annotation, authored via `slide.addInk({...})`.
+	 * Emits a per-call `ppt/ink/ink-{N}-{i}.xml` InkML part referenced from the slide's
+	 * `<p:spTree>` via a `<p:contentPart r:id>` + slide relationship + Content_Types Override.
+	 */
+	export interface InkProps {
+		/**
+		 * Ink strokes. Each stroke is an array of `[x, y]` points in **inches** (converted to EMU
+		 * on export). A stroke needs at least one valid finite point; empty/degenerate strokes are dropped.
+		 */
+		strokes: number[][][]
+		/** Stroke color (6-digit hex, no `#`). @default '000000' */
+		color?: HexColor
+		/** Stroke width in points. @default 1 */
+		width?: number
+	}
 	export interface PresLayout {
 		//_sizeW?: number
 		//_sizeH?: number
@@ -2675,6 +2691,7 @@ declare namespace PptxGenJS {
 		addMedia: Function
 		addNotes: Function
 		addComment: (options: PptxGenJS.CommentProps) => PptxGenJS.PresSlide
+		addInk: (options: PptxGenJS.InkProps) => PptxGenJS.PresSlide
 		addShape: Function
 		addTable: Function
 		addText: Function

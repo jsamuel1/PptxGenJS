@@ -2422,6 +2422,15 @@ export interface SlideBaseProps {
 	 */
 	_comments?: CommentProps[]
 
+	/**
+	 * Ink annotations authored via `slide.addInk(...)`, each emitted as a per-call
+	 * `ppt/ink/ink-{slideNum}-{i}.xml` InkML part referenced from the slide spTree via a
+	 * `<p:contentPart r:id>` + slide relationship + Content_Types Override. Each stored item
+	 * carries its allocated `_rId` and `_target` filename so the contentPart, the rel, and the
+	 * written part all agree (cross-entity id invariant). Default-off: unset/empty → none emitted.
+	 */
+	_ink?: Array<{ strokes: number[][][], color?: HexColor, width?: number, _rId: number, _target: string }>
+
 	background?: BackgroundProps
 	/**
 	 * @deprecated v3.3.0 - use `background`
@@ -2702,6 +2711,18 @@ export interface CommentProps {
 	y?: number
 	/** Comment timestamp. A `Date` or ISO-8601 string. @default now */
 	date?: Date | string
+}
+export interface InkProps {
+	/**
+	 * Ink strokes. Each stroke is an array of `[x, y]` points in **inches**
+	 * (converted to EMU on export, like every other coordinate). A stroke needs
+	 * at least one valid point; empty/degenerate strokes are dropped (default-off no-op).
+	 */
+	strokes: number[][][]
+	/** Stroke color (6-digit hex, no `#`). @default '000000' */
+	color?: HexColor
+	/** Stroke width in points. @default 1 */
+	width?: number
 }
 export interface CustomShowProps {
 	/** Display name of the custom show. */

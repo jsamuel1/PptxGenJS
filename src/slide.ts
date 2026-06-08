@@ -24,6 +24,7 @@ import {
 	ISlideRelChart,
 	ISlideRelMedia,
 	ImageProps,
+	InkProps,
 	MediaProps,
 	NoteParagraph,
 	PresLayout,
@@ -58,6 +59,7 @@ export default class Slide {
 	public _headerFooter: HeaderFooterProps
 	public _slideObjects: ISlideObject[]
 	public _comments: CommentProps[]
+	public _ink: Array<{ strokes: number[][][], color?: HexColor, width?: number, _rId: number, _target: string }>
 	public _newAutoPagedSlides: PresSlide[]
 
 	constructor(params: {
@@ -95,6 +97,8 @@ export default class Slide {
 		this._headerFooter = null
 		/** NOTE: Review comments (default `[]`). Empty → no comment parts/rels/overrides → byte-identical. */
 		this._comments = []
+		/** NOTE: Ink annotations (default `[]`). Empty → no ink parts/rels/overrides/contentPart → byte-identical. */
+		this._ink = []
 	}
 
 	/**
@@ -261,6 +265,20 @@ export default class Slide {
 	 */
 	addComment(options: CommentProps): Slide {
 		genObj.addCommentDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add an ink (stylus/handwriting) annotation to Slide.
+	 * Emits a per-call `ppt/ink/ink-{N}-{i}.xml` InkML part referenced from the slide's
+	 * `<p:spTree>` via a `<p:contentPart r:id>` + slide relationship + Content_Types Override.
+	 * Each stroke is an array of `[x, y]` points in inches. Empty/degenerate strokes are dropped;
+	 * a call with no valid strokes is a no-op (default-off when never called).
+	 * @param {InkProps} options - ink strokes + optional color/width
+	 * @return {Slide} this Slide
+	 */
+	addInk(options: InkProps): Slide {
+		genObj.addInkDefinition(this, options)
 		return this
 	}
 

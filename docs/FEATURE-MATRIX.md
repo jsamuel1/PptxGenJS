@@ -27,7 +27,7 @@ fidelity** when duplicating or importing an existing slide.
 are about *creating* that content from scratch. If/when slide-copy or
 slide-import is implemented, it **must preserve every part, relationship, and
 XML element of the source slide verbatim** — including features this library
-cannot author (ink, OLE objects, ActiveX controls, embedded fonts, SmartArt,
+cannot author (OLE objects, ActiveX controls, SmartArt,
 etc.). Copy fidelity is a hard requirement, not a function of authoring
 support: an unsupported feature is a reason not to expose a *builder* for it,
 never a license to silently strip it from a faithful copy.
@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | SmartArt, motion animations, ink |
+| ❌ Missing | SmartArt, motion animations |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -93,7 +93,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | OLE objects | `p:oleObj` + `/ppt/embeddings/*.bin` | 🚫 Out of scope (authoring) | **Why:** embedding Excel/Word means writing binary OLE compound-document parts and managing their fallback images + relationships. Niche for code-generated decks and high effort; no clean dependency-free path. *(Must still be preserved on slide copy.)* |
 | VBA / macros | `.pptm` content-type + `/ppt/vbaProject.bin` | 🚫 Out of scope (authoring) | **Why:** requires emitting a binary `vbaProject.bin` (CFB) and switching the package to the macro-enabled content type. Carries security baggage (macro-enabled output) with little value for programmatic generation. *(Preserve on copy.)* |
 | ActiveX controls | `p:control` + `/ppt/activeX/*.bin` | 🚫 Out of scope (authoring) | **Why:** needs binary ActiveX control persistence + COM-class metadata; Windows/PowerPoint-specific, security-sensitive, and effectively un-authorable in a portable JS library. *(Preserve on copy.)* |
-| Ink | `p:contentPart` + InkML (`/ppt/ink/ink*.xml`) | ❌ Missing (niche) | Reclassified from out-of-scope: technically tractable (InkML is plain XML referenced via a relationship — fits the existing add-part + emit-XML pattern, no new deps). Low priority only because stylus stroke data is rarely *authored* from code. |
+| Ink | `p:contentPart` + InkML (`/ppt/ink/ink*.xml`) | ✅ Done | `slide.addInk({ strokes, color?, width? })` → per-call InkML part + `customXml` slide rel + bare `<p:contentPart r:id>` + Content_Types Override; strokes in inches → EMU. Cross-entity id invariant + default-off. See `docs/feature-ink.md`. |
 
 ## 3. Fills, lines & effects (DrawingML)
 

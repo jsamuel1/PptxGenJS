@@ -29,6 +29,77 @@ async function expectNoSchemaErrors (buf, label) {
 
 module.exports = [
 	{
+		name: 'ink annotations (addInk -> InkML part + customXml rel + contentPart + Override)',
+		fn: async () => {
+			// Slide 1 has TWO inks AND a group (double-emit guard); slide 2 has none (default-off control).
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addText('hi', { x: 1, y: 1, w: 3, h: 1 })
+				const g = s.addGroup({ x: 5, y: 1, w: 2, h: 2 })
+				g.addShape('rect', { x: 0, y: 0, w: 1, h: 1, fill: { color: 'FF0000' } })
+				s.addInk({ strokes: [[[1, 1], [1.2, 0.9], [1.5, 1.1]], [[2, 2], [2.3, 2.1]]], color: '7C3AED', width: 2 })
+				s.addInk({ strokes: [[[3, 3], [3.5, 3.5]]] })
+				p.addSlide().addText('plain', { x: 1, y: 1, w: 3, h: 1 })
+			})
+			// Baseline: the whole package validates clean (bare <p:contentPart> + InkML parts).
+			await expectNoSchemaErrors(buf, 'ink')
+
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			const slide2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			const ct = await readEntry(zip, '[Content_Types].xml')
+
+			// (i) DOUBLE-EMIT GUARD: exactly TWO contentParts on the group+ink slide (one per addInk, not 4).
+			const cps = slide1.match(/<p:contentPart r:id="(rId\d+)"\/>/g) || []
+			assert(cps.length === 2, 'ink: expected exactly 2 <p:contentPart> on group+ink slide; got ' + cps.length)
+			assert(slide1.indexOf('<p:grpSp>') !== -1, 'ink: group markup must still be present (guard over-suppressed)')
+
+			// (ii) cross-entity invariant — each contentPart r:id resolves to a UNIQUE customXml ink rel
+			// targeting an ink part (the XSD will NOT catch a dangling r:id since it is a plain string).
+			cps.forEach(cp => {
+				const rid = cp.match(/rId\d+/)[0]
+				const relRe = new RegExp('<Relationship Id="' + rid + '" Type="[^"]*relationships/customXml" Target="\\.\\./ink/([^"]+)"/>')
+				const m = rels1.match(relRe)
+				assert(m, 'ink: contentPart r:id ' + rid + ' does not resolve to an ink rel')
+				assert((rels1.match(new RegExp('Id="' + rid + '"', 'g')) || []).length === 1, 'ink: r:id ' + rid + ' must be unique in slide rels')
+				// (iii) the referenced ink part exists, parses, and its <inkml:trace> count == strokes.length
+				const inkXml = zip.file('ppt/ink/' + m[1])
+				assert(inkXml, 'ink: part ppt/ink/' + m[1] + ' missing')
+			})
+
+			// (iii cont.) trace counts: first ink has 2 strokes, second has 1.
+			const ink1 = await readEntry(zip, 'ppt/ink/ink-1-1.xml')
+			const ink2 = await readEntry(zip, 'ppt/ink/ink-1-2.xml')
+			assert((ink1.match(/<inkml:trace/g) || []).length === 2, 'ink: ink-1-1 should have 2 traces')
+			assert((ink2.match(/<inkml:trace/g) || []).length === 1, 'ink: ink-1-2 should have 1 trace')
+			assert(ink1.indexOf('value="#7C3AED"') !== -1, 'ink: custom color missing on brush')
+			// inch->EMU: 1in = 914400 EMU
+			assert(ink1.indexOf('914400 914400') !== -1, 'ink: first point should be 914400 914400 EMU')
+
+			// (iv) Content_Types Overrides present for both ink parts.
+			assert(ct.indexOf('PartName="/ppt/ink/ink-1-1.xml" ContentType="application/inkml+xml"') !== -1
+				&& ct.indexOf('PartName="/ppt/ink/ink-1-2.xml" ContentType="application/inkml+xml"') !== -1,
+				'ink: Content_Types Override(s) missing')
+
+			// DEFAULT-OFF: slide 2 (no addInk) emits NO contentPart; and a deck without addInk has no ink at all.
+			assert((slide2.match(/<p:contentPart/g) || []).length === 0, 'ink: default-off slide must have no contentPart')
+			const { zip: zipNo } = await build(p => { p.addSlide().addText('x', { x: 1, y: 1 }) })
+			const ctNo = await readEntry(zipNo, '[Content_Types].xml')
+			const relsNo = await readEntry(zipNo, 'ppt/slides/_rels/slide1.xml.rels')
+			assert(ctNo.indexOf('application/inkml+xml') === -1, 'ink: default-off deck must have no ink Override')
+			assert(relsNo.indexOf('relationships/customXml') === -1, 'ink: default-off deck must have no ink rel')
+
+			// Validator regression-catch: prove the validator is engaged — point the contentPart at a
+			// non-existent relationship (dangling r:id) and confirm errors surface.
+			const badSlide = slide1.replace(/<p:contentPart r:id="rId\d+"\/>/, '<p:contentPart r:id="rId9999"/>')
+			assert(badSlide !== slide1, 'ink: mutation precondition')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'ink: validator should flag a dangling contentPart r:id (regression-catch)')
+		}
+	},
+	{
 		name: 'empty deck (one slide, no content)',
 		fn: async () => {
 			const { buf } = await build(p => { p.addSlide() })

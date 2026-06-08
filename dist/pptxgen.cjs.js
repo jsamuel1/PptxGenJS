@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T18:46:10.787Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T19:22:25.416Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -647,6 +647,7 @@ var SLIDE_OBJECT_TYPES;
     SLIDE_OBJECT_TYPES["tablecell"] = "tablecell";
     SLIDE_OBJECT_TYPES["text"] = "text";
     SLIDE_OBJECT_TYPES["notes"] = "notes";
+    SLIDE_OBJECT_TYPES["ink"] = "ink";
 })(SLIDE_OBJECT_TYPES || (SLIDE_OBJECT_TYPES = {}));
 var PLACEHOLDER_TYPES;
 (function (PLACEHOLDER_TYPES) {
@@ -2675,6 +2676,46 @@ function addCommentDefinition(target, props) {
     });
 }
 /**
+ * Adds an ink (stylus/handwriting) annotation to a slide.
+ * Allocates a slide relationship id via `getNewRelId(target)` and stashes it on the stored
+ * ink item alongside the part filename so the `<p:contentPart r:id>`, the slide `<Relationship>`,
+ * and the written `ppt/ink/...xml` part all reference the SAME id/target (cross-entity invariant).
+ * Clamp-don't-crash: strokes with no valid finite `[x, y]` points are dropped, and a call with no
+ * surviving strokes is a no-op (no part/rel/contentPart/Override) — preserving the default-off invariant.
+ * @param {PresSlide} target - slide object the ink is added to
+ * @param {InkProps} props - ink strokes (inches) + optional color/width
+ */
+function addInkDefinition(target, props) {
+    // Sanitize: keep only strokes that have >=1 finite [x, y] point.
+    const cleanStrokes = ((props === null || props === void 0 ? void 0 : props.strokes) || [])
+        .filter(stroke => Array.isArray(stroke))
+        .map(stroke => stroke.filter(pt => Array.isArray(pt) && pt.length >= 2 && isFinite(pt[0]) && isFinite(pt[1])))
+        .filter(stroke => stroke.length > 0);
+    if (cleanStrokes.length === 0) {
+        console.warn('addInk requires at least one stroke with a valid [x, y] point');
+        return;
+    }
+    if (!Array.isArray(target._ink))
+        target._ink = [];
+    const rId = getNewRelId(target);
+    // Per-call part filename, globally unique across the package (slideNum + per-slide index),
+    // mirroring the media `image-{slideNum}-{i}` scheme so multiple inks never collide.
+    const target_file = `ink-${target._slideNum}-${target._ink.length + 1}.xml`;
+    target._rels.push({
+        type: SLIDE_OBJECT_TYPES.ink,
+        data: 'ink',
+        Target: `../ink/${target_file}`,
+        rId,
+    });
+    target._ink.push({
+        strokes: cleanStrokes,
+        color: props.color,
+        width: props.width,
+        _rId: rId,
+        _target: target_file,
+    });
+}
+/**
  * Map of common friendly shape names users pass as bare strings to their
  * valid OOXML preset values. PowerPoint can't parse the friendly spellings
  * and removes the shape during repair .
@@ -3847,6 +3888,8 @@ class Slide {
         this._headerFooter = null;
         /** NOTE: Review comments (default `[]`). Empty → no comment parts/rels/overrides → byte-identical. */
         this._comments = [];
+        /** NOTE: Ink annotations (default `[]`). Empty → no ink parts/rels/overrides/contentPart → byte-identical. */
+        this._ink = [];
     }
     set bkgd(value) {
         this._bkgd = value;
@@ -3966,6 +4009,19 @@ class Slide {
      */
     addComment(options) {
         addCommentDefinition(this, options);
+        return this;
+    }
+    /**
+     * Add an ink (stylus/handwriting) annotation to Slide.
+     * Emits a per-call `ppt/ink/ink-{N}-{i}.xml` InkML part referenced from the slide's
+     * `<p:spTree>` via a `<p:contentPart r:id>` + slide relationship + Content_Types Override.
+     * Each stroke is an array of `[x, y]` points in inches. Empty/degenerate strokes are dropped;
+     * a call with no valid strokes is a no-op (default-off when never called).
+     * @param {InkProps} options - ink strokes + optional color/width
+     * @return {Slide} this Slide
+     */
+    addInk(options) {
+        addInkDefinition(this, options);
         return this;
     }
     /**
@@ -6407,6 +6463,28 @@ function makeXmlComments(slide, slides) {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:cmLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">${body}</p:cmLst>`;
 }
 /**
+ * Generate a single ink annotation's InkML part (`ppt/ink/ink-{N}-{i}.xml`). Emits one
+ * `<inkml:trace>` per stroke (space-separated `x y` EMU pairs, comma-separated points) plus a
+ * `<inkml:brush>` carrying the optional color/width. Inputs are inches → converted to EMU like
+ * every other coordinate. InkML internals are not schema-validated by the OpenXmlValidator, but
+ * the part is referenced via a `<p:contentPart r:id>` whose id must resolve (asserted in tests).
+ * @param {object} ink - stored ink item (sanitized strokes + optional color/width)
+ * @return {string} XML
+ */
+function makeXmlInk(ink) {
+    const color = (ink.color || '000000').replace(/^#/, '');
+    const widthPt = typeof ink.width === 'number' && isFinite(ink.width) ? ink.width : 1;
+    // pt -> EMU: 12700 EMU per point.
+    const widthEmu = Math.round(widthPt * 12700);
+    const defs = `<inkml:definitions><inkml:brush xml:id="br0"><inkml:brushProperty name="width" value="${widthEmu}"/><inkml:brushProperty name="color" value="#${color}"/></inkml:brush></inkml:definitions>`;
+    let traces = '';
+    (ink.strokes || []).forEach(stroke => {
+        const pts = stroke.map(pt => `${Math.round(inch2Emu(pt[0]))} ${Math.round(inch2Emu(pt[1]))}`).join(', ');
+        traces += `<inkml:trace brushRef="#br0">${pts}</inkml:trace>`;
+    });
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<inkml:ink xmlns:inkml="http://www.w3.org/2003/InkML">${defs}${traces}</inkml:ink>`;
+}
+/**
  * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
  * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
  */
@@ -7249,6 +7327,9 @@ function slideObjectToXml(slide) {
             strSlideXml += '</p:sp>';
         }
     }
+    (slide._ink || []).forEach(ink => {
+        strSlideXml += `<p:contentPart r:id="rId${ink._rId}"/>`;
+    });
     // STEP 5: Close spTree and finalize slide XML
     strSlideXml += '</p:spTree>';
     strSlideXml += '</p:cSld>';
@@ -7275,8 +7356,10 @@ function genGroupChildrenXml(slide, grpObjects, groupIdx) {
     // footer is emitted inside `<p:spTree>`, so suppress it during the recursive render.
     const savedObjects = slide._slideObjects;
     const savedSlideNum = slide._slideNumberProps;
+    const savedInk = slide._ink;
     slide._slideObjects = grpObjects;
     slide._slideNumberProps = null;
+    slide._ink = [];
     let fullXml;
     try {
         fullXml = slideObjectToXml(slide);
@@ -7284,6 +7367,7 @@ function genGroupChildrenXml(slide, grpObjects, groupIdx) {
     finally {
         slide._slideObjects = savedObjects;
         slide._slideNumberProps = savedSlideNum;
+        slide._ink = savedInk;
     }
     const startMarker = '</p:grpSpPr>';
     const startIdx = fullXml.indexOf(startMarker);
@@ -7320,6 +7404,9 @@ function slideObjectRelationsToXml(slide, defaultRels) {
         }
         else if (rel.type.toLowerCase().includes('notesSlide')) {
             strXml += `<Relationship Id="rId${rel.rId}" Target="${rel.Target}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`;
+        }
+        else if (rel.type.toLowerCase().includes('ink')) {
+            strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${rel.Target}"/>`;
         }
     });
     (slide._relsChart || []).forEach((rel) => {
@@ -7997,6 +8084,9 @@ function makeXmlContTypes(slides, slideLayouts, masterSlide, embeddedFonts, hasH
         if ((slide._comments || []).length > 0) {
             strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`;
         }
+        ((slide._ink) || []).forEach(ink => {
+            strXml += `<Override PartName="/ppt/ink/${ink._target}" ContentType="application/inkml+xml"/>`;
+        });
     });
     // Comments (default-off): a single shared commentAuthors override when ANY slide has comments.
     if (slides.some(s => (s._comments || []).length > 0)) {
@@ -9438,6 +9528,9 @@ class PptxGenJS {
                     if ((slide._comments || []).length > 0) {
                         zip.file(`ppt/comments/comment${idx + 1}.xml`, makeXmlComments(slide, this.slides));
                     }
+                    ((slide._ink) || []).forEach(ink => {
+                        zip.file(`ppt/ink/${ink._target}`, makeXmlInk(ink));
+                    });
                 });
                 zip.file('ppt/slideMasters/slideMaster1.xml', makeXmlMaster(this.masterSlide, this.slideLayouts));
                 zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', makeXmlMasterRel(this.masterSlide, this.slideLayouts));
