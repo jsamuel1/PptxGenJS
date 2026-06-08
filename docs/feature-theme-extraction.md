@@ -1,7 +1,8 @@
 # Feature: Theme Extraction from HTML/CSS
 
-> **Status:** Proposed  
-> **Priority:** Medium — currently done in the converter; could be a reusable utility
+> **Status:** Implemented (v4.2.0)  
+> **Priority:** Medium — currently done in the converter; could be a reusable utility  
+> **Implemented:** `src/utils/extract-theme.ts` (`extractThemeFromCSS`, `ThemePalette`/`ExtractThemeOptions`); optional entry `src/utils.ts` → `package.json` `exports["./utils"]` (`@jsamuel1/pptxgenjs/utils`); tests `test/feature-theme-extraction.test.js`. Decision: shipped as an **optional `/utils` subpath**, NOT a method on the core `PptxGenJS` class — keeping the core library focused on OOXML generation (matches this spec's recommendation and the CHANGELOG note).
 
 ## Problem
 
