@@ -1841,6 +1841,33 @@ function genXmlTiming (slide: PresSlide): string {
 	// trigger -> build-step wrapper nodeType
 	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
+	// --- Pre-process group/stagger sugar into trigger/delay -------------------
+	// `group` is syntactic sugar over `trigger` (spec: docs/feature-animation-stagger.md).
+	// Walking the animated objects in order: the first object of each consecutive `group`
+	// run becomes the group leader (-> afterPrevious, starting a new build step); the rest
+	// of the run join it (-> withPrevious). When `stagger` is set, the Nth item within the
+	// run (0-indexed) gets `delay = N * stagger`. Objects without a `group` are left untouched
+	// so the explicit `trigger` behaviour stays byte-for-byte identical (backwards-compat).
+	// Entries are shallow-copied before mutation so the caller's `options.animation` is never
+	// modified (keeps repeated `stream()`/`write()` calls deterministic).
+	let prevGroup: number | undefined
+	let groupIndex = 0
+	animated.forEach(entry => {
+		const a = entry.anim
+		if (typeof a.group === 'number') {
+			const isNewGroup = a.group !== prevGroup
+			if (isNewGroup) groupIndex = 0
+			else groupIndex++
+			const resolved: AnimationProps = { ...a, trigger: isNewGroup ? 'afterPrevious' : 'withPrevious' }
+			if (typeof a.stagger === 'number') resolved.delay = groupIndex * a.stagger
+			entry.anim = resolved
+			prevGroup = a.group
+		} else {
+			// Ungrouped object forms its own step; reset so a later same-numbered group is a fresh run
+			prevGroup = undefined
+		}
+	})
+
 	// --- Group animated objects into BUILD STEPS by trigger ---------------------
 	// afterPrevious / onClick start a NEW step; withPrevious joins the CURRENT step.
 	// (A leading withPrevious with no current step opens its own step.) Each step is

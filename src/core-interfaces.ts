@@ -2018,6 +2018,20 @@ export interface AnimationProps {
 	trigger?: AnimationTrigger
 	/** Direction for flyIn. @default 'left' */
 	direction?: TransitionDirection
+	/**
+	 * Animation group ID (syntactic sugar over `trigger`). Objects sharing the same `group`
+	 * number animate together (resolved to `withPrevious`); a change to a different `group`
+	 * number starts the next step (resolved to `afterPrevious`). When omitted, the explicit
+	 * `trigger` behaviour is used unchanged (backwards-compatible).
+	 * @example slide.addText('A', { animation: { type: 'fadeIn', group: 1 } })
+	 */
+	group?: number
+	/**
+	 * Cumulative per-item delay (ms) applied within the same `group`: the Nth item in a group
+	 * (0-indexed) gets `delay = N * stagger`. Ignored when `group` is not set.
+	 * @example slide.addText('Card 1', { animation: { type: 'appear', group: 3, stagger: 100 } })
+	 */
+	stagger?: number
 }
 /**
  * Number-counter sugar for `addText`. Expands into N stacked text frames at the
