@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T16:16:32.694Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T16:40:13.958Z */
 'use strict';
 
 var JSZip = require('jszip');
@@ -3011,6 +3011,30 @@ function addCardDefinition(target, opts) {
                 x: iconX + inset, y: iconY + inset, w: iconSize - 2 * inset, h: iconSize - 2 * inset,
                 svgPath: options.icon.svgPath, fill: { color: glyphColor }, line: { type: 'none' },
             });
+        }
+        else if (options.icon && typeof options.icon === 'object' && 'parts' in options.icon && Array.isArray(options.icon.parts)) {
+            // Multi-colour SVG: render each parseSvg() part as its own <a:custGeom> child,
+            // keeping its own resolved fill/gradient/stroke (logos keep their real colours;
+            // `iconColor` intentionally does NOT override per-part colour). Empty/non-array
+            // `parts` → loop runs 0× (no child, no throw).
+            const inset = iconSize * 0.22;
+            for (const part of options.icon.parts) {
+                if (!part || !part.d || !part.viewBox)
+                    continue;
+                const partOpts = {
+                    x: iconX + inset, y: iconY + inset, w: iconSize - 2 * inset, h: iconSize - 2 * inset,
+                    svgPath: { d: part.d, viewBox: part.viewBox },
+                };
+                if (part.mode === 'stroke') {
+                    partOpts.fill = { type: 'none' };
+                    partOpts.line = { color: part.stroke || glyphColor, width: Math.max(0.5, part.strokeWidth || 1) };
+                }
+                else {
+                    partOpts.fill = typeof part.fill === 'string' ? { color: part.fill } : part.fill;
+                    partOpts.line = { type: 'none' };
+                }
+                group.addShape('rect', partOpts);
+            }
         }
     }
     // 4) Title

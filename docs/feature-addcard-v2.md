@@ -1,8 +1,10 @@
 # Feature: addCard() v2 — Icon, Bare-icon, Accent-bar Enhancements
 
-> **Status:** Partially Implemented — items 1 (font-icon), 2 (bare-icon), 3 (per-icon
-> colour), and 4 (accent bar) shipped. Only item 5 (multi-colour SVG `{ parts }`, which
-> depends on `parseSvg()`) remains Proposed. See `feature-card-helper.md` for the base `addCard()`.
+> **Status:** Implemented (v4.1.7) — all five items shipped. Items 1 (font-icon),
+> 2 (bare-icon), 3 (per-icon colour), and 4 (accent bar) landed in earlier slices; item 5
+> (multi-colour SVG `{ parts }`, consuming `parseSvg()`) now renders each part as its own
+> `<a:custGeom>` child with its own resolved fill/gradient/stroke. See
+> `feature-card-helper.md` for the base `addCard()`.
 > **Target:** `src/gen-objects.ts` (`addCardDefinition`), `src/core-interfaces.ts` (`CardProps`), tests `test/feature-card.test.js`
 > **Priority:** Critical — these gaps currently FORCE converters to bypass `addCard()` and hand-compose cards
 

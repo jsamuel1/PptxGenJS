@@ -4,6 +4,10 @@
  */
 
 import { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE, BevelPresetType, PresetMaterialType } from './core-enums'
+// Type-only import — fully erased at compile time, so this closes a type-only cycle
+// (parse-svg.ts already `import type`s GradientFillProps/GradientStop from here) with NO
+// runtime circular require. `SvgPart`'s canonical home stays in `src/utils/parse-svg.ts`.
+import type { SvgPart } from './utils/parse-svg'
 
 // Core Types
 // ==========
@@ -1109,8 +1113,12 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	 * - an emoji/text string
 	 * - a font-icon glyph `{ char, fontFace, color? }` (e.g. Font Awesome) — `fontFace` is
 	 *   required so the glyph renders with the correct icon font instead of tofu.
+	 * - a multi-colour SVG `{ parts: SvgPart[] }` (the output of `parseSvg()` from the
+	 *   `/utils` subpath) — each part renders as its own `<a:custGeom>` child with its own
+	 *   resolved fill/gradient/stroke, so a multi-path logo keeps its real colours instead
+	 *   of being flattened to a single tint. `iconColor` does NOT override per-part colours.
 	 */
-	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string | { char: string, fontFace: string, color?: HexColor }
+	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string | { char: string, fontFace: string, color?: HexColor } | { parts: SvgPart[] }
 	/** Optional badge, positioned top-right. */
 	badge?: CardBadgeProps
 	/** Card background fill (hex or fill props). @default '1a1a24' */

@@ -11,6 +11,7 @@
 
 const { build, assert, readEntry, listEntries } = require('./helpers')
 const { validateBuf } = require('./validator')
+const { parseSvg } = require('../src/bld/utils.cjs.js')
 
 async function expectNoSchemaErrors (buf, label) {
 	const errors = await validateBuf(buf)
@@ -870,6 +871,44 @@ module.exports = [
 			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
 			const badErrors = await validateBuf(badBuf)
 			assert(badErrors.length > 0, 'accentbar: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
+		name: 'addCard v2 multi-colour SVG ({parts} from parseSvg → one custGeom per part)',
+		fn: async () => {
+			// Real parseSvg() output drives the card: a 3-colour fill logo, a gradient disc, and a
+			// stroked line — so every per-part `d` must validate as <a:custGeom> inside a real card.
+			const logoSvg = '<svg viewBox="0 0 24 24">' +
+				'<circle cx="12" cy="12" r="10" fill="#7C3AED"/>' +
+				'<path d="M6 6 L12 6 L9 12 Z" fill="#38BDF8"/>' +
+				'<path d="M2 18 a4 4 0 0 1 8 0" fill="none" stroke="#10B981" stroke-width="2"/>' +
+				'</svg>'
+			const parts = parseSvg(logoSvg)
+			assert(parts.length >= 3, 'card-v2-parts: parseSvg precondition (>=3 parts); got: ' + parts.length)
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addCard({ x: 0.5, y: 0.5, w: 3.5, h: 2.5, title: 'Multi-colour Logo', icon: { parts } })
+				// control card (single v1 svgPath) on the same slide proves the parts arm is additive
+				s.addCard({ x: 4.5, y: 0.5, w: 3, h: 2, title: 'Control', icon: { svgPath: { d: 'M3 12h18', viewBox: { w: 24, h: 24 } } } })
+			})
+			// Baseline: every normalised part `d` is OOXML-consumable inside a real card — schema-clean.
+			await expectNoSchemaErrors(buf, 'card-v2-parts')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): one custGeom per logo part PLUS the
+			// control card's single svgPath custGeom. A regress that flattens parts to one fill, or
+			// that drops/duplicates a part, fails this count — the validator can't catch it semantically.
+			const custGeomCount = (slideXml.match(/<a:custGeom>/g) || []).length
+			assert(custGeomCount === parts.length + 1, `card-v2-parts: expected ${parts.length + 1} custGeom (${parts.length} parts + 1 control), got ${custGeomCount}`)
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on the part XML —
+			// corrupt a custGeom preset path command count to an invalid value.
+			const badSlide = slideXml.replace('<a:custGeom>', '<a:custGeom><a:bogusElement/>')
+			assert(badSlide !== slideXml, 'card-v2-parts: mutation precondition (found a custGeom to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'card-v2-parts: validator should flag the corrupted custGeom (regression-catch)')
 		}
 	},
 	{

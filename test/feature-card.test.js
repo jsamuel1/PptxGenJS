@@ -6,6 +6,7 @@
 // description, and a top-right badge. Card-level `animation` attaches to the group object.
 
 const { build, readEntry, assert } = require('./helpers')
+const { parseSvg } = require('../src/bld/utils.cjs.js')
 
 async function slide1Xml(addObjs) {
 	const { zip } = await build(p => {
@@ -247,6 +248,81 @@ module.exports = [
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addText('plain', { x: 1, y: 1, w: 4, h: 1 }))
 			assert(xml.indexOf('<p:grpSp>') === -1, 'no group expected when addCard not used; got: ' + xml)
+		},
+	},
+	{
+		name: 'addCard: multi-colour SVG {parts} (real parseSvg) → one custGeom per part, each in its own fill',
+		fn: async () => {
+			// Three distinct-colour fill paths → parseSvg yields 3 parts → 3 custGeom children.
+			const logoSvg = '<svg viewBox="0 0 24 24">' +
+				'<path d="M2 2 L10 2 L10 10 Z" fill="#FF0000"/>' +
+				'<path d="M12 2 L20 2 L20 10 Z" fill="#00FF00"/>' +
+				'<path d="M2 12 L10 12 L10 20 Z" fill="#0000FF"/>' +
+				'</svg>'
+			const parts = parseSvg(logoSvg)
+			assert(parts.length === 3, 'precondition: parseSvg yields 3 parts; got: ' + parts.length)
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3.5, h: 2.5, title: 'Logo', icon: { parts } }))
+			const inner = groupInner(xml)
+			assert((inner.match(/<a:custGeom>/g) || []).length === 3, 'expected exactly 3 custGeom children (one per part); got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="FF0000"/>') !== -1, 'expected part fill FF0000; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="00FF00"/>') !== -1, 'expected part fill 00FF00; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="0000FF"/>') !== -1, 'expected part fill 0000FF; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: {parts} with a gradient part → that custGeom carries <a:gradFill>',
+		fn: async () => {
+			const parts = [{
+				d: 'M 0 0 L 24 0 L 24 24 L 0 24 Z', viewBox: { w: 24, h: 24 }, mode: 'fill',
+				fill: { type: 'gradient', stops: [{ position: 0, color: '7C3AED' }, { position: 100, color: '38BDF8' }], direction: 90 },
+			}]
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'G', icon: { parts } }))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('<a:custGeom>') !== -1, 'expected custGeom for the gradient part; got: ' + inner)
+			assert(inner.indexOf('<a:gradFill') !== -1, 'expected <a:gradFill> on the gradient part; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected gradient stop 7C3AED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="38BDF8"/>') !== -1, 'expected gradient stop 38BDF8; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: {parts} with a stroke part → custGeom with no solidFill + <a:ln> in the stroke colour',
+		fn: async () => {
+			const parts = [{
+				d: 'M 2 12 L 22 12', viewBox: { w: 24, h: 24 }, mode: 'stroke', stroke: 'FF8800', strokeWidth: 2,
+			}]
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'S', icon: { parts } }))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('<a:custGeom>') !== -1, 'expected custGeom for the stroke part; got: ' + inner)
+			// the stroke part's geometry shape carries a noFill + a line in the stroke colour
+			const geomStart = inner.indexOf('<a:custGeom>')
+			const spStart = inner.lastIndexOf('<p:sp>', geomStart)
+			const spEnd = inner.indexOf('</p:sp>', geomStart)
+			const spXml = inner.substring(spStart, spEnd)
+			// the geometry carries NO shape fill (no solidFill before the <a:ln>); colour lives in the line only
+			const beforeLn = spXml.substring(0, spXml.indexOf('<a:ln'))
+			assert(beforeLn.indexOf('<a:solidFill>') === -1, 'stroke part must not carry a shape solidFill; got: ' + spXml)
+			assert(spXml.indexOf('<a:ln') !== -1, 'expected <a:ln> on the stroke part; got: ' + spXml)
+			assert(spXml.indexOf('<a:srgbClr val="FF8800"/>') !== -1, 'expected stroke colour FF8800; got: ' + spXml)
+		},
+	},
+	{
+		name: 'addCard: {parts: []} guard → no custGeom from the icon slot, no throw',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'Empty', icon: { parts: [] } }))
+			const inner = groupInner(xml)
+			assert((inner.match(/<a:custGeom>/g) || []).length === 0, 'expected no custGeom for empty parts; got: ' + inner)
+			assert(inner.indexOf('<a:t>Empty</a:t>') !== -1, 'title still rendered; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: DEFAULT-OFF — v1 {svgPath} card still emits exactly ONE custGeom (parts arm did not perturb it)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({
+				x: 1, y: 1, w: 3, h: 2, title: 'V1',
+				icon: { svgPath: { d: 'M 0 0 L 24 0 L 12 24 Z', viewBox: { w: 24, h: 24 } } },
+			}))
+			const inner = groupInner(xml)
+			assert((inner.match(/<a:custGeom>/g) || []).length === 1, 'expected exactly 1 custGeom (single svgPath); got: ' + inner)
 		},
 	},
 ]
