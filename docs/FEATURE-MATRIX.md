@@ -4,8 +4,12 @@
 > (ECMA-376 PresentationML + DrawingML) feature set. This is the coverage map
 > that drives the roadmap in [`PROMPT.md`](../PROMPT.md).
 >
-> **Last verified:** against `src/` at v4.1.3 (entrance animations
-> `appear`/`fadeIn`/`flyIn`/`zoomIn` all confirmed implemented & tested).
+> **Last verified:** against `src/` at v4.1.7. The full animation surface
+> (entrance `appear`/`fadeIn`/`flyIn`/`zoomIn`, emphasis, exit, and motion-path
+> effects — §5), all fills (solid/gradient/glyph-gradient/pattern/picture — §3),
+> click + hover + action-jump hyperlinks (§4), and the fork features (SmartArt,
+> ink, handout master, custom shows, photo album, kinsoku, embedded fonts) are
+> all implemented & schema-validated.
 >
 > **Legend:**
 > `✅ Done` — implemented & schema-validated ·
@@ -50,9 +54,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 
 | State | Count |
 |-------|-------|
-| ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
-| ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | motion animations |
+| ✅ Done | core slide/text/table/shape/image/media/chart + all fills (solid/gradient/glyph-gradient/pattern/picture), all hyperlinks (click/hover/action-jump), all effects (shadow/glow/reflection/soft-edge/3-D), full animation surface (entrance/emphasis/exit/motion-path) + fork features (SmartArt, ink, handout master, custom shows, photo album, kinsoku, embedded fonts) |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -155,7 +157,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — SmartArt ✅, **ink** ✅; hover links remain.
+5. **Then everything else** — SmartArt ✅, ink ✅, hover links ✅ — all landed.
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package
