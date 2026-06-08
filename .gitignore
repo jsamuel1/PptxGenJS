@@ -21,10 +21,8 @@ coverage/
 ### Build artifacts
 src/bld/
 
-### Docusaurus (anchored to repo root; docusaurus lives at root on gh-pages)
+### Docusaurus build artifacts (the docs site lives under website/, which has its own .gitignore)
 /build/
-/docs/
-/static/
 /.docusaurus/
 
 ### Editors
