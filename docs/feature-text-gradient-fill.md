@@ -1,8 +1,37 @@
 # Feature: Gradient Text Glyph Fills
 
-> **Status:** Proposed
-> **Target:** `src/gen-xml.ts` (text run properties), `src/core-interfaces.ts` (`TextPropsOptions.fill`), tests `test/feature-text-gradient.test.js`
+> **Status:** Implemented (v4.1.7) — shipped via the `color` property, **not** `fill` (see "Implemented via `color`" below)
+> **Target:** `src/gen-xml.ts` (`genXmlTextRunProperties`), `src/core-interfaces.ts` (`TextPropsOptions.color`), tests `test/feature-text-gradient.test.js`
 > **Priority:** Medium — common hero/title treatment; current `fill` on text fills the BOX, not the glyphs
+
+## Implemented via `color` (not `fill`)
+
+Glyph gradients ship through the **`color`** property — `addText(text, { color: GradientFillProps })`
+— rather than the `fill` property this proposal originally suggested:
+
+```ts
+slide.addText('How Power Users Use Amazon Quick', {
+  x: 0.7, y: 1, w: 8, h: 1.5, bold: true, fontSize: 46,
+  color: {
+    type: 'gradient',
+    stops: [
+      { position: 0,   color: 'E3DDF1' },
+      { position: 100, color: 'A78BFA' },
+    ],
+    direction: 0,
+  },
+})
+```
+
+`genXmlTextRunProperties` (`src/gen-xml.ts`) emits a run-level `<a:gradFill>` inside `<a:rPr>` when
+`opts.color` is a `GradientFillProps` (`typeof opts.color === 'object' && opts.color.type === 'gradient'`);
+a plain `Color` string keeps the unchanged `<a:solidFill>` path (byte-for-byte identical, default-off).
+
+**Why `color` and not `fill`:** `TextPropsOptions.fill` already paints the **text-box background**
+(`<p:spPr>` gradient rectangle behind the glyphs). Repurposing `fill` to mean the glyph fill would be
+a **breaking change** for existing users relying on box-background fills. Routing glyph gradients
+through `color` (whose solid form already fills the glyphs) is additive and non-breaking, and it
+preserves the box-fill behaviour described in "Disambiguation" below.
 
 ## Problem
 
@@ -20,7 +49,10 @@ PptxGenJS today applies a `fill` passed to `addText()` to the **text box**
 glyphs. There is no way to gradient-fill the glyphs themselves, so converters must
 fake it (e.g. a per-word colour ramp), which is coarse and loses the smooth blend.
 
-## Proposed API
+## Original proposal (superseded — shipped via `color`)
+
+> The API below was the original `fill`-based proposal. The **shipped** form uses `color`
+> (see "Implemented via `color`" above); the OOXML emitted is identical.
 
 ```ts
 slide.addText('How Power Users Use Amazon Quick', {
@@ -36,11 +68,11 @@ slide.addText('How Power Users Use Amazon Quick', {
 })
 ```
 
-Per-run support (a `TextProps[]` run can carry its own gradient `fill`):
+Per-run support (a `TextProps[]` run can carry its own gradient `color`):
 
 ```ts
 slide.addText([
-  { text: 'Stop chatting. ', options: { fill: { type:'gradient', stops:[...] } } },
+  { text: 'Stop chatting. ', options: { color: { type:'gradient', stops:[...] } } },
   { text: 'Start orchestrating.', options: { color: 'A78BFA' } },
 ])
 ```
@@ -66,26 +98,25 @@ solid fill for that run). This is distinct from a shape `<p:spPr>` gradient fill
 
 - Stop `position` (0–100) → `pos` in thousandths-of-a-percent (`×1000`), clamped `[0,100000]`.
 - `direction` keyword/number → `<a:lin ang>` in 60,000ths of a degree.
-- When a run has **both** `color` and a gradient `fill`, the gradient wins for the
-  glyph fill (with `color` retained only as a fallback hint for non-supporting viewers).
+- A gradient `color` replaces the run's `<a:solidFill>` with `<a:gradFill>`; a plain `Color`
+  string is unchanged.
 
 ## Disambiguation: glyph fill vs box fill
 
-- `addText(..., { fill: <gradient> })` on a **text-only** element → glyph fill
-  (`<a:rPr><a:gradFill>`).
-- A gradient **box background** behind text remains available via `addShape` (the
-  text box's `<p:spPr>` fill) — i.e. shape-level fills are unchanged. To avoid
-  ambiguity the proposal routes `addText` `fill` to the run (glyph) fill; box
-  backgrounds should be drawn as a separate shape.
+- `addText(..., { color: <gradient> })` → **glyph** fill (`<a:rPr><a:gradFill>`).
+- A gradient **box background** behind text remains available via `fill` (the text box's
+  `<p:spPr>` fill) — i.e. `fill` semantics are unchanged. Keeping the two on separate properties
+  (`color` = glyphs, `fill` = box) is exactly what avoids the ambiguity and the breaking change
+  that routing `fill` to the run would have caused.
 
-## Implementation location
+## Implementation location (shipped)
 
-- `src/gen-xml.ts` → in the run-properties (`genXmlBodyProperties`/text-run) builder,
-  when `opts.fill?.type === 'gradient'`, emit `<a:gradFill>` in the `<a:rPr>` instead
-  of `<a:solidFill>`
-- `src/core-interfaces.ts` → `TextPropsOptions.fill` already accepts `GradientFillProps`
-  in the type; this proposal defines its glyph-fill semantics for text runs
-- Reuse the existing `genXmlGradientFill` stop/clamp logic shared with shape fills
+- `src/gen-xml.ts` → `genXmlTextRunProperties`: when `opts.color` is a `GradientFillProps`
+  (`typeof opts.color === 'object' && opts.color.type === 'gradient'`), emit `<a:gradFill>` in the
+  `<a:rPr>` via `genXmlColorSelection(opts.color)` instead of the `<a:solidFill>` produced for a
+  plain `Color`.
+- `src/core-interfaces.ts` → `TextPropsOptions.color` accepts `Color | GradientFillProps`.
+- Reuses the existing `genXmlColorSelection` gradient stop/clamp logic shared with shape fills.
 
 ## Test cases
 
@@ -93,7 +124,7 @@ solid fill for that run). This is distinct from a shape `<p:spPr>` gradient fill
 // Glyph gradient is emitted inside the run properties, not the shape properties
 const s = pptx.addSlide()
 s.addText('Gradient', { x:1, y:1, w:6, h:1, bold:true, fontSize:40,
-  fill: { type:'gradient', stops:[{position:0,color:'E8E4F0'},{position:100,color:'A78BFA'}], direction:0 } })
+  color: { type:'gradient', stops:[{position:0,color:'E8E4F0'},{position:100,color:'A78BFA'}], direction:0 } })
 const xml = await renderSlideXml(s)
 assert(/<a:rPr[^>]*>[\s\S]*?<a:gradFill>[\s\S]*?<\/a:gradFill>[\s\S]*?<\/a:rPr>/.test(xml)) // gradFill in rPr
 assert(!/<p:spPr>[\s\S]*?<a:gradFill/.test(xml))                                            // NOT in spPr
@@ -103,12 +134,14 @@ assert(/<a:gs pos="0"><a:srgbClr val="E8E4F0"\/><\/a:gs>/.test(xml))
 assert(/<a:gs pos="100000"><a:srgbClr val="A78BFA"\/><\/a:gs>/.test(xml))
 assert(/<a:lin ang="0"/.test(xml))
 
-// Default-off: a run with only `color` is byte-identical (still <a:solidFill>)
+// Default-off: a run with only a plain `color` string is byte-identical (still <a:solidFill>)
 ```
+
+> Shipped tests live in `test/feature-text-gradient.test.js` (SLICE-2b, commit `76feb308`).
 
 ## Impact on converter
 
 Removes the `applyTextGradient()` per-word colour-ramp approximation (and its
 `gradColorAt`/`hexToRgb`/`rgbToHexArr` helpers, ~30 lines). The converter's
 `textGradientOf()` already produces a `GradientFillProps`; it would pass it straight
-to `addText({ fill })` for true smooth glyph gradients.
+to `addText({ color })` for true smooth glyph gradients.
