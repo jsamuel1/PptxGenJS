@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -485,4 +485,76 @@ export function svgPathToOoxml (svgPathD: string, width: number, height: number)
 	}
 
 	return `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/><a:pathLst><a:path w="${pathW}" h="${pathH}">${xml}</a:path></a:pathLst></a:custGeom>`
+}
+
+/**
+ * Compute evenly-spaced grid cell positions within a bounding area.
+ * - Pure math utility (no OOXML emission); returns one `{ x, y, w, h }` (inches) per item, in item order.
+ * - Eliminates repetitive grid-math when positioning capability cards, icon grids, comparison layouts, etc.
+ *
+ * Calculation (per item `i`):
+ *   cellW = (area.w - (columns - 1) * gapX) / columns
+ *   rows  = ceil(items / columns)
+ *   cellH = (area.h - (rows - 1) * gapY) / rows
+ *   col = i % columns; row = floor(i / columns)
+ *   x = area.x + col * (cellW + gapX); y = area.y + row * (cellH + gapY)
+ *
+ * @param {LayoutGridProps} props - grid options
+ * @returns {LayoutGridResult} array of `{ x, y, w, h }` cells (inches), one per item
+ * @throws {Error} when `area` has zero/negative width or height
+ * @example pptx.layoutGrid({ items: 6, columns: 3, area: { x: 0.5, y: 2, w: 12, h: 4 }, gap: 0.2 })
+ */
+export function layoutGrid (props: LayoutGridProps): LayoutGridResult {
+	const { items, columns, area } = props
+	const gap = props.gap ?? 0.2
+	const gapX = props.gapX ?? gap
+	const gapY = props.gapY ?? gap
+	const padding = props.padding ?? 0
+	const align = props.align ?? 'start'
+
+	// Edge case: no items -> empty result
+	if (!items || items <= 0) return []
+	// Guard: a zero/negative area can't be subdivided
+	if (!area || !(area.w > 0) || !(area.h > 0)) throw new Error('layoutGrid: `area` requires positive `w` and `h`')
+	if (!(columns > 0)) throw new Error('layoutGrid: `columns` must be a positive number')
+
+	const rows = Math.ceil(items / columns)
+	const cellW = (area.w - (columns - 1) * gapX) / columns
+	const cellH = (area.h - (rows - 1) * gapY) / rows
+
+	const result: LayoutGridResult = []
+	for (let i = 0; i < items; i++) {
+		const col = i % columns
+		const row = Math.floor(i / columns)
+
+		// Items on the final (possibly partial) row can be re-aligned within the area
+		let rowCellW = cellW
+		let rowOffsetX = 0
+		const isLastRow = row === rows - 1
+		const lastRowCount = items - (rows - 1) * columns
+		if (isLastRow && lastRowCount < columns && lastRowCount > 0) {
+			const rowCols = lastRowCount
+			if (align === 'stretch') {
+				// Widen the partial row's cells to fill the full area width
+				rowCellW = (area.w - (rowCols - 1) * gapX) / rowCols
+			} else if (align === 'center') {
+				// Centre the partial row (cells keep their size)
+				const rowWidth = rowCols * cellW + (rowCols - 1) * gapX
+				rowOffsetX = (area.w - rowWidth) / 2
+			}
+		}
+
+		const x = area.x + rowOffsetX + col * (rowCellW + gapX)
+		const y = area.y + row * (cellH + gapY)
+
+		// `padding` insets each cell box on all sides
+		result.push({
+			x: x + padding,
+			y: y + padding,
+			w: rowCellW - 2 * padding,
+			h: cellH - 2 * padding,
+		})
+	}
+
+	return result
 }

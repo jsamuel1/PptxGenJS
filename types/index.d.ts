@@ -125,6 +125,14 @@ declare class PptxGenJS {
 	 */
 	addSlide(masterName?: string): PptxGenJS.Slide
 	/**
+	 * Compute evenly-spaced grid cell positions within a bounding area.
+	 * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per item; emits no slide content.
+	 * @param {LayoutGridProps} props grid options
+	 * @returns {LayoutGridResult} array of `{ x, y, w, h }` cells (inches), one per item
+	 * @example const grid = pptx.layoutGrid({ items: 6, columns: 3, area: { x: 0.5, y: 2, w: 12, h: 4 }, gap: 0.2 })
+	 */
+	layoutGrid(props: PptxGenJS.LayoutGridProps): PptxGenJS.LayoutGridResult
+	/**
 	 * Create a custom Slide Layout in any size
 	 * @param {PresLayout} layout an object with user-defined w/h
 	 * @example pptx.defineLayout({ name:'A3', width:16.5, height:11.7 });
@@ -845,6 +853,39 @@ declare namespace PptxGenJS {
 	 * @example '75%' // coordinate as percentage of slide size
 	 */
 	export type Coord = number | `${number}%`
+	export interface LayoutGridArea {
+		x: number
+		y: number
+		w: number
+		h: number
+	}
+	export interface LayoutGridProps {
+		/** Number of items (cells) to position */
+		items: number
+		/** Items per row (rows are auto-calculated) */
+		columns: number
+		/** Bounding box (inches) to lay the grid out within */
+		area: LayoutGridArea
+		/** Gap between cells (inches) - used for both axes unless overridden @default 0.2 */
+		gap?: number
+		/** Horizontal gap override (inches) */
+		gapX?: number
+		/** Vertical gap override (inches) */
+		gapY?: number
+		/** Inner padding per cell (inches) - insets each returned cell box @default 0 */
+		padding?: number
+		/** Horizontal alignment of a partial last row @default 'start' */
+		align?: 'start' | 'center' | 'stretch'
+		/** Vertical alignment (reserved) @default 'start' */
+		valign?: 'start' | 'center' | 'stretch'
+	}
+	export interface LayoutGridCell {
+		x: number
+		y: number
+		w: number
+		h: number
+	}
+	export type LayoutGridResult = LayoutGridCell[]
 	export interface PositionProps {
 		/**
 		 * Horizontal position

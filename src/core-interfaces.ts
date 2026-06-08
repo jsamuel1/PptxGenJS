@@ -48,6 +48,76 @@ export interface PositionProps {
 	w?: Coord
 }
 /**
+ * Bounding box (inches) for `layoutGrid()`
+ */
+export interface LayoutGridArea {
+	x: number
+	y: number
+	w: number
+	h: number
+}
+/**
+ * Options for `pptx.layoutGrid()` - computes evenly-spaced cell positions within an area
+ */
+export interface LayoutGridProps {
+	/**
+	 * Number of items (cells) to position
+	 */
+	items: number
+	/**
+	 * Items per row (rows are auto-calculated)
+	 */
+	columns: number
+	/**
+	 * Bounding box (inches) to lay the grid out within
+	 */
+	area: LayoutGridArea
+	/**
+	 * Gap between cells (inches) - used for both axes unless overridden by `gapX`/`gapY`
+	 * @default 0.2
+	 */
+	gap?: number
+	/**
+	 * Horizontal gap override (inches)
+	 */
+	gapX?: number
+	/**
+	 * Vertical gap override (inches)
+	 */
+	gapY?: number
+	/**
+	 * Inner padding per cell (inches) - insets each returned cell box on all sides
+	 * @default 0
+	 */
+	padding?: number
+	/**
+	 * Horizontal alignment of a partial (incomplete) last row
+	 * - 'start': positioned from the left (column-aligned with full rows)
+	 * - 'center': partial row centred within the area
+	 * - 'stretch': partial row's cells widened to fill the area
+	 * @default 'start'
+	 */
+	align?: 'start' | 'center' | 'stretch'
+	/**
+	 * Vertical alignment (reserved) - rows always fill the area height, so this is currently a no-op
+	 * @default 'start'
+	 */
+	valign?: 'start' | 'center' | 'stretch'
+}
+/**
+ * A single positioned cell returned by `layoutGrid()`
+ */
+export interface LayoutGridCell {
+	x: number
+	y: number
+	w: number
+	h: number
+}
+/**
+ * Result of `layoutGrid()` - one `{ x, y, w, h }` (inches) per item, in item order
+ */
+export type LayoutGridResult = LayoutGridCell[]
+/**
  * Either `data` or `path` is required
  */
 export interface DataOrPathProps {

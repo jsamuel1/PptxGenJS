@@ -80,6 +80,8 @@ import {
 import {
 	AddSlideProps,
 	IPresentationProps,
+	LayoutGridProps,
+	LayoutGridResult,
 	PresLayout,
 	PresSlide,
 	SectionProps,
@@ -97,6 +99,7 @@ import * as genObj from './gen-objects'
 import * as genMedia from './gen-media'
 import * as genTable from './gen-tables'
 import * as genXml from './gen-xml'
+import { layoutGrid as layoutGridUtil } from './gen-utils'
 
 const VERSION = '4.1.3'
 
@@ -721,6 +724,17 @@ export default class PptxGenJS implements IPresentationProps {
 		}
 
 		return newSlide
+	}
+
+	/**
+	 * Compute evenly-spaced grid cell positions within a bounding area.
+	 * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per item; emits no slide content.
+	 * @param {LayoutGridProps} props - grid options
+	 * @returns {LayoutGridResult} array of `{ x, y, w, h }` cells (inches), one per item
+	 * @example const grid = pptx.layoutGrid({ items: 6, columns: 3, area: { x: 0.5, y: 2, w: 12, h: 4 }, gap: 0.2 })
+	 */
+	layoutGrid(props: LayoutGridProps): LayoutGridResult {
+		return layoutGridUtil(props)
 	}
 
 	/**
