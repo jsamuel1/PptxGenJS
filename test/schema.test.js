@@ -478,6 +478,35 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide with navigation action jumps (ppaction://hlinkshowjump)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s1 = p.addSlide()
+				// Text run nav action (CT_TextCharacterProperties <a:hlinkClick action="ppaction://hlinkshowjump?jump=lastslide">)
+				s1.addText('Go to end', { x: 1, y: 1, w: 4, h: 1, hyperlink: { action: 'lastSlide', tooltip: 'End' } })
+				// Shape nav action (CT_NonVisualDrawingProps <a:hlinkClick action="ppaction://hlinkshowjump?jump=nextslide">)
+				s1.addShape('rect', { x: 1, y: 3, w: 4, h: 1, fill: { color: '4472C4' }, hyperlink: { action: 'nextSlide' } })
+				// default-off: a plain url hyperlink must still emit a real rel and NO hlinkshowjump
+				const s2 = p.addSlide()
+				s2.addText('Click me', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'https://github.com' } })
+				p.addSlide()
+			})
+			const xml1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Navigation verbs emit the ppaction://hlinkshowjump?jump=<verb> URI
+			assert(/action="ppaction:\/\/hlinkshowjump\?jump=lastslide"/.test(xml1), 'action: expected ?jump=lastslide on the text-run nav hyperlink')
+			assert(/action="ppaction:\/\/hlinkshowjump\?jump=nextslide"/.test(xml1), 'action: expected ?jump=nextslide on the shape nav hyperlink')
+			// Navigation jumps carry an EMPTY relationship id (no rel allocated)
+			assert(/r:id=""\s+action="ppaction:\/\/hlinkshowjump/.test(xml1), 'action: nav hyperlinks must emit r:id=""')
+			// Tooltip preserved on the text-run nav hyperlink
+			assert(/tooltip="End"/.test(xml1), 'action: expected tooltip="End" preserved on the nav hyperlink')
+			// Default-off invariant: a plain url hyperlink still emits a real rel, no hlinkshowjump
+			const xml2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert(/<a:hlinkClick r:id="rId\d+"/.test(xml2), 'action: default url hyperlink must still emit a real r:id')
+			assert(!/hlinkshowjump/.test(xml2), 'action: default url hyperlink must NOT emit hlinkshowjump')
+			await expectNoSchemaErrors(buf, 'hyperlink-action-jump')
+		}
+	},
+	{
 		name: 'slide master header/footer (p:hf + footer/date placeholders)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

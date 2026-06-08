@@ -117,7 +117,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |---------|-------|--------|-------|
 | Click hyperlink (URL/slide) | `a:hlinkClick` | ✅ Done | |
 | Hover hyperlink | `a:hlinkMouseOver` / `a:hlinkHover` | ✅ Done | `hyperlink.on:'hover'`; text→`hlinkMouseOver`, shape/image→`hlinkHover` |
-| Action jumps (next/prev/named/first/last) | `a:hlinkClick action=` | ❌ Missing | ppaction:// jumps |
+| Action jumps (next/prev/named/first/last) | `a:hlinkClick action=` | ✅ Done | `hyperlink.action:'nextSlide'\|'prevSlide'\|'firstSlide'\|'lastSlide'\|'endShow'\|'slide'` → `ppaction://hlinkshowjump?jump=<verb>` (rel-less); `'slide'` reuses `hlinksldjump` |
 
 ## 5. Transitions & timing/animations
 

@@ -205,6 +205,14 @@ export interface HyperlinkProps {
 	 * @default 'click'
 	 */
 	on?: 'click' | 'hover'
+	/**
+	 * Navigation action jump (interactive next/prev/first/last/end-show buttons)
+	 * - emits `<a:hlinkClick action="ppaction://hlinkshowjump?jump=..."/>` with no relationship
+	 * - `'slide'` jumps to the slide given by the `slide` index (uses the existing slide relationship)
+	 * - mutually exclusive with `url` (if both are set, `url` wins)
+	 * @example { action: 'nextSlide' }
+	 */
+	action?: 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' | 'endShow' | 'slide'
 }
 // used by: chart, text, image
 export interface ShadowProps {

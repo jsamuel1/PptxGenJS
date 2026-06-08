@@ -50,6 +50,19 @@ import {
 	valToPts,
 } from './gen-utils'
 
+/**
+ * Navigation action-jump verb map: `HyperlinkProps.action` value → the `ppaction://hlinkshowjump?jump=<verb>` verb.
+ * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
+ * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
+ */
+const HLINK_ACTION_VERBS: { [key: string]: string } = {
+	nextSlide: 'nextslide',
+	prevSlide: 'previousslide',
+	firstSlide: 'firstslide',
+	lastSlide: 'lastslide',
+	endShow: 'endshow',
+}
+
 const ImageSizingXml = {
 	cover: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
 		const imgRatio = imgSize.h / imgSize.w
@@ -442,6 +455,10 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 					const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
 					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`
 				}
+				if (slideItemObj.options.hyperlink?.action && slideItemObj.options.hyperlink.action !== 'slide' && !slideItemObj.options.hyperlink.url && HLINK_ACTION_VERBS[slideItemObj.options.hyperlink.action]) {
+					const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${HLINK_ACTION_VERBS[slideItemObj.options.hyperlink.action]}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`
+				}
 				// </Hyperlink>
 				strSlideXml += '</p:cNvPr>'
 				strSlideXml += '<p:cNvSpPr' + (slideItemObj.options?.isTextBox ? ' txBox="1"/>' : '/>')
@@ -658,6 +675,11 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 					const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
 					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
 					}" action="ppaction://hlinksldjump"/>`
+				}
+				if (slideItemObj.hyperlink?.action && slideItemObj.hyperlink.action !== 'slide' && !slideItemObj.hyperlink.url && HLINK_ACTION_VERBS[slideItemObj.hyperlink.action]) {
+					const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${HLINK_ACTION_VERBS[slideItemObj.hyperlink.action]}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
+					}"/>`
 				}
 				strSlideXml += '    </p:cNvPr>'
 				strSlideXml += '    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
@@ -1208,7 +1230,9 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	// Hyperlink support
 	if (opts.hyperlink) {
 		if (typeof opts.hyperlink !== 'object') throw new Error('ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:\'https://github.com\'}` ')
-		else if (!opts.hyperlink.url && !opts.hyperlink.slide) throw new Error('ERROR: \'hyperlink requires either `url` or `slide`\'')
+		const navVerb = opts.hyperlink.action && opts.hyperlink.action !== 'slide' ? HLINK_ACTION_VERBS[opts.hyperlink.action] : undefined
+		if (!opts.hyperlink.url && !opts.hyperlink.slide && !navVerb) throw new Error('ERROR: \'hyperlink requires either `url`, `slide`, or `action`\'')
+		if (opts.hyperlink.url && opts.hyperlink.action) console.warn('WARNING: hyperlink `url` and `action` are mutually exclusive; using `url`')
 		const hlinkTag = opts.hyperlink.on === 'hover' ? 'a:hlinkMouseOver' : 'a:hlinkClick'
 		if (opts.hyperlink.url) {
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010! (Issue#74)
@@ -1216,6 +1240,9 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 			}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`
 		} else if (opts.hyperlink.slide) {
 			runProps += `<${hlinkTag} r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
+			}"${opts.color ? '>' : '/>'}`
+		} else if (navVerb) {
+			runProps += `<${hlinkTag} r:id="" action="ppaction://hlinkshowjump?jump=${navVerb}" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
 			}"${opts.color ? '>' : '/>'}`
 		}
 		if (opts.color) {

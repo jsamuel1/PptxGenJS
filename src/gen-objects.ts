@@ -1541,7 +1541,10 @@ function createHyperlinkRels(
 				console.log('ERROR: text `hyperlink` option should be an object. Ex: `hyperlink: {url:\'https://github.com\'}` ')
 			}
 			else if (!text.options.hyperlink.url && !text.options.hyperlink.slide) {
-				console.log('ERROR: \'hyperlink requires either: `url` or `slide`\'')
+				// NOTE: Navigation action jumps (e.g. `action: 'nextSlide'`) need NO relationship (they emit `r:id=""`) — skip silently
+				if (!(text.options.hyperlink.action && text.options.hyperlink.action !== 'slide')) {
+					console.log('ERROR: \'hyperlink requires either: `url` or `slide`\'')
+				}
 			}
 			else {
 				const relId = getNewRelId(target)

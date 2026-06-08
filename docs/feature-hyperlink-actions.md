@@ -1,8 +1,26 @@
 # Feature: Hover Hyperlinks & Action Jumps (`a:hlinkHover`, `a:hlinkClick action=`)
 
-> **Status:** Partial — hover done (slice 3.2); action jumps pending (slice 3.3)
+> **Status:** Implemented — hover done (slice 3.2); action jumps done (slice 3.3)
 > **Priority:** Medium — Phase 3 (matrix `❌ Missing` → `✅`)
 > **Matrix rows:** §4 Hyperlinks & actions — "Hover hyperlink", "Action jumps"
+
+> **Implemented (action jumps, slice 3.3):** `hyperlink.action: 'nextSlide' |
+> 'prevSlide' | 'firstSlide' | 'lastSlide' | 'endShow' | 'slide'` on
+> `HyperlinkProps` (`src/core-interfaces.ts`). The five navigation verbs emit
+> `<a:hlinkClick r:id="" action="ppaction://hlinkshowjump?jump=<verb>"/>` (verb
+> map in `src/gen-xml.ts` `HLINK_ACTION_VERBS`: `nextSlide→nextslide`,
+> `prevSlide→previousslide`, `firstSlide→firstslide`, `lastSlide→lastslide`,
+> `endShow→endshow`) at all three emit sites (text run, shape `<p:cNvPr>`, image
+> `<p:cNvPr>`) with **no relationship** (empty `r:id`). `action: 'slide'` (with
+> `slide: N`) reuses the existing slide-jump path (`ppaction://hlinksldjump` +
+> slide rel) — no new branch. The text-run `!url && !slide` throw guard and
+> `createHyperlinkRels`'s `!url && !slide` ERROR-log guard (`src/gen-objects.ts`)
+> were relaxed so a navigation action is allowed/skipped silently (no rel, no
+> error). `action` and `url` are mutually exclusive (URL wins + `console.warn`).
+> NOTE: a textbox is a `<p:sp>`, so `addText` with a nav action emits the action
+> at BOTH its `<p:cNvPr>` (shape) level and its run `<a:rPr>` level — consistent
+> with how url/slide hyperlinks already behave for textboxes. Test:
+> `test/schema.test.js` "slide with navigation action jumps (ppaction://hlinkshowjump)".
 
 > **Implemented (hover, slice 3.2):** `hyperlink.on: 'click' | 'hover'` on
 > `HyperlinkProps` (`src/core-interfaces.ts`). `on: 'hover'` swaps the emitted
