@@ -11,6 +11,7 @@ import {
 	CalloutProps,
 	CardProps,
 	CommentProps,
+	SeparatorProps,
 	GroupProps,
 	HeaderFooterProps,
 	HexColor,
@@ -332,6 +333,17 @@ export default class Slide {
 	 */
 	addBadge(options: BadgeProps): Slide {
 		genObj.addBadgeDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add a thin horizontal/vertical separator rule (a single `rect`) to Slide.
+	 * Sugar composing a `rect` with colour/thickness/opacity — no new OOXML.
+	 * @param {SeparatorProps} options - separator options
+	 * @return {Slide} this Slide
+	 */
+	addSeparator(options: SeparatorProps): Slide {
+		genObj.addSeparatorDefinition(this, options)
 		return this
 	}
 

@@ -1006,6 +1006,44 @@ module.exports = [
 		}
 	},
 	{
+		name: 'separator helper (thin horizontal/vertical rect rule + opacity alpha)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addSeparator({ x: 1, y: 2, w: 4 })                                                  // horizontal default (gray, 0.5 opacity)
+				s.addSeparator({ x: 1, y: 3, w: 3, color: 'FF0000', thickness: 0.05, opacity: 0.8 })  // explicit colour/opacity
+				s.addSeparator({ x: 6, y: 1, h: 2, orientation: 'vertical', color: '3B82F6' })        // vertical rule
+				// separator inside a group (mockup sidebar divider)
+				const g = s.addGroup({ x: 7, y: 3, w: 2, h: 1 })
+				g.addSeparator({ x: 0, y: 0, w: 1.5, color: '10B981' })
+			})
+			// Baseline: separators compose only the already-validated `rect` primitive — schema-clean.
+			await expectNoSchemaErrors(buf, 'separator')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): a plain rect is schema-valid even
+			// if the transparency math or geometry regresses, so assert the exact emission explicitly.
+			// 4 rects total (3 slide-level + 1 in the group). NB: no text boxes here, so every rect is a separator.
+			assert((slideXml.match(/prst="rect"/g) || []).length === 4, 'separator: expected 4 rects (3 slide + 1 group); got: ' + (slideXml.match(/prst="rect"/g) || []).length)
+			// default opacity 0.5 -> transparency 50 -> alpha 50000 on the gray rule
+			assert(slideXml.indexOf('<a:srgbClr val="D4D4D8"><a:alpha val="50000"/></a:srgbClr>') !== -1, 'separator: expected default gray D4D4D8 alpha 50000')
+			// explicit opacity 0.8 -> transparency 20 -> alpha 80000
+			assert(slideXml.indexOf('<a:srgbClr val="FF0000"><a:alpha val="80000"/></a:srgbClr>') !== -1, 'separator: expected FF0000 alpha 80000')
+			// group separator composes inside the grpSp
+			const grp = slideXml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)
+			assert(grp && grp[0].indexOf('<a:srgbClr val="10B981">') !== -1, 'separator: expected group rule fill 10B981 inside grpSp')
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on this XML —
+			// corrupt the rect preset geometry to an invalid ST_ShapeType enum.
+			const badSlide = slideXml.replace('prst="rect"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'separator: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'separator: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

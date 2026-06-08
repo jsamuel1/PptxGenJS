@@ -1214,6 +1214,30 @@ export interface BadgeProps extends PositionProps, ObjectNameProps {
 }
 
 /**
+ * Separator line helper (`slide.addSeparator(...)`).
+ * Draws a thin horizontal (or vertical) rule as a single `rect` shape with
+ * colour/thickness/opacity — a pure composition of the existing shape primitive,
+ * no new OOXML (docs/feature-enhancements-converter-gaps.md §4.1).
+ * @since v4.1.7
+ */
+export interface SeparatorProps extends PositionProps, ObjectNameProps {
+	/** Line colour (hex). @default 'D4D4D8' (theme gray) */
+	color?: HexColor
+	/** Line thickness in inches (the rule's short dimension). @default 0.01 */
+	thickness?: number
+	/** Line opacity 0–1 (mapped to the rect fill transparency). @default 0.5 */
+	opacity?: number
+	/**
+	 * Orientation. `'horizontal'` → `h = thickness`, width spans (`w`, default 1).
+	 * `'vertical'` → `w = thickness`, height spans (`h`, default 1).
+	 * @default 'horizontal'
+	 */
+	orientation?: 'horizontal' | 'vertical'
+	/** Entrance animation. */
+	animation?: AnimationProps
+}
+
+/**
  * Feature 6 — Shape grouping.
  * Options for `slide.addGroup(...)`. Defines the absolute position/size of a group
  * container (`<p:grpSp>`); child shapes/text added to the returned group object use
@@ -1237,6 +1261,8 @@ export interface SlideGroup {
 	addAvatar: (options: AvatarProps) => SlideGroup
 	/** Add a badge/pill to the group (coords relative to the group origin). */
 	addBadge: (options: BadgeProps) => SlideGroup
+	/** Add a separator rule to the group (coords relative to the group origin). */
+	addSeparator: (options: SeparatorProps) => SlideGroup
 }
 
 // tables =========================================================================================

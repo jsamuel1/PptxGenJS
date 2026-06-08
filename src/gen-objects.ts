@@ -47,6 +47,7 @@ import {
 	PresSlide,
 	ShapeLineProps,
 	ShapeProps,
+	SeparatorProps,
 	SlideGroup,
 	SlideLayout,
 	SlideMasterProps,
@@ -1200,6 +1201,40 @@ export function addBadgeDefinition(target: PresSlide, opts: BadgeProps): void {
 }
 
 /**
+ * Separator line helper (docs/feature-enhancements-converter-gaps.md §4.1). Draws a thin
+ * horizontal (or vertical) rule as a single `rect` shape with colour/thickness/opacity — a
+ * pure composition of the existing shape primitive, no new OOXML. Clamps degenerate
+ * thickness/opacity to defaults (never throws). Works against a slide OR a group child target.
+ * @param {PresSlide} target slide (or group child-target proxy) the separator should be added to
+ * @param {SeparatorProps} opts separator options
+ */
+export function addSeparatorDefinition(target: PresSlide, opts: SeparatorProps): void {
+	const options = typeof opts === 'object' ? opts : ({} as SeparatorProps)
+	const x = options.x !== undefined ? Number(options.x) : 1
+	const y = options.y !== undefined ? Number(options.y) : 1
+	const color = options.color !== undefined ? options.color : 'D4D4D8'
+	const thickness = options.thickness !== undefined && Number(options.thickness) > 0 ? Number(options.thickness) : 0.01
+	// opacity 0–1 (clamp); map to the rect fill transparency (0–100, 100 = fully transparent)
+	const rawOpacity = options.opacity !== undefined ? Number(options.opacity) : 0.5
+	const opacity = isFinite(rawOpacity) ? Math.max(0, Math.min(1, rawOpacity)) : 0.5
+	const transparency = Math.round((1 - opacity) * 100)
+	const vertical = options.orientation === 'vertical'
+
+	// Horizontal: width spans (`w`, default 1), height = thickness. Vertical: swap.
+	const w = vertical ? thickness : (options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : 1)
+	const h = vertical ? (options.h !== undefined && Number(options.h) > 0 ? Number(options.h) : 1) : thickness
+
+	const shapeOpts: ShapeProps = {
+		x, y, w, h,
+		fill: { color, transparency },
+		line: { type: 'none' },
+	}
+	if (options.animation) shapeOpts.animation = options.animation
+	if (options.objectName) shapeOpts.objectName = options.objectName
+	addShapeDefinition(target, SHAPE_TYPE.RECTANGLE, shapeOpts)
+}
+
+/**
  * Feature 6: Adds a shape group to a slide definition and returns a group handle.
  * The group emits a `<p:grpSp>` whose `<a:xfrm>` carries the absolute position/size plus
  * `chOff="0,0"`/`chExt` equal to the extent — so child shapes/text use coordinates relative
@@ -1254,6 +1289,10 @@ export function addGroupDefinition(target: PresSlide, opts: GroupProps): SlideGr
 		},
 		addBadge(badgeOpts: BadgeProps): SlideGroup {
 			addBadgeDefinition(childTarget, badgeOpts)
+			return group
+		},
+		addSeparator(separatorOpts: SeparatorProps): SlideGroup {
+			addSeparatorDefinition(childTarget, separatorOpts)
 			return group
 		},
 	}

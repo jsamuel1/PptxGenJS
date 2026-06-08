@@ -2,7 +2,7 @@
 
 > **Status:** Partially Implemented  
 > **Created:** 2026-06-08  
-> **Progress:** §1 `addCard` enhancements ✅ Implemented (v4.1.7) · §2 `addCallout` enhancements ✅ Implemented (v4.1.7) · §3 theme-extraction equivalence ✅ Implemented (v4.1.7) · §4 separator helper + count badge ⏳ remaining · parseCards deep CSS-cascade colour follow-up ⏳ remaining  
+> **Progress:** §1 `addCard` enhancements ✅ Implemented (v4.1.7) · §2 `addCallout` enhancements ✅ Implemented (v4.1.7) · §3 theme-extraction equivalence ✅ Implemented (v4.1.7) · §4.1 separator helper ✅ Implemented (v4.1.7) · §4.2 count badge ⏳ remaining · parseCards deep CSS-cascade colour follow-up ⏳ remaining  
 > **Context:** Gaps identified during `html-to-pptx` skill conversion of a 14-slide scroll-snap presentation. The converter currently bypasses `addCard` and `addCallout` and uses manual shape composition because these APIs lack features needed for faithful HTML→PPTX rendering.  
 > **Goal:** Close these gaps so the converter can adopt the native helpers, reducing boilerplate from ~60 lines/card to ~6 lines while maintaining or improving fidelity.  
 > **Principle:** Where native library functionality exists and can do the job well, the converter SHOULD adopt it rather than reimplementing with manual shapes. This reduces maintenance surface, ensures OOXML correctness, and means future library improvements automatically benefit all converters.
@@ -400,14 +400,23 @@ slide.addCard({ ..., animation: { type: 'fadeIn', group: 3, stagger: 100 } })
 
 ### 4.1 Separator Line Helper (Low Priority)
 
+> **§4.1 Status:** ✅ Implemented (v4.1.7). `slide.addSeparator(...)` (and `group.addSeparator(...)`)
+> draws a thin rule as a single `rect` — a pure composition of the existing shape primitive, no new
+> OOXML and no new dependency. `opacity` (0–1) maps to the rect fill transparency
+> (`transparency = round((1 - opacity) × 100)`), `thickness` is the rule's short dimension (inches),
+> and `orientation` (`'horizontal'` default | `'vertical'`) decides whether `w` or `h` spans. Degenerate
+> `thickness`/`opacity` clamp to defaults (never throws). See `docs/feature-card-helper.md` siblings
+> (`addAvatar`/`addBadge`) for the same composition pattern.
+
 Currently the converter draws thin rectangles for horizontal separators. A dedicated helper could standardise this:
 
 ```ts
 slide.addSeparator({
   x: 1, y: 3, w: 4,
-  color?: HexColor,        // default: theme gray
+  color?: HexColor,        // default: 'D4D4D8' (theme gray)
   thickness?: number,      // inches, default 0.01
   opacity?: number,        // 0-1, default 0.5
+  orientation?: 'horizontal' | 'vertical',  // default 'horizontal'
 })
 ```
 
