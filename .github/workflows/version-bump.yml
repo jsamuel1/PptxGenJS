@@ -75,11 +75,15 @@ jobs:
             console.log('Set VERSION = $NUMBER in ' + file);
           "
 
+      - name: Roll CHANGELOG [Unreleased] into the new version
+        run: |
+          node tools/build/update-changelog.mjs "${{ steps.version.outputs.number }}"
+
       - name: Commit, tag, and push
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           NUMBER="${{ steps.version.outputs.number }}"
-          git add package.json package-lock.json src/pptxgen.ts
+          git add package.json package-lock.json src/pptxgen.ts CHANGELOG.md
           git commit -m "chore(release): $NUMBER"
           git tag "$TAG"
           git push origin HEAD

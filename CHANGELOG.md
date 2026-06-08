@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `parseCards` (`@jsamuel1/pptxgenjs/utils`) colour resolution — card colours (`cardFill`, `borderColor`, `titleColor`, `descColor`, `iconColor`, `tileFill`, the badge fill, and the `accentBar`) now resolve through a cascade-lite of the input HTML's `<style>` block in addition to inline `style="…"`: simple class rules (`.foo { background; color; border; border-left }`, last-declared wins) and `var(--name[, fallback])` references against `:root`/`html`/`body` custom properties — in both inline styles and class rules. Precedence is inline style > class rule. The browser computed-style cascade (specificity ranking, id/descendant/combinator selectors, `@media`) stays out of scope (needs a live DOM). Inputs with no `<style>` block and no `var()` produce byte-identical `CardData` to before.
+
+## [4.2.0](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.2.0) - 2026-06-08
+
 ### Added
 
 - SmartArt / diagrams — `slide.addSmartArt({ x?, y?, w?, h?, layout: 'list' | 'process', items, color? })` adds a SmartArt diagram from a flat array of strings. `layout: 'process'` lays the items out left-to-right; `layout: 'list'` stacks them top-to-bottom; `color` (hex) sets the node fill. Each call packages the five linked diagram parts PowerPoint expects — `ppt/diagrams/{data,layout,quickStyle,colors,drawing}{N}.xml` — plus a `<p:graphicFrame>` carrying `<dgm:relIds r:dm r:lo r:qs r:cs>`, the matching slide relationships, and `[Content_Types].xml` Overrides. A precomputed `<dsp:drawing>` cache renders the diagram out-of-the-box without PowerPoint recomputing the layout. Minimal `list`/`process` subset; dependency-free. Empty/invalid `items` or an unknown `layout` is a no-op, and decks that never call it are byte-for-byte unchanged.
@@ -23,16 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Card icons (`addCard()` v2) — the `icon` option now accepts a font-icon glyph (`{ char, fontFace, color? }`, e.g. Font Awesome) in addition to an SVG path or emoji string; `iconFill` accepts `'none'` or `false` to render a bare icon with no container tile; a new `iconColor` option tints the glyph independently of the tile; and a new `accentBar` option (`{ color?, width? }`) draws a thin solid- or gradient-filled vertical strip on the card's left edge (category colour-coding / brand accent). Existing cards (emoji/SVG icon, no `iconColor`/`accentBar`) are byte-for-byte unchanged.
 - Gradient text (glyph) fill — `addText`'s `color` option now accepts a gradient object (`{ type: 'gradient', direction?, stops: [{ position, color, transparency? }] }`) so the gradient fills the glyphs themselves (emitted as a run-level `<a:gradFill>`), rather than only the text-box background. Passing a plain hex/theme color string is byte-for-byte unchanged.
 - Slide comments — `slide.addComment({ author, text, x?, y?, date? })` adds review/QA comments to a slide. Authors are automatically deduplicated into a shared author list, each comment can be anchored at an inches position (defaults to 0.5", 0.5"), and timestamps accept a `Date` or ISO string. Emits the classic `p:cm` + `commentAuthors.xml` form (widely supported); decks that don't call it are byte-for-byte unchanged.
+
+## [4.1.7](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.7) - 2026-06-08
+
+### Added
+
 - Embedded fonts — `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` embeds TrueType/OpenType font files directly in the `.pptx` so decks display with the intended typeface even on machines that don't have the font installed. Each face is a filesystem path (Node), a base64 string, or a `data:` URI; only `.ttf`/`.otf` faces are accepted (others are skipped with a warning). The full font is embedded (no subsetting). Decks that don't call it are byte-for-byte unchanged.
 - Structured / talking-points speaker notes — `slide.addNotes()` now accepts an array of paragraph objects (`{ text, bullet?, indentLevel? }`) in addition to a plain string. Each entry becomes its own paragraph in the notes slide, with optional bullets and indent levels, so you can author outlined talking points instead of one block of text. Passing a string behaves exactly as before.
 - Photo album — `pptx.photoAlbum = { blackWhite?, showCaptions?, layout?, frame? }` marks a deck as a PowerPoint photo album, with options for black-and-white rendering, captions, a per-slide picture layout, and a frame style. You still add the image slides yourself; this just records the album metadata.
 - Custom slide shows — `pptx.addCustomShow({ name, slides })` lets you define one or more named subsets of your deck (for example, a "short version" or an audience-specific cut) that play as their own slideshow inside the same file. Decks that don't use it are unaffected.
 
-### Changed
-
-- `parseCards` (`@jsamuel1/pptxgenjs/utils`) colour resolution — card colours (`cardFill`, `borderColor`, `titleColor`, `descColor`, `iconColor`, `tileFill`, the badge fill, and the `accentBar`) now resolve through a cascade-lite of the input HTML's `<style>` block in addition to inline `style="…"`: simple class rules (`.foo { background; color; border; border-left }`, last-declared wins) and `var(--name[, fallback])` references against `:root`/`html`/`body` custom properties — in both inline styles and class rules. Precedence is inline style > class rule. The browser computed-style cascade (specificity ranking, id/descendant/combinator selectors, `@media`) stays out of scope (needs a live DOM). Inputs with no `<style>` block and no `var()` produce byte-identical `CardData` to before.
-
-## [4.1.6](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.6) - 2026-06-08
+## [4.1.6](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.6) - 2026-06-08
 
 ### Added
 
@@ -49,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Shapes that had both a shadow and a glow produced a file PowerPoint flagged as needing repair, because the two effects were written in the wrong order. They are now emitted in the order the format requires. Shapes with only one effect are unchanged.
 
-## [4.1.5](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.5) - 2026-06-08
+## [4.1.5](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.5) - 2026-06-08
 
 ### Added
 
@@ -60,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Slide-master header/footer config — `defineSlideMaster({ headerFooter: { slideNumber?, dateTime?, footer? } })` adds a first-class way to set up footers, dates, and slide numbers on a master layout. `dateTime` can be an auto-updating field or a fixed value.
 - Per-slide header/footer override — `slide.headerFooter = { footer?, dateTime? }` sets a footer and/or date on an individual slide.
 
-## [4.1.4](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.4) - 2026-06-08
+## [4.1.4](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.4) - 2026-06-08
 
 ### Added
 
@@ -78,13 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Line and combo charts failed validation due to a missing grouping element and a marker/data-label ordering issue; both are now emitted correctly. Other chart types are unchanged.
 - `invertIfNegative` was written on chart series types that don't support it (area, line, radar, combo), causing a validation error; it is now limited to bar charts where it belongs.
 
-## [4.1.3](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.3) - 2026-06-08
+## [4.1.3](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.3) - 2026-06-08
 
 ### Changed
 
 - Internal release-automation only: the publish workflow now dispatches automatically after a version bump. No library changes.
 
-## [4.1.2](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.2) - 2026-06-07
+## [4.1.2](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.2) - 2026-06-07
 
 ### Added
 
@@ -92,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shadow and glow effects on shapes — `shadow = { type: 'outer', blur, offset, angle, color, opacity }` and `glow = { size, color, opacity }` add drop shadows and glows to shapes.
 - Rounded-rectangle callout helper — `slide.addCallout({ text, x, y, w, h, ..., cornerRadius })` is a one-call shortcut for a rounded rectangle with centered text and a configurable corner radius.
 
-## [4.1.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.1.1) - 2026-06-07
+## [4.1.1](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.1.1) - 2026-06-07
 
 ### Added
 
