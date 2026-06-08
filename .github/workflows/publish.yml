@@ -12,7 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write # required to create GitHub Releases
   id-token: write # required for npm trusted publishing (OIDC)
 
 jobs:
@@ -66,17 +66,72 @@ jobs:
         env:
           TAG_REF: ${{ steps.tag.outputs.ref }}
 
-      - name: Build and test
-        run: npm test
+      # Build ONCE. `npm run ship` (SHIP=1) emits both the intermediate
+      # src/bld/* artifacts that the tests import AND the full published dist/*
+      # set including the self-contained browser bundle (dist/pptxgen.bundle.js).
+      # Every later step reuses these artifacts instead of rebuilding.
+      - name: Build (ship artifacts)
+        run: npm run ship
+
+      # Run the test runners directly against the freshly built src/bld/*.
+      # Invoking the runners (not `npm test`) skips the `pretest` rebuild.
+      - name: Test
+        run: node test/run.js && node test/run-schema.js
 
       # No NODE_AUTH_TOKEN needed: npm authenticates via GitHub's OIDC token.
       # Provenance is generated automatically under trusted publishing.
+      # --ignore-scripts skips `prepublishOnly` so dist/ is NOT rebuilt — we
+      # publish the exact artifacts produced by the single build above.
       - name: Publish to npm
         run: |
           if [[ "$TAG_REF" == *-beta* || "$TAG_REF" == *-alpha* || "$TAG_REF" == *-rc* ]]; then
-            npm publish --access public --tag beta
+            npm publish --access public --tag beta --ignore-scripts
           else
-            npm publish --access public
+            npm publish --access public --ignore-scripts
           fi
         env:
           TAG_REF: ${{ steps.tag.outputs.ref }}
+
+      # Pack the exact tarball (same `files` set npm publishes). --ignore-scripts
+      # skips the prepack/prepublishOnly rebuild so it packs the already-built
+      # dist/. Attaching it gives a verifiable, registry-independent copy
+      # installable via `npm install ./<tarball>.tgz`.
+      - name: Pack npm tarball
+        id: pack
+        run: |
+          TARBALL="$(npm pack --ignore-scripts | tail -n 1)"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "Packed $TARBALL"
+
+      # Create a GitHub Release for the tag and attach the browser bundle and
+      # the npm tarball. Auto-generated notes summarize the commits since the
+      # previous release. Pre-release tags are flagged so they do not show up as
+      # the "Latest" release.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_REF: ${{ steps.tag.outputs.ref }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "$TAG_REF" == *-beta* || "$TAG_REF" == *-alpha* || "$TAG_REF" == *-rc* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          ASSETS=(
+            "$TARBALL"
+            dist/pptxgen.bundle.js
+            dist/pptxgen.min.js
+            dist/pptxgen.min.js.map
+            dist/pptxgen.cjs.js
+            dist/pptxgen.es.js
+          )
+          if gh release view "$TAG_REF" >/dev/null 2>&1; then
+            echo "Release $TAG_REF already exists; uploading/clobbering assets."
+            gh release upload "$TAG_REF" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG_REF" \
+              --title "$TAG_REF" \
+              --generate-notes \
+              $PRERELEASE_FLAG \
+              "${ASSETS[@]}"
+          fi
