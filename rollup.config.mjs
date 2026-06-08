@@ -81,6 +81,17 @@ export default [
 		],
 	},
 
+	// 1b) src/bld/utils.* — optional utilities entry (tests import src/bld/utils.cjs.js)
+	{
+		input: 'src/utils.ts',
+		external: externalLib,
+		plugins: basePlugins(),
+		output: [
+			{ file: './src/bld/utils.cjs.js', format: 'cjs' },
+			{ file: './src/bld/utils.es.js', format: 'es' },
+		],
+	},
+
 	// The dist/* artifacts are only built for publishing (`npm run ship`).
 	...(isShip
 		? [
@@ -101,6 +112,18 @@ export default [
 						sourcemap: true,
 						plugins: [minify()],
 					},
+				],
+			},
+
+			// 2b) dist/utils.* — optional utilities entry (published)
+			{
+				input: 'src/utils.ts',
+				external: externalLib,
+				plugins: basePlugins(),
+				output: [
+					{ file: './dist/utils.cjs.js', format: 'cjs', banner },
+					{ file: './dist/utils.js', format: 'cjs', banner },
+					{ file: './dist/utils.es.js', format: 'es', banner },
 				],
 			},
 
