@@ -32,6 +32,7 @@ The PptxGenJS interfaces referenced in surrounding documentation. See the [compl
 | `slide`   | number | link to a given slide | Ex: `2`                        |
 | `tooltip` | string | link tooltip text     | Ex: `Click to visit home page` |
 | `url`     | string | target URL            | Ex: `https://wikipedia.org`    |
+| `on`      | string | activation trigger    | `click` (default) or `hover`   |
 
 ## Image Props (`ImageProps`)
 

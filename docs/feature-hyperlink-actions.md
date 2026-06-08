@@ -1,8 +1,20 @@
 # Feature: Hover Hyperlinks & Action Jumps (`a:hlinkHover`, `a:hlinkClick action=`)
 
-> **Status:** Proposed
+> **Status:** Partial — hover done (slice 3.2); action jumps pending (slice 3.3)
 > **Priority:** Medium — Phase 3 (matrix `❌ Missing` → `✅`)
 > **Matrix rows:** §4 Hyperlinks & actions — "Hover hyperlink", "Action jumps"
+
+> **Implemented (hover, slice 3.2):** `hyperlink.on: 'click' | 'hover'` on
+> `HyperlinkProps` (`src/core-interfaces.ts`). `on: 'hover'` swaps the emitted
+> element at all three hyperlink emit sites in `src/gen-xml.ts` (text run, shape
+> `<p:cNvPr>`, image `<p:cNvPr>`). **Correction to the title/problem below:** the
+> hover element name is NOT uniformly `<a:hlinkHover>`. DrawingML names it per
+> parent complex type — `CT_TextCharacterProperties` (text runs) uses
+> **`<a:hlinkMouseOver>`**, while `CT_NonVisualDrawingProps` (shape/image
+> `<p:cNvPr>`) uses **`<a:hlinkHover>`** (both `CT_Hyperlink`). Using
+> `<a:hlinkHover>` on a text run is schema-INVALID (caught by the OOXML
+> validator). Hover reuses the existing rel machinery unchanged. Test:
+> `test/schema.test.js` "slide with hover hyperlink (a:hlinkHover)".
 
 ## Problem
 

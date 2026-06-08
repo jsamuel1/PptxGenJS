@@ -448,6 +448,36 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide with hover hyperlink (a:hlinkHover)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s1 = p.addSlide()
+				s1.addText('Hover me', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'https://github.com', tooltip: 'Open', on: 'hover' } })
+				// Shape hover hyperlink exercises the CT_NonVisualDrawingProps <a:hlinkHover> path
+				s1.addShape('rect', { x: 1, y: 3, w: 4, h: 1, fill: { color: '4472C4' }, hyperlink: { url: 'https://github.com', tooltip: 'Open', on: 'hover' } })
+				// default-off: a plain (no `on`) url hyperlink must still emit <a:hlinkClick>
+				const s2 = p.addSlide()
+				s2.addText('Click me', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'https://github.com' } })
+			})
+			const xml1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Regression-catch: on:'hover' swaps the text-run element name to <a:hlinkMouseOver>
+			// (CT_TextCharacterProperties uses hlinkMouseOver; CT_NonVisualDrawingProps uses hlinkHover)
+			assert(/<a:hlinkMouseOver\b/.test(xml1), 'hover: expected <a:hlinkMouseOver> on the hover text run')
+			// Shape hover uses <a:hlinkHover> (CT_NonVisualDrawingProps)
+			assert(/<a:hlinkHover\b/.test(xml1), 'hover: expected <a:hlinkHover> on the hover shape <p:cNvPr>')
+			// ...and the hover objects must NOT emit <a:hlinkClick>
+			assert(!/<a:hlinkClick\b/.test(xml1), 'hover: must NOT emit <a:hlinkClick> when on:"hover"')
+			// Attributes/tooltip are preserved (CT_Hyperlink is identical for click/hover)
+			assert(/tooltip="Open"/.test(xml1), 'hover: expected tooltip="Open" preserved on the hover hyperlink')
+			// Default-off invariant: a plain url hyperlink (no `on`) still emits <a:hlinkClick>, no hover
+			const xml2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert(/<a:hlinkClick\b/.test(xml2), 'hover: default (no on) must still emit <a:hlinkClick>')
+			assert(!/<a:hlinkMouseOver\b/.test(xml2), 'hover: default (no on) must NOT emit <a:hlinkMouseOver>')
+			assert(!/<a:hlinkHover\b/.test(xml2), 'hover: default (no on) must NOT emit <a:hlinkHover>')
+			await expectNoSchemaErrors(buf, 'hyperlink-hover')
+		}
+	},
+	{
 		name: 'slide master header/footer (p:hf + footer/date placeholders)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

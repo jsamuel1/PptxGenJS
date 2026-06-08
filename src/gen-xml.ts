@@ -435,10 +435,12 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				strSlideXml += `<p:nvSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}">`
 				// <Hyperlink>
 				if (slideItemObj.options.hyperlink?.url) {
-					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`
+					const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`
 				}
 				if (slideItemObj.options.hyperlink?.slide) {
-					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`
+					const hlinkTag = slideItemObj.options.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`
 				}
 				// </Hyperlink>
 				strSlideXml += '</p:cNvPr>'
@@ -648,11 +650,13 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 					slideItemObj.options.altText || slideItemObj.image
 				)}">`
 				if (slideItemObj.hyperlink?.url) {
-					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
+					const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
 					}"/>`
 				}
 				if (slideItemObj.hyperlink?.slide) {
-					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
+					const hlinkTag = slideItemObj.hyperlink.on === 'hover' ? 'a:hlinkHover' : 'a:hlinkClick'
+					strSlideXml += `<${hlinkTag} r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
 					}" action="ppaction://hlinksldjump"/>`
 				}
 				strSlideXml += '    </p:cNvPr>'
@@ -1205,12 +1209,13 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	if (opts.hyperlink) {
 		if (typeof opts.hyperlink !== 'object') throw new Error('ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:\'https://github.com\'}` ')
 		else if (!opts.hyperlink.url && !opts.hyperlink.slide) throw new Error('ERROR: \'hyperlink requires either `url` or `slide`\'')
-		else if (opts.hyperlink.url) {
+		const hlinkTag = opts.hyperlink.on === 'hover' ? 'a:hlinkMouseOver' : 'a:hlinkClick'
+		if (opts.hyperlink.url) {
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010! (Issue#74)
-			runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
+			runProps += `<${hlinkTag} r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
 			}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`
 		} else if (opts.hyperlink.slide) {
-			runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
+			runProps += `<${hlinkTag} r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
 			}"${opts.color ? '>' : '/>'}`
 		}
 		if (opts.color) {
@@ -1219,7 +1224,7 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 			runProps += '   <ahyp:hlinkClr xmlns:ahyp="http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor" val="tx"/>'
 			runProps += '  </a:ext>'
 			runProps += ' </a:extLst>'
-			runProps += '</a:hlinkClick>'
+			runProps += `</${hlinkTag}>`
 		}
 	}
 

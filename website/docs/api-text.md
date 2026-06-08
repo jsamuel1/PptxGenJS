@@ -45,7 +45,7 @@ slide.addText([{ text: "TEXT", options: { OPTIONS } }]);
 | `fontSize`            | number             | points  |         | font size                 | 1-256. Ex: `{ fontSize:12 }`                                                                                                   |
 | `glow`                | object             |         |         | text glow                 | object with `size`, `opacity`, `color` (opt). Ex: `glow:{size:10, opacity:0.75, color:'0088CC'}`                               |
 | `highlight`           | string             |         |         | highlight color           | hex color code or [scheme color](/PptxGenJS/docs/shapes-and-schemes). Ex: `{ color:'0088CC' }`                                 |
-| `hyperlink`           | string             |         |         | add hyperlink             | object with `url` or `slide` (`tooltip` optional). Ex: `{ hyperlink:{url:'https://github.com'} }`                              |
+| `hyperlink`           | string             |         |         | add hyperlink             | object with `url` or `slide` (`tooltip` optional; `on:'hover'` for mouse-over activation). Ex: `{ hyperlink:{url:'https://github.com'} }`                              |
 | `indentLevel`         | number             | level   | `0`     | bullet indent level       | 1-32. Ex: `{ indentLevel:1 }`                                                                                                  |
 | `inset`               | number             | inches  |         | inset/padding             | 1-256. Ex: `{ inset:1.25 }`                                                                                                    |
 | `isTextBox`           | boolean            |         | `false` | PPT "Textbox"             | `true` or `false`                                                                                                              |
@@ -172,6 +172,17 @@ slide.addText(
         },
     ],
     { x: 1.0, y: 2.5, w: 5, h: 1 }
+);
+
+// EX: Hyperlink: Hover (activates on mouse-over, emits <a:hlinkMouseOver>)
+slide.addText(
+    [
+        {
+            text: "Hover for Homepage",
+            options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage", on: "hover" } },
+        },
+    ],
+    { x: 1.0, y: 4.0, w: 5, h: 1 }
 );
 
 // EX: Drop/Outer Shadow

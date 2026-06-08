@@ -198,6 +198,13 @@ export interface HyperlinkProps {
 	 * Hyperlink Tooltip
 	 */
 	tooltip?: string
+	/**
+	 * Activation trigger
+	 * - `'click'` (default) emits `<a:hlinkClick>`
+	 * - `'hover'` emits `<a:hlinkHover>` (activates on mouse-over)
+	 * @default 'click'
+	 */
+	on?: 'click' | 'hover'
 }
 // used by: chart, text, image
 export interface ShadowProps {
