@@ -2115,10 +2115,10 @@ export interface TransitionProps {
 	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
 	direction?: TransitionDirection
 }
-export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse'
+export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut'
 export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 export interface AnimationProps {
-	/** Entrance (`appear`/`fadeIn`/`flyIn`/`zoomIn`) or emphasis (`pulse`/`spin`/`grow`/`colorPulse`) effect. */
+	/** Entrance (`appear`/`fadeIn`/`flyIn`/`zoomIn`), emphasis (`pulse`/`spin`/`grow`/`colorPulse`), or exit (`disappear`/`fadeOut`/`flyOut`/`zoomOut`) effect. */
 	type: AnimationType
 	/** Effect duration in ms. @default 500 */
 	duration?: number
@@ -2126,7 +2126,7 @@ export interface AnimationProps {
 	delay?: number
 	/** When the effect starts relative to the timeline. @default 'afterPrevious' */
 	trigger?: AnimationTrigger
-	/** Direction for flyIn. @default 'left' */
+	/** Direction for `flyIn` (offscreen origin) and `flyOut` (offscreen destination). @default 'left' */
 	direction?: TransitionDirection
 	/**
 	 * Animation group ID (syntactic sugar over `trigger`). Objects sharing the same `group`

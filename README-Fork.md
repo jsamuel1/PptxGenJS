@@ -25,6 +25,7 @@ capabilities into the library as first-class, schema-validated APIs.
 | **Slide transitions** | `slide.transition = { type, duration?, direction? }` | ✅ Done |
 | **Shape entrance animations** | `animation: { type, duration?, delay?, trigger?, direction? }` | ✅ Done (appear, fadeIn, flyIn, zoomIn) |
 | **Shape emphasis animations** | `animation: { type: 'pulse' \| 'spin' \| 'grow' \| 'colorPulse', spinDegrees?, growScale?, color? }` | ✅ Done |
+| **Shape exit animations** | `animation: { type: 'disappear' \| 'fadeOut' \| 'flyOut' \| 'zoomOut', duration?, direction? }` | ✅ Done |
 | **Animation build steps** | `trigger: 'afterPrevious' \| 'withPrevious' \| 'onClick'` | ✅ Done |
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
 | **Gradient fills** | `fill: { type: 'gradient', stops[], direction? }` | ✅ Done |
@@ -137,6 +138,32 @@ slide.addText('Pulse', {
 })
 // Emphasis types: 'pulse' | 'spin' | 'grow' | 'colorPulse'
 // (emit presetClass="emph"; share the same trigger/group/stagger semantics)
+```
+
+### Exit animations
+
+Exit effects are the counterpart to entrance effects — they make an
+**already-visible** object leave (no leading "reveal" `<p:set>`):
+
+```ts
+slide.addText('Goodbye', {
+  x: 1, y: 1, w: 4, h: 1,
+  animation: { type: 'fadeOut', duration: 600 }        // fade away
+})
+slide.addShape('rect', {
+  x: 1, y: 3, w: 2, h: 1, fill: { color: '00FF00' },
+  animation: { type: 'flyOut', direction: 'right' }    // slide off to the right
+})
+slide.addShape('rect', {
+  x: 4, y: 3, w: 2, h: 1, fill: { color: '0000FF' },
+  animation: { type: 'zoomOut' }                       // shrink to nothing
+})
+slide.addText('Gone', {
+  x: 4, y: 1, w: 4, h: 1,
+  animation: { type: 'disappear' }                     // instant hide
+})
+// Exit types: 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut'
+// (emit presetClass="exit"; share the same trigger/group/stagger semantics)
 ```
 
 ### Gradient fill

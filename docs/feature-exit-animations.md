@@ -1,8 +1,14 @@
 # Feature: Exit Animations
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** High — Phase 1 (matrix `❌ Missing` → `✅`); infra already exists
 > **Matrix row:** §5 Transitions & timing — "Exit effects"
+>
+> **Implemented:** `src/gen-xml.ts` (`EXIT_TYPES`/`isExitAnim`, `genXmlAnimPayload`
+> exit branches, `renderMember` 3-way `presetClass`, `presetMap` exit entries),
+> `src/core-interfaces.ts` (`AnimationType` exit variants). Tested by the
+> `animation-exit` fixture in `test/schema.test.js` (schema-valid + raw-emission
+> regression-catch on `presetClass="exit"` + per-effect payload elements).
 
 ## Problem
 

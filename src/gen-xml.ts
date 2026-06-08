@@ -1765,6 +1765,13 @@ const EMPHASIS_TYPES = new Set<string>(['pulse', 'spin', 'grow', 'colorPulse'])
 const isEmphasisAnim = (type: string): boolean => EMPHASIS_TYPES.has(type)
 
 /**
+ * Exit animation types make an already-visible object leave (`presetClass="exit"`).
+ * Like emphasis, they target a visible object and must NOT emit the entrance visibility `<p:set>`.
+ */
+const EXIT_TYPES = new Set<string>(['disappear', 'fadeOut', 'flyOut', 'zoomOut'])
+const isExitAnim = (type: string): boolean => EXIT_TYPES.has(type)
+
+/**
  * Generate the per-shape timing payload (`<p:childTnLst>` contents of the effect node).
  * @param {AnimationProps} anim - the animation options
  * @param {number} spid - the shape target id (`<p:cNvPr id>`, i.e. idx + 2)
@@ -1773,10 +1780,10 @@ const isEmphasisAnim = (type: string): boolean => EMPHASIS_TYPES.has(type)
  */
 function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => number): string {
 	const dur = typeof anim.duration === 'number' ? anim.duration : 500
-	// Entrance types emit a leading visibility <p:set> (instant show); emphasis types
+	// Entrance types emit a leading visibility <p:set> (instant show); emphasis AND exit types
 	// target an already-visible object and MUST NOT emit it.
 	let payload = ''
-	if (!isEmphasisAnim(anim.type)) {
+	if (!isEmphasisAnim(anim.type) && !isExitAnim(anim.type)) {
 		payload =
 			'<p:set>' +
 			'<p:cBhvr>' +
@@ -1903,6 +1910,75 @@ function genXmlAnimPayload (anim: AnimationProps, spid: number, nextId: () => nu
 			'</p:anim>'
 	}
 
+	// --- Exit effects (presetClass="exit") ------------------------------------
+	// disappear -> <p:set> visibility hidden (instant hide; reverse of the entrance show-<p:set>)
+	if (anim.type === 'disappear') {
+		payload +=
+			'<p:set>' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+			'</p:cBhvr>' +
+			'<p:to><p:strVal val="hidden"/></p:to>' +
+			'</p:set>'
+	}
+
+	// fadeOut -> fade <p:animEffect> transition="out" (reverse of fadeIn's transition="in")
+	if (anim.type === 'fadeOut') {
+		payload +=
+			'<p:animEffect transition="out" filter="fade">' +
+			'<p:cBhvr>' +
+			`<p:cTn id="${nextId()}" dur="${dur}"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'</p:cBhvr>' +
+			'</p:animEffect>'
+	}
+
+	// flyOut -> <p:anim> that translates the shape from its position OUT to offscreen
+	// (reverse of flyIn: tm="0" starts at #ppt_x/#ppt_y, tm="100000" ends one slide offscreen).
+	// direction names the side the shape exits toward.
+	if (anim.type === 'flyOut') {
+		const flyOutMap: Record<string, { attr: string; end: string }> = {
+			left: { attr: 'ppt_x', end: '#ppt_x-1slide' },
+			right: { attr: 'ppt_x', end: '#ppt_x+1slide' },
+			up: { attr: 'ppt_y', end: '#ppt_y-1slide' },
+			down: { attr: 'ppt_y', end: '#ppt_y+1slide' },
+		}
+		const { attr, end } = flyOutMap[anim.direction ?? 'left'] ?? flyOutMap.left
+		payload +=
+			'<p:anim calcmode="lin" valueType="num">' +
+			'<p:cBhvr additive="base">' +
+			`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			`<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+			'</p:cBhvr>' +
+			'<p:tavLst>' +
+			`<p:tav tm="0"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+			`<p:tav tm="100000"><p:val><p:strVal val="${end}"/></p:val></p:tav>` +
+			'</p:tavLst>' +
+			'</p:anim>'
+	}
+
+	// zoomOut -> two <p:anim> blocks that scale the shape from full size DOWN to collapsed (0).
+	// One on ppt_w, one on ppt_h, each #ppt_w/#ppt_h at tm="0" -> 0 at tm="100000" (reverse of zoomIn).
+	if (anim.type === 'zoomOut') {
+		;['ppt_w', 'ppt_h'].forEach(attr => {
+			payload +=
+				'<p:anim calcmode="lin" valueType="num">' +
+				'<p:cBhvr additive="base">' +
+				`<p:cTn id="${nextId()}" dur="${dur}" fill="hold"/>` +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				`<p:attrNameLst><p:attrName>${attr}</p:attrName></p:attrNameLst>` +
+				'</p:cBhvr>' +
+				'<p:tavLst>' +
+				`<p:tav tm="0"><p:val><p:strVal val="#${attr}"/></p:val></p:tav>` +
+				'<p:tav tm="100000"><p:val><p:strVal val="0"/></p:val></p:tav>' +
+				'</p:tavLst>' +
+				'</p:anim>'
+		})
+	}
+
 	return payload
 }
 
@@ -1927,7 +2003,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const nextId = (): number => idCounter++
 
 	// presetID labels the effect in the PowerPoint UI
-	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2 }
+	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2, disappear: 1, fadeOut: 10, flyOut: 2, zoomOut: 23 }
 	// trigger -> build-step wrapper nodeType
 	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
@@ -1979,7 +2055,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const renderMember = (entry: Entry, memberDelay: number): string => {
 		const { anim, spid, exitMs } = entry
 		const presetID = presetMap[anim.type] ?? 1
-		const presetClass = isEmphasisAnim(anim.type) ? 'emph' : 'entr'
+		const presetClass = isExitAnim(anim.type) ? 'exit' : isEmphasisAnim(anim.type) ? 'emph' : 'entr'
 		const effectId = nextId()
 		// Counter sugar: hide this frame `exitMs` after it appears (all but the last frame).
 		// Isolated here so genXmlAnimPayload stays scoped to the public animation types.

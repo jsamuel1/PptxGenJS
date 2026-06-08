@@ -3,7 +3,8 @@
  * AUTH: jsamuel1 fork (https://github.com/jsamuel1/PptxGenJS)
  * DESC: Demo slides for fork-added features: slide transitions, shape entrance
  *       animations (appear/fadeIn/flyIn/zoomIn), emphasis animations
- *       (pulse/spin/grow/colorPulse), animation triggers/stagger,
+ *       (pulse/spin/grow/colorPulse), exit animations
+ *       (disappear/fadeOut/flyOut/zoomOut), animation triggers/stagger,
  *       gradient fills, and the number-counter sugar.
  * DEPS: Used by various demos (./demos/browser, ./demos/node, etc.)
  * NOTE: Transitions and entrance animations only *play* in desktop Microsoft
@@ -21,6 +22,7 @@ export function genSlides_Animation(pptx) {
 	genSlide_Transitions(pptx);
 	genSlide_AnimationTypes(pptx);
 	genSlide_EmphasisAnimations(pptx);
+	genSlide_ExitAnimations(pptx);
 	genSlide_AnimationTriggers(pptx);
 	genSlide_Gradients(pptx);
 	genSlide_Counter(pptx);
@@ -181,6 +183,55 @@ function genSlide_EmphasisAnimations(pptx) {
 
 	slide.addText(
 		"animation: { type: 'spin', spinDegrees: 720 }\nanimation: { type: 'grow', growScale: 1.5 }\nanimation: { type: 'colorPulse', color: 'FF00FF' }",
+		{ x: 0.7, y: 5.0, w: 11.8, h: 1.4, align: "center", valign: "middle", fontSize: 16, fontFace: "Courier New", color: "696969" }
+	);
+}
+
+/**
+ * SLIDE 4: Exit Animation Types
+ * Exit effects make an already-visible object leave (presetClass="exit").
+ * trigger 'afterPrevious' chains them so they play in sequence.
+ * @param {PptxGenJS} pptx
+ */
+function genSlide_ExitAnimations(pptx) {
+	const slide = pptx.addSlide({ sectionTitle: "Animation" });
+
+	slide.addTable([[{ text: "Exit: disappear / fadeOut / flyOut / zoomOut", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+	slide.addNotes(`Exit effects make an already-visible object leave. Run as a slideshow in PowerPoint. API Docs: ${DOCS}`);
+
+	const boxOpts = { w: 5.5, h: 1.2, align: "center", valign: "middle", fontSize: 20, color: "FFFFFF" };
+
+	slide.addText("disappear", {
+		...boxOpts,
+		x: 0.7,
+		y: 1.3,
+		fill: { color: pptx.colors.ACCENT1 },
+		animation: { type: "disappear", trigger: "afterPrevious" },
+	});
+	slide.addText("fadeOut (duration: 600)", {
+		...boxOpts,
+		x: 7.0,
+		y: 1.3,
+		fill: { color: pptx.colors.ACCENT2 },
+		animation: { type: "fadeOut", duration: 600, trigger: "afterPrevious" },
+	});
+	slide.addText("flyOut to the right", {
+		...boxOpts,
+		x: 0.7,
+		y: 3.1,
+		fill: { color: pptx.colors.ACCENT3 },
+		animation: { type: "flyOut", direction: "right", trigger: "afterPrevious" },
+	});
+	slide.addText("zoomOut", {
+		...boxOpts,
+		x: 7.0,
+		y: 3.1,
+		fill: { color: pptx.colors.ACCENT4 },
+		animation: { type: "zoomOut", duration: 600, trigger: "afterPrevious" },
+	});
+
+	slide.addText(
+		"animation: { type: 'fadeOut', duration: 600 }\nanimation: { type: 'flyOut', direction: 'right' }\nanimation: { type: 'zoomOut' }",
 		{ x: 0.7, y: 5.0, w: 11.8, h: 1.4, align: "center", valign: "middle", fontSize: 16, fontFace: "Courier New", color: "696969" }
 	);
 }

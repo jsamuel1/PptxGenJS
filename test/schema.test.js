@@ -246,6 +246,31 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide with exit animations (disappear/fadeOut/flyOut/zoomOut)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, animation: { type: 'disappear' } })
+				s.addText('fade', { x: 1, y: 3, w: 4, h: 1, animation: { type: 'fadeOut', duration: 600 } })
+				s.addShape('rect', { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00' }, animation: { type: 'flyOut', direction: 'right' } })
+				s.addShape('rect', { x: 4, y: 3, w: 2, h: 1, fill: { color: '0000FF' }, animation: { type: 'zoomOut', duration: 720 } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Regression-catch: exit members must carry presetClass="exit" (not "entr"/"emph")
+			assert(/presetClass="exit"/.test(xml), 'exit: expected presetClass="exit" in timing block')
+			assert(!/presetClass="entr"/.test(xml), 'exit: must NOT emit presetClass="entr" for exit-only slide')
+			assert(!/presetClass="emph"/.test(xml), 'exit: must NOT emit presetClass="emph" for exit-only slide')
+			// Each effect emits its distinguishing payload element
+			assert(/<p:strVal val="hidden"\/>/.test(xml), 'disappear: expected <p:set> to visibility hidden')
+			assert(/<p:animEffect transition="out" filter="fade">/.test(xml), 'fadeOut: expected <p:animEffect transition="out" filter="fade">')
+			assert(/<p:strVal val="#ppt_x\+1slide"\/>/.test(xml), 'flyOut: expected end value #ppt_x+1slide (exit toward right)')
+			assert(/<p:attrName>ppt_w<\/p:attrName>[\s\S]*?<p:tav tm="100000"><p:val><p:strVal val="0"\/>/.test(xml), 'zoomOut: expected ppt_w scaling to 0')
+			// Exit targets an already-visible object: no leading visibility show <p:set>
+			assert(!/<p:strVal val="visible"\/>/.test(xml), 'exit: must NOT emit the entrance visibility <p:set>')
+			await expectNoSchemaErrors(buf, 'animation-exit')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {
