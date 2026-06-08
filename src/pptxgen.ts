@@ -430,6 +430,7 @@ export default class PptxGenJS implements IPresentationProps {
 			addImage: null,
 			addMedia: null,
 			addNotes: null,
+			addComment: null,
 			addCard: null,
 			addShape: null,
 			addTable: null,
@@ -640,6 +641,9 @@ export default class PptxGenJS implements IPresentationProps {
 			zip.folder('ppt/notesSlides').folder('_rels')
 			// Only scaffold ppt/fonts when at least one embedded font face is present.
 			if (fontFaces.length > 0) zip.folder('ppt/fonts')
+			// Only scaffold ppt/comments when at least one slide has review comments.
+			const hasComments = this.slides.some(s => (s._comments || []).length > 0)
+			if (hasComments) zip.folder('ppt/comments')
 			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this.slides, this.slideLayouts, this.masterSlide, this.embeddedFonts)) // TODO: pass only `this` like below! 20200206
 			zip.file('_rels/.rels', genXml.makeXmlRootRels())
 			zip.file('docProps/app.xml', genXml.makeXmlApp(this.slides, this.company)) // TODO: pass only `this` like below! 20200206
@@ -649,6 +653,8 @@ export default class PptxGenJS implements IPresentationProps {
 			fontFaces.forEach(face => {
 				zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true })
 			})
+			// Write the shared commentAuthors part when any slide has comments (default-off).
+			if (hasComments) zip.file('ppt/commentAuthors.xml', genXml.makeXmlCommentAuthors(this.slides))
 			zip.file('ppt/theme/theme1.xml', genXml.makeXmlTheme(this))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
 			zip.file('ppt/theme/theme2.xml', genXml.makeXmlTheme(this))
@@ -668,6 +674,10 @@ export default class PptxGenJS implements IPresentationProps {
 				// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
 				zip.file(`ppt/notesSlides/notesSlide${idx + 1}.xml`, genXml.makeXmlNotesSlide(slide))
 				zip.file(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, genXml.makeXmlNotesSlideRel(idx + 1))
+				// Comments (default-off): write the per-slide comment part only when present.
+				if ((slide._comments || []).length > 0) {
+					zip.file(`ppt/comments/comment${idx + 1}.xml`, genXml.makeXmlComments(slide, this.slides))
+				}
 			})
 			zip.file('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this.masterSlide, this.slideLayouts))
 			zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this.masterSlide, this.slideLayouts))

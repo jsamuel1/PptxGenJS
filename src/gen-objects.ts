@@ -38,6 +38,7 @@ import {
 	ImageProps,
 	MediaProps,
 	NoteParagraph,
+	CommentProps,
 	ObjectOptions,
 	OptsChartGridLine,
 	PresLayout,
@@ -681,6 +682,32 @@ export function addNotesDefinition(target: PresSlide, notes: string | NoteParagr
 			})),
 		})
 	}
+}
+
+/**
+ * Adds a review comment to a slide.
+ * Requires non-empty `author` AND `text` (warns + skips otherwise — clamp, don't crash).
+ * Stores the comment on `target._comments`; the write path emits the comment parts/rels.
+ * @param {PresSlide} target - slide object the comment is added to
+ * @param {CommentProps} props - comment author, text, and optional anchor/date
+ */
+export function addCommentDefinition(target: PresSlide, props: CommentProps): void {
+	if (!props || typeof props.author !== 'string' || props.author.length === 0) {
+		console.warn('addComment requires a non-empty `author`')
+		return
+	}
+	if (typeof props.text !== 'string' || props.text.length === 0) {
+		console.warn('addComment requires non-empty `text`')
+		return
+	}
+	if (!Array.isArray(target._comments)) target._comments = []
+	target._comments.push({
+		author: props.author,
+		text: props.text,
+		x: typeof props.x === 'number' ? props.x : undefined,
+		y: typeof props.y === 'number' ? props.y : undefined,
+		date: props.date,
+	})
 }
 
 /**

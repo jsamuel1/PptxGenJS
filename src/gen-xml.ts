@@ -92,7 +92,103 @@ export function flattenEmbeddedFontFaces (
 }
 
 /**
- * Navigation action-jump verb map: `HyperlinkProps.action` value → the `ppaction://hlinkshowjump?jump=<verb>` verb.
+ * Format a comment date as the OOXML `dt` value (ISO-8601, no fractional seconds).
+ * Accepts a `Date`, an ISO/parseable string, or `undefined` (→ now). Invalid strings fall back to now.
+ * @param {Date|string} date - comment timestamp (optional)
+ */
+function commentDateToIso (date?: Date | string): string {
+	let d: Date
+	if (date instanceof Date) d = date
+	else if (typeof date === 'string' && date.length > 0) {
+		const parsed = new Date(date)
+		d = isNaN(parsed.getTime()) ? new Date() : parsed
+	} else d = new Date()
+	return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
+}
+
+/**
+ * Build the deduped comment-author map across all slides. Authors are assigned ids in
+ * first-appearance order (slide order, then per-slide comment order); `lastIdx` is the
+ * total number of comments by that author (used as the `lastIdx` attribute on `<p:cmAuthor>`).
+ * Shared by `makeXmlCommentAuthors` (the author list) and `makeXmlComments` (per-comment `authorId`/`idx`).
+ * @param {PresSlide[]} slides - presentation slides
+ * @return {Map<string,{id:number,initials:string,count:number}>} author name → metadata
+ */
+export function collectCommentAuthors (slides: PresSlide[]): Map<string, { id: number, initials: string, count: number }> {
+	const authors = new Map<string, { id: number, initials: string, count: number }>()
+	let nextId = 0
+	;(slides || []).forEach(slide => {
+		(slide._comments || []).forEach(cm => {
+			let meta = authors.get(cm.author)
+			if (!meta) {
+				meta = { id: nextId++, initials: deriveInitials(cm.author), count: 0 }
+				authors.set(cm.author, meta)
+			}
+			meta.count++
+		})
+	})
+	return authors
+}
+
+/** Derive up-to-2-char initials from an author name (first letter of first two whitespace-split tokens). */
+function deriveInitials (name: string): string {
+	const tokens = name.trim().split(/\s+/).filter(Boolean)
+	if (tokens.length === 0) return '?'
+	if (tokens.length === 1) return tokens[0].charAt(0).toUpperCase()
+	return (tokens[0].charAt(0) + tokens[tokens.length - 1].charAt(0)).toUpperCase()
+}
+
+/**
+ * True when any slide carries review comments — gates all comment parts/rels/overrides (default-off).
+ * @param {PresSlide[]} slides - presentation slides
+ */
+export function hasAnyComments (slides: PresSlide[]): boolean {
+	return (slides || []).some(s => (s._comments || []).length > 0)
+}
+
+/**
+ * Generate the shared `ppt/commentAuthors.xml` part (`<p:cmAuthorLst>`). Only called when
+ * at least one slide has comments. Authors are emitted in id order from `collectCommentAuthors`.
+ * @param {PresSlide[]} slides - presentation slides
+ * @return {string} XML
+ */
+export function makeXmlCommentAuthors (slides: PresSlide[]): string {
+	const authors = collectCommentAuthors(slides)
+	// Emit in ascending id order (Map preserves insertion order == id order)
+	let body = ''
+	authors.forEach((meta, name) => {
+		body += `<p:cmAuthor id="${meta.id}" name="${encodeXmlEntities(name)}" initials="${encodeXmlEntities(meta.initials)}" lastIdx="${meta.count}" clrIdx="${meta.id}"/>`
+	})
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:cmAuthorLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">${body}</p:cmAuthorLst>`
+}
+
+/**
+ * Generate a single slide's `ppt/comments/comment{N}.xml` part (`<p:cmLst>`). Each `<p:cm>`
+ * carries the shared `authorId` plus a per-author 1-based `idx`, an ISO `dt`, an EMU `<p:pos>`
+ * (default anchor 0.5in,0.5in; negatives clamped to 0), and the comment `<p:text>`.
+ * @param {PresSlide} slide - the slide whose comments are emitted
+ * @param {PresSlide[]} slides - all slides (for the shared author map)
+ * @return {string} XML
+ */
+export function makeXmlComments (slide: PresSlide, slides: PresSlide[]): string {
+	const authors = collectCommentAuthors(slides)
+	const perAuthorIdx = new Map<string, number>()
+	let body = ''
+	;(slide._comments || []).forEach(cm => {
+		const meta = authors.get(cm.author)
+		const authorId = meta ? meta.id : 0
+		const idx = (perAuthorIdx.get(cm.author) || 0) + 1
+		perAuthorIdx.set(cm.author, idx)
+		const xIn = typeof cm.x === 'number' ? Math.max(0, cm.x) : 0.5
+		const yIn = typeof cm.y === 'number' ? Math.max(0, cm.y) : 0.5
+		const xEmu = inch2Emu(xIn)
+		const yEmu = inch2Emu(yIn)
+		body += `<p:cm authorId="${authorId}" dt="${commentDateToIso(cm.date)}" idx="${idx}"><p:pos x="${xEmu}" y="${yEmu}"/><p:text>${encodeXmlEntities(cm.text)}</p:text></p:cm>`
+	})
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:cmLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">${body}</p:cmLst>`
+}
+
+/**
  * Verbs are lowercase a–z (XML-attr-safe → no escaping needed). `'slide'` is omitted: it reuses the
  * existing slide-relationship path (`ppaction://hlinksldjump`), not a navigation jump.
  */
@@ -1729,7 +1825,15 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 		slide._relsChart.forEach(rel => {
 			strXml += `<Override PartName="${rel.Target}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`
 		})
+		// Comments (default-off): emit the per-slide comment-part override only when the slide has comments.
+		if ((slide._comments || []).length > 0) {
+			strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`
+		}
 	})
+	// Comments (default-off): a single shared commentAuthors override when ANY slide has comments.
+	if (slides.some(s => (s._comments || []).length > 0)) {
+		strXml += '<Override PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"/>'
+	}
 
 	// STEP 3: Core PPT
 	strXml += '<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>'
@@ -1874,6 +1978,13 @@ export function makeXmlPresentationRels (slides: PresSlide[], embeddedFonts?: Em
 		faces.forEach(face => {
 			strXml += `<Relationship Id="rId${baseRid + face.index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font${face.index + 1}.fntdata"/>`
 		})
+	}
+
+	// Comments (default-off): a single `commentAuthors` rel pointing at the shared part, numbered
+	// after the fixed rels (N+7) and any embedded-font rels.
+	if (slides.some(s => (s._comments || []).length > 0)) {
+		const commentAuthorsRid = embeddedFontBaseRid(slides.length) + faces.length
+		strXml += `<Relationship Id="rId${commentAuthorsRid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors" Target="commentAuthors.xml"/>`
 	}
 
 	strXml += '</Relationships>'
@@ -2545,7 +2656,7 @@ export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: Slide
  * @return {string} XML
  */
 export function makeXmlSlideRel (slides: PresSlide[], slideLayouts: SlideLayout[], slideNumber: number): string {
-	return slideObjectRelationsToXml(slides[slideNumber - 1], [
+	const defaultRels: Array<{ target: string, type: string }> = [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
 			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
@@ -2554,7 +2665,15 @@ export function makeXmlSlideRel (slides: PresSlide[], slideLayouts: SlideLayout[
 			target: `../notesSlides/notesSlide${slideNumber}.xml`,
 			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide',
 		},
-	])
+	]
+	// Comments (default-off): add a `comments` rel only when this slide has comments.
+	if ((slides[slideNumber - 1]._comments || []).length > 0) {
+		defaultRels.push({
+			target: `../comments/comment${slideNumber}.xml`,
+			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments',
+		})
+	}
+	return slideObjectRelationsToXml(slides[slideNumber - 1], defaultRels)
 }
 
 /**

@@ -44,6 +44,26 @@ slide.addNotes([
 ]);
 ```
 
+## Review Comments
+
+Add reviewer/QA comments to a Slide with `addComment()`. Authors are deduplicated
+into a shared author list, so multiple comments by the same person reuse one author
+entry. Comments are emitted in the classic `p:cm` form (widely supported).
+
+| Option   | Type            | Default | Description                                       |
+| :------- | :-------------- | :------ | :------------------------------------------------ |
+| `author` | `string`        |         | Author display name (required)                    |
+| `text`   | `string`        |         | Comment body text (required)                      |
+| `x`      | `number`        | `0.5`   | Anchor X position (inches)                        |
+| `y`      | `number`        | `0.5`   | Anchor Y position (inches)                        |
+| `date`   | `Date | string` | now     | Comment timestamp (`Date` or ISO-8601 string)     |
+
+```typescript
+let slide = pptx.addSlide();
+slide.addComment({ author: 'Reviewer', text: 'Confirm the Q3 number', x: 1, y: 1 });
+slide.addComment({ author: 'Reviewer', text: 'Add a source footnote' });
+```
+
 
 ```typescript
 import pptxgen from "pptxgenjs";

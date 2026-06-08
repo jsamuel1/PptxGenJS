@@ -8,6 +8,7 @@ import {
 	BackgroundProps,
 	CalloutProps,
 	CardProps,
+	CommentProps,
 	GroupProps,
 	HeaderFooterProps,
 	HexColor,
@@ -53,6 +54,7 @@ export default class Slide {
 	public _slideNumberProps: SlideNumberProps
 	public _headerFooter: HeaderFooterProps
 	public _slideObjects: ISlideObject[]
+	public _comments: CommentProps[]
 	public _newAutoPagedSlides: PresSlide[]
 
 	constructor(params: {
@@ -88,6 +90,8 @@ export default class Slide {
 		 * emitted by `slideObjectToXml` STEP-4b when set. Default `null` keeps slides byte-identical.
 		 */
 		this._headerFooter = null
+		/** NOTE: Review comments (default `[]`). Empty → no comment parts/rels/overrides → byte-identical. */
+		this._comments = []
 	}
 
 	/**
@@ -242,6 +246,18 @@ export default class Slide {
 	 */
 	addNotes(notes: string | NoteParagraph[]): Slide {
 		genObj.addNotesDefinition(this, notes)
+		return this
+	}
+
+	/**
+	 * Add a review comment to Slide.
+	 * Emits a `<p:cm>` into the slide's `ppt/comments/comment{N}.xml` part; the author is
+	 * resolved/deduped into the shared `ppt/commentAuthors.xml`. Default-off when never called.
+	 * @param {CommentProps} options - comment author, text, and optional anchor/date
+	 * @return {Slide} this Slide
+	 */
+	addComment(options: CommentProps): Slide {
+		genObj.addCommentDefinition(this, options)
 		return this
 	}
 

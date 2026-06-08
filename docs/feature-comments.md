@@ -1,6 +1,6 @@
 # Feature: Slide Comments (`p:cm`, `cmAuthorLst`)
 
-> **Status:** Proposed
+> **Status:** Implemented (legacy `p:cm` + `commentAuthors.xml` form). Modern threaded comments (`p188`/`pc`) remain a follow-up.
 > **Priority:** Medium — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §2 Slide-level objects — "Comments (modern)"
 

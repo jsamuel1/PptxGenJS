@@ -698,6 +698,55 @@ module.exports = [
 		}
 	},
 	{
+		name: 'slide comments (slide.addComment -> commentAuthors.xml + comments/commentN.xml)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s1 = p.addSlide()
+				s1.addComment({ author: 'Reviewer One', text: 'Confirm the Q3 number', x: 1, y: 2 })
+				s1.addComment({ author: 'Reviewer One', text: 'second by same author' })
+				p.addSlide() // no comments → no part
+				p.addSlide().addComment({ author: 'Second Reviewer', text: 'looks good' })
+			})
+			const entries = listEntries(zip)
+			// Parts: shared authors + per-slide comment parts (only for slides WITH comments)
+			assert(entries.includes('ppt/commentAuthors.xml'), 'comments: expected ppt/commentAuthors.xml')
+			assert(entries.includes('ppt/comments/comment1.xml'), 'comments: expected comment1.xml')
+			assert(!entries.includes('ppt/comments/comment2.xml'), 'comments: slide 2 (no comments) → no comment2.xml')
+			assert(entries.includes('ppt/comments/comment3.xml'), 'comments: expected comment3.xml')
+
+			// Author dedup + ids
+			const authorsXml = await readEntry(zip, 'ppt/commentAuthors.xml')
+			assert(authorsXml.includes('<p:cmAuthor id="0" name="Reviewer One" initials="RO" lastIdx="2" clrIdx="0"/>'), 'comments: Reviewer One id=0 lastIdx=2; got: ' + authorsXml)
+			assert(authorsXml.includes('<p:cmAuthor id="1" name="Second Reviewer" initials="SR" lastIdx="1" clrIdx="1"/>'), 'comments: Second Reviewer id=1 lastIdx=1; got: ' + authorsXml)
+
+			// Per-comment authorId/idx/pos/text
+			const cm1 = await readEntry(zip, 'ppt/comments/comment1.xml')
+			assert(cm1.includes('idx="1"><p:pos x="914400" y="1828800"/><p:text>Confirm the Q3 number</p:text>'), 'comments: first comment idx=1 pos/text; got: ' + cm1)
+			assert(/authorId="0"[^>]*idx="2">/.test(cm1), 'comments: second comment by same author idx=2')
+
+			// Rels
+			const slide1Rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assert(/relationships\/comments" Target="\.\.\/comments\/comment1\.xml"/.test(slide1Rels), 'comments: slide1→comments rel')
+			const presRels = await readEntry(zip, 'ppt/_rels/presentation.xml.rels')
+			assert(/relationships\/commentAuthors" Target="commentAuthors\.xml"/.test(presRels), 'comments: presentation→commentAuthors rel')
+
+			// Content_Types overrides
+			const ctXml = await readEntry(zip, '[Content_Types].xml')
+			assert(ctXml.includes('PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"'), 'comments: commentAuthors override')
+			assert(ctXml.includes('PartName="/ppt/comments/comment1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"'), 'comments: comment1 override')
+
+			// Default-off invariant: a deck with NO comments must emit nothing comment-related
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const e2 = listEntries(zip2)
+			assert(!e2.includes('ppt/commentAuthors.xml'), 'comments: default deck must NOT emit commentAuthors.xml')
+			assert(!e2.some(e => e.startsWith('ppt/comments/')), 'comments: default deck must NOT emit comment parts')
+
+			await expectNoSchemaErrors(buf, 'comments')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

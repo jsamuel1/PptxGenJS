@@ -2536,6 +2536,23 @@ declare namespace PptxGenJS {
 		/** Bold-italic face — path or data. */
 		boldItalic?: string
 	}
+	/**
+	 * A single slide review comment, authored via `slide.addComment({...})`.
+	 * Emitted as `<p:cm>` in the slide's `ppt/comments/comment{N}.xml`, with the author
+	 * deduped into the shared `ppt/commentAuthors.xml`.
+	 */
+	export interface CommentProps {
+		/** Author display name (resolved/created in the shared comment-authors list). Required. */
+		author: string
+		/** Comment body text. Required. */
+		text: string
+		/** Anchor X position in inches. @default 0.5 */
+		x?: number
+		/** Anchor Y position in inches. @default 0.5 */
+		y?: number
+		/** Comment timestamp. A `Date` or ISO-8601 string. @default now */
+		date?: Date | string
+	}
 	export interface PresLayout {
 		//_sizeW?: number
 		//_sizeH?: number
@@ -2598,6 +2615,7 @@ declare namespace PptxGenJS {
 		addImage: Function
 		addMedia: Function
 		addNotes: Function
+		addComment: (options: PptxGenJS.CommentProps) => PptxGenJS.PresSlide
 		addShape: Function
 		addTable: Function
 		addText: Function

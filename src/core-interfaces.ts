@@ -2250,6 +2250,12 @@ export interface SlideBaseProps {
 	_slideNumberProps?: SlideNumberProps
 	_headerFooter?: HeaderFooterProps
 	_slideObjects?: ISlideObject[]
+	/**
+	 * Review comments authored via `slide.addComment(...)`, emitted as a per-slide
+	 * `ppt/comments/comment{N}.xml` (`<p:cmLst>`) + a shared `ppt/commentAuthors.xml`.
+	 * Default-off: when unset/empty, no comment parts, rels, or Content_Types overrides are emitted.
+	 */
+	_comments?: CommentProps[]
 
 	background?: BackgroundProps
 	/**
@@ -2352,6 +2358,7 @@ export interface PresSlide extends SlideBaseProps {
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
 	addNotes: (notes: string | NoteParagraph[]) => PresSlide
+	addComment: (options: CommentProps) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | TextProps[], options?: TextPropsOptions) => PresSlide
@@ -2490,6 +2497,23 @@ export interface NoteParagraph {
 	bullet?: boolean
 	/** 0-based indent level, mapped to the OOXML `lvl` attribute (lvl 0 omits the attribute). @default 0 */
 	indentLevel?: number
+}
+/**
+ * A single slide review comment, authored via `slide.addComment({...})`.
+ * Emitted as a `<p:cm>` inside the slide's `ppt/comments/comment{N}.xml` part, with the
+ * author resolved/deduped into the shared `ppt/commentAuthors.xml`.
+ */
+export interface CommentProps {
+	/** Author display name (resolved/created in the shared comment-authors list). Required. */
+	author: string
+	/** Comment body text. Required. */
+	text: string
+	/** Anchor X position in inches. @default 0.5 (PowerPoint hides a 0,0 marker) */
+	x?: number
+	/** Anchor Y position in inches. @default 0.5 */
+	y?: number
+	/** Comment timestamp. A `Date` or ISO-8601 string. @default now */
+	date?: Date | string
 }
 export interface CustomShowProps {
 	/** Display name of the custom show. */

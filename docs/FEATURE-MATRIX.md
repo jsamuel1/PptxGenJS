@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, SmartArt, motion animations, handout master, ink |
+| ❌ Missing | SmartArt, motion animations, handout master, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -88,7 +88,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Charts | `c:chart` in `a:graphicFrame` | ✅ Done | all major types + combo |
 | Speaker notes (storage) | `p:notes` notesSlide | ✅ Done | `addNotes()` writes notes slide |
 | **Talking-points notes export** | structured notes / per-build notes | ✅ Done | `slide.addNotes(NoteParagraph[])` — multi-paragraph bulleted/indented notes |
-| Comments (modern) | `p:cm`, `cmAuthorLst` | ❌ Missing | threaded review comments |
+| Comments (modern) | `p:cm`, `cmAuthorLst` | ✅ Done | `slide.addComment()` → legacy `p:cm` + shared `commentAuthors.xml` (deduped authors); modern `p188`/`pc` threaded comments are a follow-up |
 | SmartArt / diagrams | `dgm:*`, `dsp:*` | ❌ Missing | in scope (roadmap) |
 | OLE objects | `p:oleObj` + `/ppt/embeddings/*.bin` | 🚫 Out of scope (authoring) | **Why:** embedding Excel/Word means writing binary OLE compound-document parts and managing their fallback images + relationships. Niche for code-generated decks and high effort; no clean dependency-free path. *(Must still be preserved on slide copy.)* |
 | VBA / macros | `.pptm` content-type + `/ppt/vbaProject.bin` | 🚫 Out of scope (authoring) | **Why:** requires emitting a binary `vbaProject.bin` (CFB) and switching the package to the macro-enabled content type. Carries security baggage (macro-enabled output) with little value for programmatic generation. *(Preserve on copy.)* |
@@ -154,7 +154,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — comments, SmartArt, handout master, hover links, **ink** (niche but tractable).
+5. **Then everything else** — SmartArt, handout master, hover links, **ink** (niche but tractable).
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package
