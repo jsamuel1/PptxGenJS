@@ -29,6 +29,7 @@ capabilities into the library as first-class, schema-validated APIs.
 | **Animation build steps** | `trigger: 'afterPrevious' \| 'withPrevious' \| 'onClick'` | ✅ Done |
 | **Counter (odometer) sugar** | `counter: { from, to, suffix?, stepMs? }` on `addText()` | ✅ Done |
 | **Header/footer (master config)** | `defineSlideMaster({ headerFooter: { slideNumber?, dateTime?, footer? } })` | ✅ Done (master/layout `<p:hf>` + footer/date placeholders) |
+| **Header/footer (per-slide)** | `slide.headerFooter = { footer?, dateTime? }` | ✅ Done (per-slide ftr/dt placeholders; footer + date only) |
 | **Gradient fills** | `fill: { type: 'gradient', stops[], direction? }` | ✅ Done |
 
 ### Bug Fixes (not yet in upstream)
@@ -186,6 +187,23 @@ pptx.defineSlideMaster({
 pptx.addSlide({ masterName: 'CORPORATE' })
 // NOTE: per-slide show/hide and notes/handout headers are not yet supported
 // (`<p:hf>` is not valid on a slide — that's a separate placeholder mechanism).
+```
+
+### Header / footer (per-slide override)
+
+Give an individual slide its own footer/date placeholders (independent of any
+master config). `<p:hf>` is not valid on a slide, so this is purely
+placeholder-presence — scoped to **footer + date** only (use `slide.slideNumber`
+for the slide-number placeholder):
+
+```ts
+const slide = pptx.addSlide()
+slide.headerFooter = {
+  footer: 'Confidential — Slide 1',   // <p:ph type="ftr"> + footer text
+  dateTime: { value: 'Q1 2026' },     // <p:ph type="dt"> + literal date text
+  // dateTime: { format: 'datetime1' }, // ...or an auto-updating date field
+}
+// A slide that never sets `headerFooter` emits no footer/date placeholders (default-off).
 ```
 
 ### Gradient fill

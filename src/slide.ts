@@ -9,6 +9,7 @@ import {
 	CalloutProps,
 	CardProps,
 	GroupProps,
+	HeaderFooterProps,
 	HexColor,
 	IChartMulti,
 	IChartOpts,
@@ -49,6 +50,7 @@ export default class Slide {
 	public _slideLayout: SlideLayout
 	public _slideNum: number
 	public _slideNumberProps: SlideNumberProps
+	public _headerFooter: HeaderFooterProps
 	public _slideObjects: ISlideObject[]
 	public _newAutoPagedSlides: PresSlide[]
 
@@ -80,6 +82,11 @@ export default class Slide {
 		 * so, lastly, add to the Slide now.
 		 */
 		this._slideNumberProps = this._slideLayout?._slideNumberProps ? this._slideLayout._slideNumberProps : null
+		/** NOTE: Per-slide header/footer override. `<p:hf>` is invalid on `CT_Slide`, so a per-slide
+		 * override is purely placeholder-presence (footer/date `<p:sp>`) in the slide's own `<p:spTree>`,
+		 * emitted by `slideObjectToXml` STEP-4b when set. Default `null` keeps slides byte-identical.
+		 */
+		this._headerFooter = null
 	}
 
 	/**
@@ -169,6 +176,21 @@ export default class Slide {
 
 	public get slideNumber(): SlideNumberProps {
 		return this._slideNumberProps
+	}
+
+	/**
+	 * Per-slide header/footer override (footer text + date/time placeholders).
+	 * NOTE: `<p:hf>` is not valid on `CT_Slide`, so the `slideNumber` toggle is a no-op here
+	 * (use `slideNumber` for the slide-number placeholder); per-slide scope is footer + dateTime only.
+	 * @type {HeaderFooterProps}
+	 * @example slide.headerFooter = { footer: 'Confidential', dateTime: { value: 'Q1 2026' } }
+	 */
+	public set headerFooter(value: HeaderFooterProps) {
+		this._headerFooter = value
+	}
+
+	public get headerFooter(): HeaderFooterProps {
+		return this._headerFooter
 	}
 
 	public get newAutoPagedSlides(): PresSlide[] {

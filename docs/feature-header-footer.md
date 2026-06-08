@@ -1,14 +1,19 @@
 # Feature: First-Class Header / Footer Configuration (`p:hf`)
 
-> **Status:** Partially Implemented — master/layout config done (slice 1.5); per-slide show/hide + notes/handout headers remain (slice 1.6)
+> **Status:** Partially Implemented — master/layout config (slice 1.5) + per-slide override (slice 1.6) done; notes-master headers remain (slice 1.7), handout-master out-of-scope (no handout-master writer)
 > **Priority:** Medium — Phase 1 (matrix `⚠️ Partial`/`❌` → `✅`)
-> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (❌ Missing), "Notes/handout headers" (❌ Missing)
+> **Matrix rows:** §6 — "Footer text placeholder" (✅ Done), "Per-slide hf show/hide" (✅ Done), "Notes/handout headers" (❌ Missing → notes slice 1.7; handout out-of-scope)
 >
 > **Implemented:** `HeaderFooterProps` (`src/core-interfaces.ts`) + `headerFooter`
 > on `SlideMasterProps`; `createSlideMaster` STEP-4 stash (`src/gen-objects.ts`);
 > derived `<p:hf>` in `makeXmlLayout` + footer/date placeholders in
-> `slideObjectToXml` STEP-4b (`src/gen-xml.ts`). Tested by the `header-footer`
-> schema fixture (`test/schema.test.js`). The master's hardcoded
+> `slideObjectToXml` STEP-4b (`src/gen-xml.ts`). Per-slide override (slice 1.6):
+> a public `headerFooter` accessor + `_headerFooter` field on the `Slide` class
+> (`src/slide.ts`, mirroring the `slideNumber` accessor) feeds the already-wired
+> STEP-4b per-slide ftr/dt placeholders; `<p:hf>` is invalid on `CT_Slide` so the
+> per-slide `slideNumber` flag is a no-op (use `slide.slideNumber`) and the scope
+> is footer + date only. Tested by the `header-footer` + `header-footer-per-slide`
+> schema fixtures (`test/schema.test.js`). The master's hardcoded
 > `<p:hf sldNum="0" .../>` is intentionally left untouched.
 
 ## Problem

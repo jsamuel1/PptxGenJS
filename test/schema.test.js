@@ -304,6 +304,29 @@ module.exports = [
 		}
 	},
 	{
+		name: 'per-slide header/footer (slide.headerFooter ftr/dt placeholders)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s1 = p.addSlide()
+				s1.headerFooter = { footer: 'Confidential — Slide 1', dateTime: { value: 'Q1 2026' } }
+				// A second slide with NO headerFooter set → proves the default-off invariant
+				p.addSlide()
+			})
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Regression-catch: slide1 must carry its own footer placeholder + literal text
+			assert(/<p:ph type="ftr" sz="quarter" idx="4"\/>/.test(slide1), 'per-slide hf: expected footer placeholder <p:ph type="ftr"> in slide1')
+			assert(/<a:t>Confidential — Slide 1<\/a:t>/.test(slide1), 'per-slide hf: expected footer literal text "Confidential — Slide 1" in slide1')
+			// Date placeholder with literal (static) value
+			assert(/<p:ph type="dt" idx="1"\/>/.test(slide1), 'per-slide hf: expected date placeholder <p:ph type="dt"> in slide1')
+			assert(/<a:t>Q1 2026<\/a:t>/.test(slide1), 'per-slide hf: expected date literal text "Q1 2026" in slide1')
+			// Default-off invariant: the no-config slide2 must carry NO footer placeholder
+			const slide2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert(!/<p:ph type="ftr"/.test(slide2), 'per-slide hf: slide2 (no config) must NOT emit a footer placeholder')
+			assert(!/<p:ph type="dt"/.test(slide2), 'per-slide hf: slide2 (no config) must NOT emit a date placeholder')
+			await expectNoSchemaErrors(buf, 'header-footer-per-slide')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

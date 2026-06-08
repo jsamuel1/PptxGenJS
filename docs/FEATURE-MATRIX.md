@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, per-slide/notes/handout header-footer controls, custom shows, photo album, handout master, kinsoku, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, notes/handout header-footer controls, custom shows, photo album, handout master, kinsoku, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -141,7 +141,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Slide number placeholder | `a:fld type="slidenum"` | ✅ Done | |
 | Date/time placeholder | `a:fld type="datetime"` | ✅ Done | |
 | Footer text placeholder | `p:hf` + `ph type="ftr"` | ✅ Done | `defineSlideMaster({ headerFooter })` → derived layout `<p:hf>` + footer/date placeholders |
-| Per-slide hf show/hide | `p:hf` attributes | ❌ Missing | toggle date/footer/slidenum per slide/master |
+| Per-slide hf show/hide | `p:hf` attributes | ✅ Done | `slide.headerFooter = { footer, dateTime }` → per-slide ftr/dt placeholders (footer+date only; `<p:hf>` invalid on `CT_Slide` so slidenum toggle is a no-op — use `slide.slideNumber`) |
 | Notes/handout headers | notes `p:hf` | ❌ Missing | |
 
 ---
