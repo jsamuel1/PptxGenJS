@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, Shape3DProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -217,6 +217,44 @@ export function createReflectionElement (options: ReflectionProps): string {
 export function createSoftEdgeElement (options: SoftEdgeProps): string {
 	const rad = Math.round(options.radius * EMU) // inches → EMU
 	return `<a:softEdge rad="${rad}"/>`
+}
+
+/**
+ * Create a 3-D bevel/extrusion element pair (`<a:scene3d>` + `<a:sp3d>`)
+ * - emitted as siblings of `<a:effectLst>` inside `<p:spPr>`
+ * - canonical CT_ShapeProperties order requires `scene3d` BEFORE `sp3d`
+ * - `<a:sp3d>` requires a `<a:scene3d>` to render; a default camera/light rig is always emitted
+ * @param {Shape3DProps} options 3-D bevel properties
+ * @see http://officeopenxml.com/drwSp-3D.php
+ */
+export function createShape3DElement (options: Shape3DProps): string {
+	const BEVEL_DEF = 76200 // CT_Bevel default w/h (EMU) == 0.083in
+	const bevelXml = (b: { preset?: string, width?: number, height?: number }, tag: string): string => {
+		const w = b.width != null ? Math.round(b.width * EMU) : BEVEL_DEF
+		const h = b.height != null ? Math.round(b.height * EMU) : BEVEL_DEF
+		const prst = b.preset || 'circle'
+		return `<a:${tag} w="${w}" h="${h}" prst="${prst}"/>`
+	}
+
+	// scene3d: fixed default camera/light rig (camera/lightRig override is out of scope)
+	const scene3d = '<a:scene3d><a:camera prst="orthographicFront"/><a:lightRig rig="threePt" dir="t"/></a:scene3d>'
+
+	// sp3d attrs (only emit set values)
+	let sp3dAttrs = ''
+	if (options.depth?.amount != null) sp3dAttrs += ` extrusionH="${Math.round(options.depth.amount * EMU)}"`
+	if (options.contour?.width != null) sp3dAttrs += ` contourW="${Math.round(options.contour.width * EMU)}"`
+	if (options.material) sp3dAttrs += ` prstMaterial="${options.material}"`
+
+	// sp3d children — canonical CT_Shape3D order: bevelT, bevelB, extrusionClr, contourClr
+	let sp3dChildren = ''
+	if (options.top) sp3dChildren += bevelXml(options.top, 'bevelT')
+	if (options.bottom) sp3dChildren += bevelXml(options.bottom, 'bevelB')
+	if (options.depth?.color) sp3dChildren += `<a:extrusionClr><a:srgbClr val="${options.depth.color}"/></a:extrusionClr>`
+	if (options.contour?.color) sp3dChildren += `<a:contourClr><a:srgbClr val="${options.contour.color}"/></a:contourClr>`
+
+	const sp3d = sp3dChildren ? `<a:sp3d${sp3dAttrs}>${sp3dChildren}</a:sp3d>` : `<a:sp3d${sp3dAttrs}/>`
+
+	return scene3d + sp3d
 }
 
 /**

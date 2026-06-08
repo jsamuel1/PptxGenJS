@@ -109,7 +109,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Glow | `a:glow` | ✅ Done | `glow` option |
 | Reflection | `a:reflection` | ✅ Done | `reflection` option |
 | Soft edge | `a:softEdge` | ✅ Done | `softEdge` option |
-| 3-D (bevel/extrusion) | `a:sp3d`, `a:scene3d` | ❌ Missing | bevel enum exists for charts only |
+| 3-D (bevel/extrusion) | `a:sp3d`, `a:scene3d` | ✅ Done | `bevel` option (top/bottom bevel, depth/extrusion, contour, material; shapes only) |
 
 ## 4. Hyperlinks & actions
 
@@ -151,7 +151,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 The work order (driven from this matrix) lives in [`PROMPT.md` → Implementation Roadmap](../PROMPT.md#implementation-roadmap). Summary:
 
 1. **Finish partials first** — pattern/picture shape fills, then **emphasis + exit** animations (the timing engine already emits real build steps, so these reuse existing infrastructure).
-2. **Further shape work** — 3-D; picture-fill polish.
+2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — motion paths, emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
 5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, kinsoku, hover links, **ink** (niche but tractable).

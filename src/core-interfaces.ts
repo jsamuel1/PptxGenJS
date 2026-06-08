@@ -3,7 +3,7 @@
  * PptxGenJS Interfaces
  */
 
-import { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums'
+import { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE, BevelPresetType, PresetMaterialType } from './core-enums'
 
 // Core Types
 // ==========
@@ -278,6 +278,41 @@ export interface SoftEdgeProps {
 	 * @since v4.2.0
 	 */
 	radius: number
+}
+export interface BevelProps {
+	/**
+	 * Bevel preset shape (`<a:bevelT>`/`<a:bevelB>` `@prst`)
+	 * @default 'circle'
+	 */
+	preset?: BevelPresetType
+	/**
+	 * Bevel width — value is in **inches** (emitted as `w="width * 914400"`)
+	 * @default 0.083 // (76200 EMU, the CT_Bevel default)
+	 */
+	width?: number
+	/**
+	 * Bevel height — value is in **inches** (emitted as `h="height * 914400"`)
+	 * @default 0.083 // (76200 EMU, the CT_Bevel default)
+	 */
+	height?: number
+}
+export interface Shape3DProps {
+	/** Top bevel (`<a:bevelT>`) */
+	top?: BevelProps
+	/** Bottom bevel (`<a:bevelB>`) */
+	bottom?: BevelProps
+	/**
+	 * Extrusion (depth) — `amount` is in **inches** (emitted as `extrusionH`),
+	 * `color` emits an `<a:extrusionClr>` child.
+	 */
+	depth?: { color?: HexColor, amount?: number }
+	/**
+	 * Contour — `width` is in **inches** (emitted as `contourW`),
+	 * `color` emits an `<a:contourClr>` child.
+	 */
+	contour?: { color?: HexColor, width?: number }
+	/** Surface material (`<a:sp3d>` `@prstMaterial`) */
+	material?: PresetMaterialType
 }
 // used by: shape, table, text
 export interface ShapeFillProps {
@@ -924,6 +959,14 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @since v4.2.0
 	 */
 	softEdge?: SoftEdgeProps
+
+	/**
+	 * 3-D bevel / extrusion options.
+	 * Emits `<a:scene3d>` + `<a:sp3d>` inside the shape's `<p:spPr>`.
+	 * @example { top: { preset: 'circle', width: 0.06, height: 0.06 }, depth: { color: '5B21B6', amount: 0.08 }, material: 'plastic' }
+	 * @since v4.2.0
+	 */
+	bevel?: Shape3DProps
 
 	/**
 	 * @deprecated v3.3.0

@@ -1,8 +1,25 @@
 # Feature: 3-D Bevel / Extrusion on Shapes (`a:sp3d`, `a:scene3d`)
 
-> **Status:** Proposed
+> **Status:** Implemented (slice 2.3)
 > **Priority:** Low/Medium — Phase 2 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §3 Fills/effects — "3-D (bevel/extrusion)"
+>
+> **Implemented:** `bevel?: Shape3DProps` on `ShapeProps` (`src/core-interfaces.ts`);
+> `BevelPresetType`/`PresetMaterialType` enums (`src/core-enums.ts`);
+> `createShape3DElement` (`src/gen-utils.ts`); shape-path emit in `src/gen-xml.ts`
+> (after the `<a:effectLst>` block, before `</p:spPr>`). Tested by the `shape-3d`
+> fixture in `test/schema.test.js`.
+>
+> **Spec corrections (the schema, not the example below, is authoritative):**
+> 1. **`<a:scene3d>` MUST precede `<a:sp3d>`** — canonical `CT_ShapeProperties`
+>    order is `…effectLst, scene3d, sp3d, extLst`. The "What it generates" block
+>    below shows them reversed (sp3d first); the implementation emits scene3d first.
+> 2. **`extrusionClr`/`contourClr` are CHILD elements, not `<a:sp3d>` attributes.**
+>    `CT_Shape3D` attributes are only `z, extrusionH, contourW, prstMaterial`;
+>    extrusion/contour colors are `CT_Color` children
+>    (`<a:extrusionClr><a:srgbClr val="…"/></a:extrusionClr>`).
+> 3. There is no chart bevel preset enum to "generalize" — the new
+>    `BevelPresetType`/`PresetMaterialType` enums are added fresh.
 
 ## Problem
 

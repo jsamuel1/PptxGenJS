@@ -106,6 +106,47 @@ export enum TEXT_VALIGN {
 	'ctr' = 'ctr',
 	't' = 't',
 }
+/**
+ * Shape 3-D bevel preset (`<a:bevelT>`/`<a:bevelB>` `@prst`)
+ * @see ECMA-376 ST_BevelPresetType
+ * @since v4.2.0
+ */
+export enum BevelPresetType {
+	'relaxedInset' = 'relaxedInset',
+	'circle' = 'circle',
+	'slope' = 'slope',
+	'cross' = 'cross',
+	'angle' = 'angle',
+	'softRound' = 'softRound',
+	'convex' = 'convex',
+	'coolSlant' = 'coolSlant',
+	'divot' = 'divot',
+	'riblet' = 'riblet',
+	'hardEdge' = 'hardEdge',
+	'artDeco' = 'artDeco',
+}
+/**
+ * Shape 3-D surface material (`<a:sp3d>` `@prstMaterial`)
+ * @see ECMA-376 ST_PresetMaterialType
+ * @since v4.2.0
+ */
+export enum PresetMaterialType {
+	'legacyMatte' = 'legacyMatte',
+	'legacyPlastic' = 'legacyPlastic',
+	'legacyMetal' = 'legacyMetal',
+	'legacyWireframe' = 'legacyWireframe',
+	'matte' = 'matte',
+	'plastic' = 'plastic',
+	'metal' = 'metal',
+	'warmMatte' = 'warmMatte',
+	'translucentPowder' = 'translucentPowder',
+	'powder' = 'powder',
+	'dkEdge' = 'dkEdge',
+	'softEdge' = 'softEdge',
+	'clear' = 'clear',
+	'flat' = 'flat',
+	'softmetal' = 'softmetal',
+}
 
 export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 

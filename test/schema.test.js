@@ -169,6 +169,58 @@ module.exports = [
 		}
 	},
 	{
+		name: 'shape with 3-D bevel/extrusion (a:scene3d/a:sp3d) — full bevel exact-attr + scene3d-before-sp3d order + default-off + empty-bevel omit',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				// slide1: full bevel (top+bottom+depth+contour+material)
+				const s1 = p.addSlide()
+				s1.addShape(p.shapes.RECTANGLE, {
+					x: 1, y: 1, w: 3, h: 2, fill: { color: '7C3AED' },
+					bevel: {
+						top: { preset: 'circle', width: 0.06, height: 0.06 },
+						bottom: { preset: 'circle', width: 0.06, height: 0.06 },
+						depth: { color: '5B21B6', amount: 0.08 },
+						contour: { color: '000000', width: 0.01 },
+						material: 'plastic'
+					}
+				})
+				// slide2: no bevel (default-off proof)
+				p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
+				// slide3: empty bevel object (has-any-subfield gate omit proof)
+				p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: '00FF00' }, bevel: {} })
+			})
+
+			// slide1: exact 3-D emission (regression-catch on inches→EMU: 0.06×914400=54864, 0.08×914400=73152, 0.01×914400=9144)
+			const s1xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:bevelT w="54864" h="54864" prst="circle"\/>/.test(s1xml), '3-D: expected <a:bevelT w="54864" h="54864" prst="circle"/>')
+			assert(/<a:bevelB w="54864" h="54864" prst="circle"\/>/.test(s1xml), '3-D: expected <a:bevelB w="54864" h="54864" prst="circle"/>')
+			assert(/extrusionH="73152"/.test(s1xml), '3-D: expected extrusionH="73152"')
+			assert(/contourW="9144"/.test(s1xml), '3-D: expected contourW="9144"')
+			assert(/prstMaterial="plastic"/.test(s1xml), '3-D: expected prstMaterial="plastic"')
+			assert(/<a:extrusionClr><a:srgbClr val="5B21B6"\/><\/a:extrusionClr>/.test(s1xml), '3-D: expected <a:extrusionClr> child with srgbClr 5B21B6')
+			assert(/<a:contourClr><a:srgbClr val="000000"\/><\/a:contourClr>/.test(s1xml), '3-D: expected <a:contourClr> child with srgbClr 000000')
+			// canonical CT_ShapeProperties order: scene3d BEFORE sp3d (the order regression-catch)
+			const idxScene3d = s1xml.indexOf('<a:scene3d>')
+			const idxSp3d = s1xml.indexOf('<a:sp3d')
+			assert(idxScene3d >= 0 && idxSp3d >= 0, '3-D: expected both <a:scene3d> and <a:sp3d>')
+			assert(idxScene3d < idxSp3d, '3-D: expected canonical order <a:scene3d> BEFORE <a:sp3d>')
+			// default scene rig
+			assert(/<a:camera prst="orthographicFront"\/>/.test(s1xml), '3-D: expected default <a:camera prst="orthographicFront"/>')
+
+			// slide2: no bevel → no scene3d/sp3d (default-off)
+			const s2xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert(!/<a:sp3d\b/.test(s2xml), 'default-off: plain shape must NOT emit <a:sp3d>')
+			assert(!/<a:scene3d>/.test(s2xml), 'default-off: plain shape must NOT emit <a:scene3d>')
+
+			// slide3: empty bevel object → omit everything (has-any-subfield gate)
+			const s3xml = await readEntry(zip, 'ppt/slides/slide3.xml')
+			assert(!/<a:sp3d\b/.test(s3xml), 'empty-bevel: bevel:{} must NOT emit <a:sp3d>')
+			assert(!/<a:scene3d>/.test(s3xml), 'empty-bevel: bevel:{} must NOT emit <a:scene3d>')
+
+			await expectNoSchemaErrors(buf, 'shape-3d')
+		}
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build(p => {

@@ -40,6 +40,7 @@ import {
 	createGlowElement,
 	createReflectionElement,
 	createSoftEdgeElement,
+	createShape3DElement,
 	encodeXmlEntities,
 	genXmlColorSelection,
 	getSmartParseNumber,
@@ -607,6 +608,15 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 						}
 
 						strSlideXml += '</a:effectLst>'
+					}
+				}
+
+				// 3-D BEVEL / EXTRUSION (a:scene3d + a:sp3d): siblings of effectLst inside <p:spPr>.
+				// Canonical CT_ShapeProperties order: ...effectLst, scene3d, sp3d, extLst → emit AFTER effectLst.
+				{
+					const bevel = slideItemObj.options.bevel
+					if (bevel && (bevel.top || bevel.bottom || bevel.depth || bevel.contour || bevel.material)) {
+						strSlideXml += createShape3DElement(bevel)
 					}
 				}
 
