@@ -11,7 +11,38 @@
 > `✅ Done` — implemented & schema-validated ·
 > `⚠️ Partial` — implemented with known limits ·
 > `❌ Missing` — format supports it, library does not ·
-> `🚫 Out of scope` — intentionally not planned
+> `🚫 Out of scope (authoring)` — not planned as a *programmatic authoring* API
+> (see the scope note below); this does **not** mean such content may be dropped
+> when copying existing slides.
+
+---
+
+## Scope note: authoring vs. copy fidelity
+
+This matrix describes what the library can **author** — i.e. build from a
+JavaScript API call. It is a separate question from **copy/round-trip
+fidelity** when duplicating or importing an existing slide.
+
+**Principle:** features marked `❌ Missing` or `🚫 Out of scope (authoring)`
+are about *creating* that content from scratch. If/when slide-copy or
+slide-import is implemented, it **must preserve every part, relationship, and
+XML element of the source slide verbatim** — including features this library
+cannot author (ink, OLE objects, ActiveX controls, embedded fonts, SmartArt,
+etc.). Copy fidelity is a hard requirement, not a function of authoring
+support: an unsupported feature is a reason not to expose a *builder* for it,
+never a license to silently strip it from a faithful copy.
+
+Concretely, a high-fidelity copy path should:
+
+- carry over **all package parts** referenced by the slide (embeddings,
+  `ink*.xml`, `oleObject*.bin`, `vbaProject.bin`, font parts, diagram parts)
+  and their `_rels`, rewriting relationship IDs rather than discarding targets;
+- preserve **unknown/foreign XML elements** in the slide tree (e.g. `extLst`
+  extensions, `mc:AlternateContent`) untouched;
+- keep `[Content_Types].xml` overrides for any copied part.
+
+The `🚫 Out of scope (authoring)` label below therefore means "no builder API,"
+**not** "safe to lose on copy."
 
 ---
 
@@ -21,8 +52,8 @@
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, pattern/picture fills, emphasis/exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku |
-| 🚫 Out of scope | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, pattern/picture fills, emphasis/exit/motion animations, header/footer controls, custom shows, photo album, handout master, kinsoku, ink |
+| 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
 
@@ -41,7 +72,7 @@
 | Photo album | `p:photoAlbum` | ❌ Missing | |
 | Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ❌ Missing | needed for portable decks; README markets "Asian fonts" but no embedding exists |
 | Kinsoku (E-Asian breaks) | `p:kinsoku` | ❌ Missing | |
-| Modify verifier (password) | `p:modifyVerifier` | 🚫 Out of scope | |
+| Password / encryption | `p:modifyVerifier` + package encryption | 🚫 Out of scope (authoring) | **Why:** real protection = encrypting the whole OOXML package into an OLE2/CFB container with ECMA-376 Part 2 *agile encryption* (AES + SHA-512 KDF) — a different output format than the ZIP JSZip emits, requiring heavy crypto deps (breaks the zero-dependency goal). `p:modifyVerifier` alone is only a legacy *modify*-protection hash (no content encryption) and gives a false sense of security, so we won't ship it in isolation. |
 
 ## 2. Slide-level objects
 
@@ -59,9 +90,10 @@
 | **Talking-points notes export** | structured notes / per-build notes | ❌ Missing | richer notes authoring (see PROMPT roadmap) |
 | Comments (modern) | `p:cm`, `cmAuthorLst` | ❌ Missing | threaded review comments |
 | SmartArt / diagrams | `dgm:*`, `dsp:*` | ❌ Missing | in scope (roadmap) |
-| OLE objects | `p:oleObj` | 🚫 Out of scope | embedded Excel/Word |
-| ActiveX controls | `p:control` | 🚫 Out of scope | |
-| Ink | `p:contentPart` (inkml) | 🚫 Out of scope | |
+| OLE objects | `p:oleObj` + `/ppt/embeddings/*.bin` | 🚫 Out of scope (authoring) | **Why:** embedding Excel/Word means writing binary OLE compound-document parts and managing their fallback images + relationships. Niche for code-generated decks and high effort; no clean dependency-free path. *(Must still be preserved on slide copy.)* |
+| VBA / macros | `.pptm` content-type + `/ppt/vbaProject.bin` | 🚫 Out of scope (authoring) | **Why:** requires emitting a binary `vbaProject.bin` (CFB) and switching the package to the macro-enabled content type. Carries security baggage (macro-enabled output) with little value for programmatic generation. *(Preserve on copy.)* |
+| ActiveX controls | `p:control` + `/ppt/activeX/*.bin` | 🚫 Out of scope (authoring) | **Why:** needs binary ActiveX control persistence + COM-class metadata; Windows/PowerPoint-specific, security-sensitive, and effectively un-authorable in a portable JS library. *(Preserve on copy.)* |
+| Ink | `p:contentPart` + InkML (`/ppt/ink/ink*.xml`) | ❌ Missing (niche) | Reclassified from out-of-scope: technically tractable (InkML is plain XML referenced via a relationship — fits the existing add-part + emit-XML pattern, no new deps). Low priority only because stylus stroke data is rarely *authored* from code. |
 
 ## 3. Fills, lines & effects (DrawingML)
 
@@ -122,6 +154,10 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — reflection, soft edge, 3-D; picture-fill polish.
 3. **Timing depth** — motion paths, emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, kinsoku, hover links.
+5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, kinsoku, hover links, **ink** (niche but tractable).
 
-**Out of scope:** OLE objects, VBA/macros, ActiveX controls, password protection, ink.
+**Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
+password/encryption — each requires binary part formats and/or whole-package
+encryption that don't fit a portable, zero-dependency JS builder (see §1–§2 for
+per-item rationale). **These remain in scope for copy fidelity:** a faithful
+slide-copy/import path must preserve them verbatim (see the *Scope note* above).
