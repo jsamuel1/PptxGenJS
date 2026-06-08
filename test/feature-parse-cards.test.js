@@ -137,4 +137,53 @@ module.exports = [
 			assert(xml.indexOf('<a:cubicBezTo>') !== -1, 'expected converted cubic geometry (circle/arc → cubics)')
 		},
 	},
+	{
+		name: 'parseCards CSS cascade: <style> class rule supplies fill + border (no inline colour)',
+		fn: async () => {
+			const c = parseCards('<style>.card{background:#1a1a24;border:1px solid #2A2438}</style><div class="grid"><div class="card"><div class="title">A</div></div><div class="card"><div class="title">B</div></div></div>')
+			assert(c.length === 2, 'expected 2 cards; got ' + c.length)
+			assert(c[0].colors.cardFill === '1A1A24', 'cardFill from class rule; got ' + c[0].colors.cardFill)
+			assert(c[0].colors.borderColor === '2A2438', 'borderColor from class rule; got ' + c[0].colors.borderColor)
+		},
+	},
+	{
+		name: 'parseCards CSS cascade: var() against :root resolved in inline style',
+		fn: async () => {
+			const c = parseCards('<style>:root{--bg:#10121A;--ln:#2A2438}</style><div class="grid"><div class="card" style="background:var(--bg);border:1px solid var(--ln)"><div class="title">A</div></div><div class="card"><div class="title">B</div></div></div>')
+			assert(c.length === 2, 'expected 2 cards; got ' + c.length)
+			assert(c[0].colors.cardFill === '10121A', 'cardFill from var(); got ' + c[0].colors.cardFill)
+			assert(c[0].colors.borderColor === '2A2438', 'borderColor from var(); got ' + c[0].colors.borderColor)
+		},
+	},
+	{
+		name: 'parseCards CSS cascade: var() inside a class rule (badge fill)',
+		fn: async () => {
+			const c = parseCards('<style>:root{--accent:#7C3AED}.badge{background:var(--accent)}</style><div class="grid"><div class="card"><span class="badge">NEW</span><div class="title">A</div></div><div class="card"><div class="title">B</div></div></div>')
+			assert(c.length === 2, 'expected 2 cards; got ' + c.length)
+			assert(c[0].badge && c[0].badge.text === 'NEW', 'badge text NEW; got ' + JSON.stringify(c[0].badge))
+			assert(c[0].badge.color === '7C3AED', 'badge fill from var() class rule; got ' + c[0].badge.color)
+		},
+	},
+	{
+		name: 'parseCards CSS cascade: inline style overrides class rule (inline wins)',
+		fn: async () => {
+			const c = parseCards('<style>.card{background:#000000}</style><div class="grid"><div class="card" style="background:#1A1A24"><div class="title">A</div></div><div class="card"><div class="title">B</div></div></div>')
+			assert(c.length === 2, 'expected 2 cards; got ' + c.length)
+			assert(c[0].colors.cardFill === '1A1A24', 'inline overrides class rule; got ' + c[0].colors.cardFill)
+			// second card has no inline → falls back to class rule
+			assert(c[1].colors.cardFill === '000000', 'card1 cardFill from class rule; got ' + c[1].colors.cardFill)
+		},
+	},
+	{
+		name: 'parseCards CSS cascade: no <style>/no var() ⇒ identical to inline-only (regression guard)',
+		fn: async () => {
+			const c = parseCards('<div class="grid"><div class="card" style="background:#1a1a24;border:1px solid #2A2438"><span class="badge" style="background:#10B981">NEW</span><div class="title">X</div></div><div class="card"><div class="title">Y</div></div></div>')
+			assert(c.length === 2, 'expected 2 cards; got ' + c.length)
+			assert(c[0].badge.color === '10B981', 'badge fill unchanged; got ' + c[0].badge.color)
+			assert(c[0].colors.borderColor === '2A2438', 'borderColor unchanged; got ' + c[0].colors.borderColor)
+			assert(c[0].colors.cardFill === '1A1A24', 'cardFill unchanged; got ' + c[0].colors.cardFill)
+			assert(c[0].title === 'X', 'title unchanged; got ' + c[0].title)
+			assert(c[1].colors.cardFill === undefined, 'card1 has no fill (no class rule); got ' + c[1].colors.cardFill)
+		},
+	},
 ]

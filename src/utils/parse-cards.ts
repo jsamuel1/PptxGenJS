@@ -14,9 +14,14 @@
  * OPTIONAL utility imported from `@jsamuel1/pptxgenjs/utils`; it emits NO OOXML and touches no core
  * code path.
  *
- * COLOUR SCOPE (this release): colours are read from INLINE `style="…"` only. The deeper CSS cascade
- * (class rules, `var()` against `:root`, browser computed styles) described in the spec is a
- * documented limitation tracked as a converter-gaps follow-up — it is NOT silently dropped.
+ * COLOUR SCOPE (this release): colours are resolved from INLINE `style="…"`, from simple class rules
+ * in a `<style>` block (`.foo { background; color; border; border-left }`, last-declared wins), and
+ * from `var(--name[, fallback])` references against `:root`/`html`/`body` custom properties — in both
+ * inline styles and class rules. Precedence is INLINE STYLE > CLASS RULE. Inputs with no `<style>`
+ * block and no `var()` produce byte-identical output to inline-only parsing. The only piece still out
+ * of scope is the browser COMPUTED-style cascade (specificity ranking, id/descendant/combinator
+ * selectors, `@media`), which needs a live DOM and is incompatible with string-input, zero-dependency
+ * parsing — it is NOT silently dropped.
  */
 import { parseSvg } from './parse-svg'
 import type { SvgPart } from './parse-svg'
@@ -302,9 +307,92 @@ function extractHex (v: string | undefined): string | undefined {
 	return undefined
 }
 
-/** Background colour of an element from its inline style. */
-function bgOf (el: HNode): string | undefined {
-	return extractHex(el.style.background) || extractHex(el.style['background-color'])
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// CSS cascade-lite: `<style>` block class rules + `:root`/`html`/`body` `var()` custom properties.
+// String-input + dependency-free. Out of scope: id/descendant/combinator selectors, specificity
+// ranking, `@media`, browser COMPUTED styles (needs a live DOM).
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** A simple single-element class rule from a `<style>` block. */
+interface ClassRule { classes: string[], decls: Record<string, string> }
+
+/** Parsed stylesheet context threaded through card analysis. Empty ⇒ inline-only (legacy) behaviour. */
+interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[] }
+
+/** Empty context — yields byte-identical output to inline-only parsing. */
+const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [] }
+
+/** Resolve `var(--name[, fallback])` references against `rootVars`; left as-is when unresolved. */
+function resolveVars (value: string | undefined, rootVars: Record<string, string>): string | undefined {
+	if (!value || value.indexOf('var(') === -1) return value
+	let prev = ''
+	let cur = value
+	let guard = 0
+	while (cur !== prev && guard++ < 10) {
+		prev = cur
+		cur = cur.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^)]*))?\)/g, (m, name, fb) => {
+			const v = rootVars[name]
+			if (v !== undefined) return v
+			if (fb !== undefined) return fb.trim()
+			return m
+		})
+	}
+	return cur
+}
+
+/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
+function parseStyleSheets (html: string): CssContext {
+	const rootVars: Record<string, string> = {}
+	const classRules: ClassRule[] = []
+	let css = ''
+	const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+	let sm: RegExpExecArray | null
+	while ((sm = styleRe.exec(html)) !== null) css += sm[1] + '\n'
+	if (!css) return EMPTY_CSS
+	css = css.replace(/\/\*[\s\S]*?\*\//g, '') // strip comments
+	const ruleRe = /([^{}]+)\{([^{}]*)\}/g
+	let rm: RegExpExecArray | null
+	while ((rm = ruleRe.exec(css)) !== null) {
+		const decls = parseStyle(rm[2])
+		for (const sel of rm[1].split(',')) {
+			const s = sel.trim()
+			if (!s) continue
+			if (/^(?::root|html|body)$/i.test(s)) {
+				for (const k of Object.keys(decls)) if (k.startsWith('--')) rootVars[k] = decls[k]
+			} else if (/^(?:\.[-\w]+)+$/.test(s)) {
+				// simple class selector only (`.a` or chained `.a.b`); no element/id/combinator/pseudo
+				classRules.push({ classes: s.split('.').filter(Boolean), decls })
+			}
+		}
+	}
+	return { rootVars, classRules }
+}
+
+/** Merged declarations of all class rules matching `el` (every selector class present); later wins. */
+function classDecls (el: HNode, ctx: CssContext): Record<string, string> {
+	if (ctx.classRules.length === 0 || el.classes.length === 0) return {}
+	const out: Record<string, string> = {}
+	for (const rule of ctx.classRules) {
+		if (rule.classes.every(c => el.classes.includes(c))) Object.assign(out, rule.decls)
+	}
+	return out
+}
+
+/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
+function cssProp (el: HNode, prop: string, ctx: CssContext): string | undefined {
+	const inline = resolveVars(el.style[prop], ctx.rootVars)
+	if (inline !== undefined && inline !== '') return inline
+	return resolveVars(classDecls(el, ctx)[prop], ctx.rootVars)
+}
+
+/** Background colour of `el` honouring the cascade (inline > class rule, with `var()` resolved). */
+function bgOfCtx (el: HNode, ctx: CssContext): string | undefined {
+	return extractHex(cssProp(el, 'background', ctx)) || extractHex(cssProp(el, 'background-color', ctx))
+}
+
+/** Colour of a single CSS property of `el` honouring the cascade (inline > class rule). */
+function colorOf (el: HNode, prop: string, ctx: CssContext): string | undefined {
+	return extractHex(cssProp(el, prop, ctx))
 }
 
 /** Leading emoji (pictographic) cluster at the start of a string, if any. */
@@ -339,7 +427,7 @@ function textBlocks (card: HNode, skip: Set<HNode>): Array<{ el: HNode, text: st
 }
 
 /** Build a `CardData` from a single card element. */
-function analyzeCard (card: HNode, opts: ParseCardsOptions): CardData {
+function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext): CardData {
 	const skip = new Set<HNode>()
 
 	// ── icon ──────────────────────────────────────────────────────────────────────────────
@@ -366,7 +454,7 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions): CardData {
 	if (badgeEl) {
 		skip.add(badgeEl)
 		const bt = textOf(badgeEl).trim()
-		const bc = bgOf(badgeEl)
+		const bc = bgOfCtx(badgeEl, ctx)
 		badge = { text: bt, color: bc || '' }
 	}
 
@@ -401,23 +489,23 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions): CardData {
 		}
 	}
 
-	// ── colours (inline styles only) ────────────────────────────────────────────────────────
+	// ── colours (inline style > `<style>` class rule, with `var()` resolved against `:root`) ──
 	const colors: CardData['colors'] = {}
-	const cardFill = bgOf(card)
+	const cardFill = bgOfCtx(card, ctx)
 	if (cardFill) colors.cardFill = cardFill
-	const borderColor = extractHex(card.style.border) || extractHex(card.style['border-color'])
+	const borderColor = colorOf(card, 'border', ctx) || colorOf(card, 'border-color', ctx)
 	if (borderColor) colors.borderColor = borderColor
-	if (titleEl) { const c = extractHex(titleEl.style.color); if (c) colors.titleColor = c }
-	if (descEl) { const c = extractHex(descEl.style.color); if (c) colors.descColor = c }
+	if (titleEl) { const c = colorOf(titleEl, 'color', ctx); if (c) colors.titleColor = c }
+	if (descEl) { const c = colorOf(descEl, 'color', ctx); if (c) colors.descColor = c }
 	if (iconEl) {
-		const ic = extractHex(iconEl.style.color) || extractHex(iconEl.attrs.color) || extractHex(iconEl.attrs.stroke) || extractHex(iconEl.attrs.fill)
+		const ic = colorOf(iconEl, 'color', ctx) || extractHex(iconEl.attrs.color) || extractHex(iconEl.attrs.stroke) || extractHex(iconEl.attrs.fill)
 		if (ic) colors.iconColor = ic
-		if (iconEl.parent && iconEl.parent !== card) { const tf = bgOf(iconEl.parent); if (tf) colors.tileFill = tf }
+		if (iconEl.parent && iconEl.parent !== card) { const tf = bgOfCtx(iconEl.parent, ctx); if (tf) colors.tileFill = tf }
 	}
 
 	// ── accent bar (border-left rule) ───────────────────────────────────────────────────────
 	let accentBar: CardData['accentBar']
-	const bl = card.style['border-left']
+	const bl = cssProp(card, 'border-left', ctx)
 	if (bl) {
 		const c = extractHex(bl)
 		const w = parseFloat(bl)
@@ -471,6 +559,8 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 
 	const root = buildTree(input)
 	const allEls = elements(root)
+	// Cascade-lite context: `<style>` class rules + `:root` `var()`s. Empty ⇒ inline-only (legacy).
+	const ctx = parseStyleSheets(input)
 
 	// 1) cards by class pattern → keep only outermost matches
 	const matched = allEls.filter(e => classMatch(e, cardPat) && !isExcluded(e, exclPat))
@@ -488,7 +578,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 	// clamp-don't-crash: a lone card (or none) is not a grid → empty result
 	if (cards.length < 2) return []
 
-	return cards.map(c => analyzeCard(c, opts))
+	return cards.map(c => analyzeCard(c, opts, ctx))
 }
 
 export default parseCards

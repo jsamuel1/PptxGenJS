@@ -13,9 +13,14 @@
 > - **Default class patterns** are tested per class token with a `(?:^|-)` prefix, so a bare `card`/
 >   `grid` matches as well as `feature-card`/`cap-grid`: `cardPattern` `/(?:^|-)(card|item|tile|cell)\b/`,
 >   `containerPattern` `/(?:^|-)grid\b/`.
-> - **Colour scope:** colours are read from INLINE `style="…"` attributes only in this release. The
->   deeper CSS cascade (class rules, `var()` against `:root`, browser computed styles) described below
->   is a documented limitation tracked as a converter-gaps follow-up — it is not silently dropped.
+> - **Colour scope:** colours are resolved from INLINE `style="…"` attributes, from simple class
+>   rules in a `<style>` block (`.foo { background; color; border; border-left }`, last-declared
+>   wins), and from `var(--name[, fallback])` references against `:root`/`html`/`body` custom
+>   properties — in both inline styles and class rules. Precedence is INLINE STYLE > CLASS RULE; an
+>   input with no `<style>` block and no `var()` yields byte-identical output to inline-only parsing.
+>   The only remaining limitation is the browser COMPUTED-style cascade (specificity ranking,
+>   id/descendant/combinator selectors, `@media`), which needs a live DOM and is out of scope for the
+>   string-input, zero-dependency parser — it is not silently dropped.
 > - A live DOM `Node` input is not handled in this release (string input only).
 
 ## Problem
