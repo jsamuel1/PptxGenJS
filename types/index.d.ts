@@ -2651,6 +2651,7 @@ declare namespace PptxGenJS {
 		/** Object name (accessibility/identification). */
 		objectName?: string
 	}
+	export interface PresLayout {
 		//_sizeW?: number
 		//_sizeH?: number
 

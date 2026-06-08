@@ -11,9 +11,11 @@
  *   - drawing{N}.xml   `<dsp:drawing>`    (precomputed drawing cache so it renders out-of-the-box)
  *
  * The graphicFrame on the slide (gen-xml.ts `case SLIDE_OBJECT_TYPES.diagram`) references the
- * data/layout/quickStyle/colors parts via four slide relationships; the drawing part is a sub-rel
- * of the data part (`/ppt/diagrams/_rels/data{N}.xml.rels`, local `rId1`) referenced from the data
- * model's `extLst` via `<dsp:dataModelExt relId="rId1">`.
+ * data/layout/quickStyle/colors parts via four slide relationships. The drawing part is referenced
+ * by a FIFTH slide relationship (the MS `diagramDrawing` rel type); the data model's `extLst` carries
+ * `<dsp:dataModelExt relId="rIdN">` pointing at that drawing slide-rel rId. (The drawing rel must live
+ * on the slide, not as a data-part sub-rel — the OOXML SDK rejects a `diagramDrawing` rel on the data
+ * part — so no `/ppt/diagrams/_rels/data{N}.xml.rels` file is written.)
  */
 
 import { CRLF } from './core-enums'
@@ -40,8 +42,8 @@ function nodeModelId (i: number): string {
 
 /**
  * data{N}.xml — `<dgm:dataModel>`: one `doc` point + one `node` point per item, each linked from the
- * doc via a `parOf` connection. The `extLst` carries `<dsp:dataModelExt relId="rId1">` pointing at the
- * drawing cache (resolved via the data part's own sub-rels).
+ * doc via a `parOf` connection. The `extLst` carries `<dsp:dataModelExt relId="rIdN">` pointing at the
+ * drawing cache (resolved via the drawing's slide relationship — `drawingRid`).
  */
 export function makeXmlDiagramData (dgm: DiagramItem, drawingRid: number): string {
 	const items = dgm.items || []
