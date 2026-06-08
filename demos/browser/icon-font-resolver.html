@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="author" content="https://github.com/jsamuel1">
+	<meta name="website" content="https://github.com/jsamuel1/PptxGenJS/">
+	<title>PptxGenJS | Dynamic Icon-Font Resolver Demo</title>
+	<link rel="icon" href="images/favicon.png">
+	<!-- bootstrap -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+	<!-- icon fonts used by the SAMPLE html + for the CSS-content (::before) extraction demo -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+	<style>
+		body { padding: 1.5rem 1rem 4rem; }
+		.glyph-preview svg { width: 40px; height: 40px; fill: var(--bs-purple, #6f42c1); }
+		.glyph-preview svg path { fill: inherit; }
+		.path-d { font-family: var(--bs-font-monospace); font-size: .72rem; word-break: break-all; color: var(--bs-secondary-color); max-height: 4.5rem; overflow: auto; display: block; }
+		.method-badge { font-size: .68rem; }
+		textarea.code { font-family: var(--bs-font-monospace); font-size: .82rem; }
+		.icon-cell { width: 64px; }
+		.src-css-content { --bs-bg-opacity:1; }
+	</style>
+</head>
+
+<body>
+	<div class="container-xl">
+		<header class="mb-4">
+			<h1 class="h3"><i class="fas fa-icons text-purple"></i> Dynamic Icon-Font Resolver</h1>
+			<p class="text-secondary mb-1">
+				Demonstrates <code>resolveIconFonts(html, opts)</code> — turning the icon-font classes used in
+				HTML (Font Awesome, Material Icons, Bootstrap Icons, Ionicons, Phosphor, or a custom font) into
+				vector <code>SvgPart[]</code> ready for <code>slide.addCard({ icon: { parts } })</code>.
+			</p>
+			<p class="text-secondary small">
+				Resolution order (first hit wins, shown per icon): <span class="badge text-bg-secondary method-badge">custom</span>
+				<span class="badge text-bg-info method-badge">css-content</span>
+				<span class="badge text-bg-warning method-badge">font-file</span>
+				<span class="badge text-bg-primary method-badge">cdn</span>
+				<span class="badge text-bg-success method-badge">bundled</span>.
+				This in-browser demo uses CSS <code>::before</code> reading + CDN fetch + a small bundled map
+				(font-file outline extraction is Node-only).
+			</p>
+		</header>
+
+		<div class="row g-4">
+			<div class="col-lg-5">
+				<label for="htmlIn" class="form-label fw-semibold">HTML with icon elements</label>
+				<textarea id="htmlIn" class="form-control code" rows="16" spellcheck="false"></textarea>
+				<div class="d-flex gap-2 mt-3">
+					<button id="resolveBtn" class="btn btn-primary"><i class="fas fa-bolt"></i> Resolve Icons</button>
+					<button id="sampleBtn" class="btn btn-outline-secondary">Reset sample</button>
+				</div>
+				<p id="status" class="text-secondary small mt-2 mb-0"></p>
+			</div>
+
+			<div class="col-lg-7">
+				<label class="form-label fw-semibold">Resolved icons
+					<span id="countBadge" class="badge text-bg-secondary ms-1">0</span></label>
+				<div class="table-responsive">
+					<table class="table table-sm align-middle">
+						<thead>
+							<tr>
+								<th class="icon-cell">Glyph</th>
+								<th>Class / glyph key</th>
+								<th>Method</th>
+								<th>viewBox &amp; path</th>
+							</tr>
+						</thead>
+						<tbody id="results">
+							<tr><td colspan="4" class="text-secondary">Click <em>Resolve Icons</em> to see results.</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// ---- Sample HTML: FA solid + brands, Material Icons (ligature), Bootstrap Icons, custom font ----
+		const SAMPLE = [
+			'<div class="cap-grid">',
+			'  <div class="cap-item"><i class="fas fa-trophy"></i><div class="cap-title">Awards</div></div>',
+			'  <div class="cap-item"><i class="fab fa-github"></i><div class="cap-title">Source</div></div>',
+			'  <div class="cap-item"><i class="material-icons">home</i><div class="cap-title">Home</div></div>',
+			'  <div class="cap-item"><i class="bi bi-alarm"></i><div class="cap-title">Alarm</div></div>',
+			'  <div class="cap-item"><span class="icon-rocket"></span><div class="cap-title">Custom font</div></div>',
+			'</div>',
+			'',
+			'<!-- a bespoke icon font: class -> codepoint via a CSS ::before rule -->',
+			'<style>.icon-rocket::before { content: "\\f135"; font-family: "Font Awesome 6 Free"; font-weight: 900; }</style>'
+		].join('\n');
+
+		const $ = (id) => document.getElementById(id);
+		$('htmlIn').value = SAMPLE;
+
+		// ---- Known icon-font registries: how to detect + where to fetch the per-icon SVG (CDN) ----
+		const FA_VER = '6.5.2';
+		const REGISTRIES = [
+			{ name: 'Font Awesome Brands', test: c => /\bfa-brands\b|\bfab\b/.test(c), nameToken: faName, cdn: n => `https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@${FA_VER}/svgs/brands/${n}.svg` },
+			{ name: 'Font Awesome Regular', test: c => /\bfa-regular\b|\bfar\b/.test(c), nameToken: faName, cdn: n => `https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@${FA_VER}/svgs/regular/${n}.svg` },
+			{ name: 'Font Awesome Solid', test: c => /\bfa-solid\b|\bfas\b|\bfa\b/.test(c), nameToken: faName, cdn: n => `https://cdn.jsdelivr.net/gh/FortAwesome/Font-Awesome@${FA_VER}/svgs/solid/${n}.svg` },
+			{ name: 'Bootstrap Icons', test: c => /\bbi\b/.test(c), nameToken: c => tokenAfter(c, 'bi-'), cdn: n => `https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/${n}.svg` },
+			{ name: 'Ionicons', test: c => /\bion-|\bionicon\b/.test(c), nameToken: c => tokenAfter(c, 'ion-'), cdn: n => `https://cdn.jsdelivr.net/npm/ionicons/dist/svg/${n}.svg` },
+			{ name: 'Phosphor', test: c => /\bph-|\bph\b/.test(c), nameToken: c => tokenAfter(c, 'ph-'), cdn: n => `https://cdn.jsdelivr.net/npm/@phosphor-icons/core/assets/regular/${n}.svg` },
+			{ name: 'Material Icons', test: c => /material-(icons|symbols)/.test(c), nameToken: null /* ligature text */, cdn: n => `https://cdn.jsdelivr.net/npm/@material-design-icons/svg/filled/${n}.svg` },
+		];
+		function tokenAfter(cls, prefix) { const m = cls.split(/\s+/).find(t => t.startsWith(prefix)); return m ? m.slice(prefix.length) : null; }
+		function faName(cls) { const t = cls.split(/\s+/).find(t => /^fa-/.test(t) && !/^fa-(solid|regular|brands|fw|lg|spin|[0-9])/.test(t)); return t ? t.slice(3) : null; }
+
+		// ---- Tiny bundled fallback map (last resort, offline) ----
+		const BUNDLED = {
+			'fas fa-trophy': { d: 'M5 4h14a2 2 0 0 1 2 2v2a4 4 0 0 1-4 4h-1a5 5 0 0 1-3 3v2h3v2H8v-2h3v-2a5 5 0 0 1-3-3H7a4 4 0 0 1-4-4V6a2 2 0 0 1 2-2Z', viewBox: { w: 24, h: 24 } },
+		};
+
+		// ---- CSS ::before content extraction: read the codepoint the icon font assigns to a class ----
+		// Returns 'U+XXXX' (string) or null. Uses the browser's computed style on a hidden probe.
+		function readCssContentCodepoint(cls) {
+			const probe = document.createElement('i');
+			probe.className = cls; probe.style.position = 'absolute'; probe.style.left = '-9999px';
+			document.body.appendChild(probe);
+			let cp = null;
+			try {
+				const content = getComputedStyle(probe, '::before').content;
+				const m = content && content.match(/["']?\\?([0-9a-fA-F]{2,5})["']?/) || (content && [...content].length === 1 ? [null, content.codePointAt(0).toString(16)] : null);
+				if (content && content !== 'none' && content !== 'normal') {
+					const ch = content.replace(/["']/g, '');
+					if (ch.length >= 1) cp = 'U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+				}
+			} catch (e) { /* ignore */ } finally { probe.remove(); }
+			return cp;
+		}
+
+		// ---- Extract the <path d> + viewBox from a fetched SVG string ----
+		function svgToPart(svgText) {
+			const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+			const svg = doc.querySelector('svg');
+			if (!svg) return null;
+			const vb = (svg.getAttribute('viewBox') || '0 0 24 24').trim().split(/\s+/).map(Number);
+			const ds = [...doc.querySelectorAll('path')].map(p => p.getAttribute('d')).filter(Boolean);
+			if (!ds.length) return null;
+			return { d: ds.join(' '), viewBox: { w: vb[2] || 24, h: vb[3] || 24 } };
+		}
+
+		const _cache = new Map(); // in-page CDN cache (mirrors the cacheDir behaviour)
+		async function fetchCdn(url) {
+			if (_cache.has(url)) return _cache.get(url);
+			const res = await fetch(url);
+			if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
+			const txt = await res.text();
+			_cache.set(url, txt);
+			return txt;
+		}
+
+		// ---- Scan HTML for icon elements -> [{ key, cls, family, name, text }] ----
+		function scanIcons(html) {
+			const doc = new DOMParser().parseFromString(html, 'text/html');
+			const found = [];
+			doc.querySelectorAll('i,span,em,svg-icon,[class]').forEach(el => {
+				const cls = (el.getAttribute('class') || '').trim();
+				if (!cls) return;
+				const reg = REGISTRIES.find(r => r.test(cls));
+				if (!reg) {
+					// custom font: only counts if it has a ::before content codepoint (handled later)
+					if (/icon[-_]/.test(cls) && (el.tagName === 'I' || el.tagName === 'SPAN')) found.push({ key: cls, cls, family: 'custom', name: null, text: (el.textContent || '').trim() });
+					return;
+				}
+				const isLigature = reg.nameToken === null;
+				const text = (el.textContent || '').trim();
+				const name = isLigature ? text : (reg.nameToken(cls));
+				if (!name) return;
+				const key = isLigature ? (reg.name.toLowerCase().replace(/\s+/g, '-') + '|' + name) : cls;
+				if (!found.some(f => f.key === key)) found.push({ key, cls, family: reg.name, name, text, reg });
+			});
+			return found;
+		}
+
+		// ---- Resolve ONE icon: custom map / css-content+cdn / cdn / bundled ----
+		async function resolveOne(icon) {
+			// 1) bundled custom map (acts as the "custom"/"bundled" resolver here)
+			if (BUNDLED[icon.cls]) return { ...BUNDLED[icon.cls], source: 'bundled' };
+			// 2) CSS ::before codepoint (informational + marks method when no CDN)
+			const codepoint = readCssContentCodepoint(icon.cls);
+			// 3) CDN fetch of the per-icon SVG (the vector itself)
+			if (icon.reg && icon.name) {
+				try {
+					const part = svgToPart(await fetchCdn(icon.reg.cdn(icon.name)));
+					if (part) return { ...part, source: codepoint ? 'css-content' : 'cdn', codepoint };
+				} catch (e) { /* fall through */ }
+			}
+			// 4) custom font with a discovered codepoint but no CDN -> report css-content (no outline in-browser)
+			if (codepoint) return { d: null, viewBox: { w: 24, h: 24 }, source: 'css-content', codepoint };
+			return null; // unresolved -> omitted
+		}
+
+		// ---- The demo's resolveIconFonts(html) -> Map<key, part[]> ----
+		async function resolveIconFonts(html) {
+			const icons = scanIcons(html);
+			const map = new Map();
+			for (const ic of icons) {
+				const part = await resolveOne(ic);
+				if (part) map.set(ic.key, { icon: ic, part });
+			}
+			return map;
+		}
+
+		// ---- Render ----
+		const METHOD_CLASS = { 'custom': 'text-bg-secondary', 'css-content': 'text-bg-info', 'font-file': 'text-bg-warning', 'cdn': 'text-bg-primary', 'bundled': 'text-bg-success' };
+		function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+		async function run() {
+			$('status').textContent = 'Resolving…';
+			$('results').innerHTML = '';
+			let map;
+			try { map = await resolveIconFonts($('htmlIn').value); }
+			catch (e) { $('status').textContent = 'Error: ' + e.message; return; }
+
+			$('countBadge').textContent = map.size;
+			if (!map.size) { $('results').innerHTML = '<tr><td colspan="4" class="text-secondary">No icon elements resolved.</td></tr>'; $('status').textContent = 'Done — 0 icons.'; return; }
+
+			for (const [key, { icon, part }] of map) {
+				const tr = document.createElement('tr');
+				const vb = part.viewBox;
+				const glyph = part.d
+					? `<span class="glyph-preview"><svg viewBox="0 0 ${vb.w} ${vb.h}" xmlns="http://www.w3.org/2000/svg"><path d="${esc(part.d)}"/></svg></span>`
+					: `<span class="text-secondary small">(outline N/A in browser)</span>`;
+				const method = `<span class="badge ${METHOD_CLASS[part.source] || 'text-bg-secondary'} method-badge">${part.source}</span>` +
+					(part.codepoint ? `<div class="text-secondary small mt-1">${part.codepoint}</div>` : '');
+				const pathInfo = part.d
+					? `<span class="text-secondary small">viewBox 0 0 ${vb.w} ${vb.h}</span><code class="path-d">${esc(part.d)}</code>`
+					: `<span class="text-secondary small">codepoint only — font-file extraction (Node) needed for the outline</span>`;
+				tr.innerHTML = `<td class="icon-cell">${glyph}</td>` +
+					`<td><code>${esc(key)}</code><div class="text-secondary small">${esc(icon.family || 'custom')}</div></td>` +
+					`<td>${method}</td>` +
+					`<td>${pathInfo}</td>`;
+				$('results').appendChild(tr);
+			}
+			$('status').textContent = `Done — resolved ${map.size} icon(s). Vectors drop straight into addCard({ icon: { parts } }).`;
+		}
+
+		$('resolveBtn').addEventListener('click', run);
+		$('sampleBtn').addEventListener('click', () => { $('htmlIn').value = SAMPLE; $('results').innerHTML = ''; $('countBadge').textContent = '0'; $('status').textContent = ''; });
+	</script>
+</body>
+
+</html>
