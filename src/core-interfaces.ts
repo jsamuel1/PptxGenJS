@@ -1157,6 +1157,55 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 }
 
 /**
+ * Avatar / initials chip helper (`slide.addAvatar(...)`).
+ * Composes a filled `ellipse` (diameter `size`) with centred initials — no new OOXML.
+ * @since v4.1.7
+ */
+export interface AvatarProps extends PositionProps, ObjectNameProps {
+	/** 1–2 initials drawn centred on the disc (e.g. `'JS'`). */
+	initials: string
+	/** Disc diameter in inches. @default 0.4 */
+	size?: number
+	/** Disc fill colour (hex). @default '4B3F72' */
+	fill?: HexColor
+	/** Initials colour (hex). @default 'FFFFFF' */
+	color?: HexColor
+	/** Initials font face. @default deck font */
+	fontFace?: string
+	/** Initials font size (pt). @default derived from `size` (`size × 72 × 0.4`) */
+	fontSize?: number
+	/** Entrance animation. */
+	animation?: AnimationProps
+}
+
+/**
+ * Badge / pill helper (`slide.addBadge(...)`).
+ * Composes a `roundRect` (full corner radius → pill) or `ellipse` (count bubble) with a
+ * centred label — no new OOXML.
+ * @since v4.1.7
+ */
+export interface BadgeProps extends PositionProps, ObjectNameProps {
+	/** Short label or count (e.g. `'NEW'`, `'3'`). */
+	text: string
+	/** Badge shape. @default 'pill' */
+	shape?: 'circle' | 'pill'
+	/** Badge fill colour (hex). @default '7C3AED' */
+	fill?: HexColor
+	/** Label colour (hex). @default 'FFFFFF' */
+	color?: HexColor
+	/** Label font size (pt). @default 8 */
+	fontSize?: number
+	/** Bold label. @default true */
+	bold?: boolean
+	/** Explicit width in inches (else sized to the text). */
+	w?: number
+	/** Explicit height in inches. @default 0.25 */
+	h?: number
+	/** Entrance animation. */
+	animation?: AnimationProps
+}
+
+/**
  * Feature 6 — Shape grouping.
  * Options for `slide.addGroup(...)`. Defines the absolute position/size of a group
  * container (`<p:grpSp>`); child shapes/text added to the returned group object use
@@ -1176,6 +1225,10 @@ export interface SlideGroup {
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => SlideGroup
 	/** Add text to the group (coords relative to the group origin). */
 	addText: (text: string | TextProps[], options?: TextPropsOptions) => SlideGroup
+	/** Add an avatar/initials chip to the group (coords relative to the group origin). */
+	addAvatar: (options: AvatarProps) => SlideGroup
+	/** Add a badge/pill to the group (coords relative to the group origin). */
+	addBadge: (options: BadgeProps) => SlideGroup
 }
 
 // tables =========================================================================================

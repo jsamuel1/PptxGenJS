@@ -922,6 +922,51 @@ module.exports = [
 		}
 	},
 	{
+		name: 'avatar & badge helpers (ellipse disc / roundRect pill / circle bubble + centred labels)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				s.addAvatar({ x: 0.5, y: 0.5, size: 0.4, initials: 'JS', fill: '4B3F72' })
+				s.addBadge({ x: 2, y: 0.5, text: 'NEW', fill: '10B981' })
+				s.addBadge({ x: 4, y: 0.5, text: '3', shape: 'circle', fill: '7C3AED' })
+				// avatar inside a group (mockup sidebar)
+				const g = s.addGroup({ x: 6, y: 0.5, w: 2, h: 0.5 })
+				g.addAvatar({ x: 0, y: 0, size: 0.3, initials: 'AB', fill: '224466' })
+			})
+			// Baseline: avatar/badge compose only already-validated primitives (ellipse, roundRect,
+			// grpSp, text runs) — the deck is schema-clean.
+			await expectNoSchemaErrors(buf, 'avatar-badge')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): these compose already-validated
+			// primitives, so the validator cannot catch a behavioural regression (wrong shape,
+			// dropped pill radius, lost label). Assert the exact emission explicitly.
+			// 2 ellipses (avatar disc + circle bubble) + 1 ellipse in the group avatar = 3 total.
+			assert((slideXml.match(/prst="ellipse"/g) || []).length === 3, 'avatar-badge: expected 3 ellipses (2 avatars + 1 count bubble); got: ' + (slideXml.match(/prst="ellipse"/g) || []).length)
+			// 1 roundRect for the pill, with a FULL-pill adj (50000)
+			assert((slideXml.match(/prst="roundRect"/g) || []).length === 1, 'avatar-badge: expected exactly 1 pill roundRect; got: ' + (slideXml.match(/prst="roundRect"/g) || []).length)
+			assert(/prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 50000"\/>/.test(slideXml), 'avatar-badge: expected full-pill adj 50000; got: ' + slideXml)
+			// fills + labels present
+			assert(slideXml.indexOf('<a:srgbClr val="4B3F72"/>') !== -1, 'avatar-badge: expected avatar disc fill 4B3F72')
+			assert(slideXml.indexOf('<a:srgbClr val="10B981"/>') !== -1, 'avatar-badge: expected pill fill 10B981')
+			assert(slideXml.indexOf('<a:t>JS</a:t>') !== -1, 'avatar-badge: expected avatar initials JS')
+			assert(slideXml.indexOf('<a:t>NEW</a:t>') !== -1, 'avatar-badge: expected pill label NEW')
+			assert(slideXml.indexOf('<a:t>3</a:t>') !== -1, 'avatar-badge: expected count label 3')
+			// group avatar composes inside the grpSp
+			const grp = slideXml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)
+			assert(grp && grp[0].indexOf('<a:t>AB</a:t>') !== -1, 'avatar-badge: expected group avatar initials AB inside grpSp')
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on this XML —
+			// corrupt an ellipse preset geometry to an invalid ST_ShapeType enum.
+			const badSlide = slideXml.replace('prst="ellipse"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'avatar-badge: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'avatar-badge: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'photo album (pptx.photoAlbum -> p:photoAlbum)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

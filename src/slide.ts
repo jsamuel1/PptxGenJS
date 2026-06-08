@@ -6,6 +6,8 @@ import { CHART_NAME, SHAPE_NAME } from './core-enums'
 import {
 	AddSlideProps,
 	BackgroundProps,
+	AvatarProps,
+	BadgeProps,
 	CalloutProps,
 	CardProps,
 	CommentProps,
@@ -308,6 +310,28 @@ export default class Slide {
 	 */
 	addCard(options: CardProps): Slide {
 		genObj.addCardDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add an avatar/initials chip (filled ellipse + centred initials) to Slide.
+	 * Sugar composing an `ellipse` and a centred text box — no new OOXML.
+	 * @param {AvatarProps} options - avatar options
+	 * @return {Slide} this Slide
+	 */
+	addAvatar(options: AvatarProps): Slide {
+		genObj.addAvatarDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add a badge/pill (rounded-rect or circle + centred label) to Slide.
+	 * Sugar composing a `roundRect`/`ellipse` and a centred text box — no new OOXML.
+	 * @param {BadgeProps} options - badge options
+	 * @return {Slide} this Slide
+	 */
+	addBadge(options: BadgeProps): Slide {
+		genObj.addBadgeDefinition(this, options)
 		return this
 	}
 

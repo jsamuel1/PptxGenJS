@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T15:23:09.162Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T15:55:37.392Z */
 import JSZip from 'jszip';
 
 /******************************************************************************
@@ -3042,6 +3042,90 @@ function addCardDefinition(target, opts) {
     }
 }
 /**
+ * Avatar/initials helper (docs/feature-avatar-badge.md). Draws a filled `ellipse`
+ * (diameter `size`) then centred initials — a pure composition of existing primitives,
+ * no new OOXML. Works against a slide OR a group's child target (same intake fns).
+ * @param {PresSlide} target slide (or group child-target proxy) the avatar should be added to
+ * @param {AvatarProps} opts avatar options
+ */
+function addAvatarDefinition(target, opts) {
+    const options = typeof opts === 'object' ? opts : {};
+    const size = options.size !== undefined && Number(options.size) > 0 ? Number(options.size) : 0.4;
+    const x = options.x !== undefined ? Number(options.x) : 1;
+    const y = options.y !== undefined ? Number(options.y) : 1;
+    const fill = options.fill !== undefined ? options.fill : '4B3F72';
+    const color = options.color !== undefined ? options.color : 'FFFFFF';
+    const fontSize = options.fontSize !== undefined ? options.fontSize : Math.max(6, Math.round(size * 72 * 0.4));
+    const initials = options.initials !== undefined ? String(options.initials) : '';
+    // 1) Disc (ellipse). Animation (if any) rides on the disc so the chip animates as a unit.
+    const shapeOpts = {
+        x, y, w: size, h: size,
+        fill: typeof fill === 'string' ? { color: fill } : fill,
+        line: { type: 'none' },
+    };
+    if (options.animation)
+        shapeOpts.animation = options.animation;
+    if (options.objectName)
+        shapeOpts.objectName = options.objectName;
+    addShapeDefinition(target, SHAPE_TYPE.OVAL, shapeOpts);
+    // 2) Centred initials
+    const textOpts = {
+        x, y, w: size, h: size,
+        align: 'center', valign: 'middle',
+        color, fontSize, bold: true,
+    };
+    if (options.fontFace !== undefined)
+        textOpts.fontFace = options.fontFace;
+    addTextDefinition(target, [{ text: initials, options: null }], textOpts, false);
+}
+/**
+ * Badge/pill helper (docs/feature-avatar-badge.md). Draws a `roundRect` with a full corner
+ * radius (pill) or an `ellipse` (count bubble) sized to the text, then a centred label.
+ * Pure composition of existing primitives, no new OOXML. Clamps degenerate sizes (never throws).
+ * @param {PresSlide} target slide (or group child-target proxy) the badge should be added to
+ * @param {BadgeProps} opts badge options
+ */
+function addBadgeDefinition(target, opts) {
+    const options = typeof opts === 'object' ? opts : {};
+    const text = options.text !== undefined ? String(options.text) : '';
+    const shape = options.shape === 'circle' ? 'circle' : 'pill';
+    const x = options.x !== undefined ? Number(options.x) : 1;
+    const y = options.y !== undefined ? Number(options.y) : 1;
+    const h = options.h !== undefined && Number(options.h) > 0 ? Number(options.h) : 0.25;
+    const fill = options.fill !== undefined ? options.fill : '7C3AED';
+    const color = options.color !== undefined ? options.color : 'FFFFFF';
+    const fontSize = options.fontSize !== undefined ? options.fontSize : 8;
+    const bold = options.bold !== undefined ? options.bold : true;
+    // Width: explicit `w` wins; else size to the text. Circles are square (w = h = diameter).
+    let w;
+    if (shape === 'circle') {
+        // Count bubble: a square sized to fit the (short) label, never smaller than `h`.
+        w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, 0.1 * text.length + 0.1);
+    }
+    else {
+        w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, 0.1 * text.length + 0.2);
+    }
+    // Circles must be square so the ellipse is a true circle (use the larger of w/h).
+    const dim = shape === 'circle' ? Math.max(w, h) : 0;
+    const fillProps = typeof fill === 'string' ? { color: fill } : fill;
+    const shapeOpts = shape === 'circle'
+        ? { x, y, w: dim, h: dim, fill: fillProps, line: { type: 'none' } }
+        : { x, y, w, h, fill: fillProps, line: { type: 'none' }, rectRadius: h / 2 };
+    if (options.animation)
+        shapeOpts.animation = options.animation;
+    if (options.objectName)
+        shapeOpts.objectName = options.objectName;
+    addShapeDefinition(target, shape === 'circle' ? SHAPE_TYPE.OVAL : SHAPE_TYPE.ROUNDED_RECTANGLE, shapeOpts);
+    // Centred label (sized to the shape's bounding box)
+    const tW = shape === 'circle' ? dim : w;
+    const tH = shape === 'circle' ? dim : h;
+    addTextDefinition(target, [{ text, options: null }], {
+        x, y, w: tW, h: tH,
+        align: 'center', valign: 'middle',
+        color, fontSize, bold,
+    }, false);
+}
+/**
  * Feature 6: Adds a shape group to a slide definition and returns a group handle.
  * The group emits a `<p:grpSp>` whose `<a:xfrm>` carries the absolute position/size plus
  * `chOff="0,0"`/`chExt` equal to the extent — so child shapes/text use coordinates relative
@@ -3086,6 +3170,14 @@ function addGroupDefinition(target, opts) {
         addText(text, textOpts) {
             const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options: textOpts }] : text;
             addTextDefinition(childTarget, textParam, (textOpts || {}), false);
+            return group;
+        },
+        addAvatar(avatarOpts) {
+            addAvatarDefinition(childTarget, avatarOpts);
+            return group;
+        },
+        addBadge(badgeOpts) {
+            addBadgeDefinition(childTarget, badgeOpts);
             return group;
         },
     };
@@ -3842,6 +3934,26 @@ class Slide {
      */
     addCard(options) {
         addCardDefinition(this, options);
+        return this;
+    }
+    /**
+     * Add an avatar/initials chip (filled ellipse + centred initials) to Slide.
+     * Sugar composing an `ellipse` and a centred text box — no new OOXML.
+     * @param {AvatarProps} options - avatar options
+     * @return {Slide} this Slide
+     */
+    addAvatar(options) {
+        addAvatarDefinition(this, options);
+        return this;
+    }
+    /**
+     * Add a badge/pill (rounded-rect or circle + centred label) to Slide.
+     * Sugar composing a `roundRect`/`ellipse` and a centred text box — no new OOXML.
+     * @param {BadgeProps} options - badge options
+     * @return {Slide} this Slide
+     */
+    addBadge(options) {
+        addBadgeDefinition(this, options);
         return this;
     }
     /**

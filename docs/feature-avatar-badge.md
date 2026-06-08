@@ -1,8 +1,21 @@
 # Feature: Avatar & Badge Helpers — `addAvatar()` / `addBadge()`
 
-> **Status:** Proposed
+> **Status:** Implemented (v4.1.7)
 > **Target:** `src/slide.ts` (`addAvatar`, `addBadge`), `src/gen-objects.ts`, `src/core-interfaces.ts` (`AvatarProps`, `BadgeProps`), tests `test/feature-avatar-badge.test.js`
 > **Priority:** Low — small, high-convenience primitives that recur in UI mockups and cards
+
+> **Implementation notes (shipped):** `addAvatar`/`addBadge` are methods on both `Slide`
+> and the `SlideGroup` handle returned by `addGroup()` (so they compose inside mockup
+> sidebars). `addAvatarDefinition`/`addBadgeDefinition` live in `gen-objects.ts` and draw a
+> filled `ellipse` (`SHAPE_TYPE.OVAL`) / `roundRect` (full pill via `rectRadius: h/2`) plus a
+> centred bold text box — pure compositions of existing primitives, **no new OOXML and no new
+> dependency**. Defaults: avatar `size` 0.4 / `fill` `4B3F72` / `color` `FFFFFF` / `fontSize`
+> derived as `round(size×72×0.4)`; badge `h` 0.25 / `fontSize` 8 / `bold` true / `color`
+> `FFFFFF` / pill width `max(h, 0.1×len + 0.2)` / circle a square count bubble. Degenerate
+> sizes (0 / tiny) and empty text clamp to defaults rather than throwing. Because these are
+> brand-new methods called by nothing existing, decks that don't use them are byte-for-byte
+> unchanged. `types/index.d.ts` is intentionally left for the RI-6 published-types
+> reconciliation pass (consistent with `addCard`/`addCallout`, also absent there today).
 
 ## Problem
 
