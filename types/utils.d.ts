@@ -91,3 +91,58 @@ export interface ParseSvgOptions {
  * are all folded), and `url(#id)` gradient references are resolved to `GradientFillProps`.
  */
 export function parseSvg(markup: string, options?: ParseSvgOptions): SvgPart[]
+
+/**
+ * A single card parsed from an HTML card-grid by `parseCards()`. The shape spreads directly into
+ * `slide.addCard()` v2 (`icon`, `title`, `description`, `badge`, `accentBar`, and the `colors.*` map
+ * onto `iconColor`/`iconFill`/`fill`/`border`/`titleFont.color`/`descFont.color`).
+ */
+export interface CardData {
+	/** Card icon — an inline SVG (multi-path, via `parseSvg`), a Font-Awesome glyph, or a leading emoji. */
+	icon?:
+		| { type: 'svg'; parts: SvgPart[] }
+		| { type: 'fontIcon'; char: string; fontFace: string }
+		| { type: 'emoji'; text: string }
+	/** Card title (always present; `''` when none could be detected). */
+	title: string
+	/** Card description / body text. */
+	description?: string
+	/** Small pill/count badge; `color` is the badge FILL colour (6-hex, no `#`). */
+	badge?: { text: string; color: string }
+	/** Thin left-edge accent bar (from a `border-left` rule). `width` is in source px. */
+	accentBar?: { color: string | GradientFillProps; width: number }
+	/** Colours read from inline styles. All hex values are 6-digit, no `#`. */
+	colors: {
+		iconColor?: string
+		tileFill?: string | GradientFillProps
+		cardFill?: string | GradientFillProps
+		borderColor?: string
+		titleColor?: string
+		descColor?: string
+	}
+	/** Back-reference to the internal source node (advanced callers). */
+	_el?: unknown
+}
+
+/** Options for `parseCards`. */
+export interface ParseCardsOptions {
+	/** Class pattern (tested per class token) marking a grid CONTAINER. @default /(?:^|-)grid\b/ */
+	containerPattern?: RegExp
+	/** Class pattern (tested per class token) marking a CARD. @default /(?:^|-)(card|item|tile|cell)\b/ */
+	cardPattern?: RegExp
+	/** Class pattern; elements within a matching region are skipped (mockups/flows). */
+	excludeWithin?: RegExp
+	/** Fallback fill (6-hex, no `#`) handed to `parseSvg` for unpainted icon elements. */
+	defaultFill?: string
+}
+
+/**
+ * Parse an HTML card-grid into `CardData[]` ready to spread into `slide.addCard()`. Detection is
+ * structure-driven (framework-agnostic): cards are found by class pattern or a grid/flex container,
+ * then each card's icon/title/description/badge/colours are read from its structure. Colours are read
+ * from INLINE styles only in this release (the deeper CSS cascade is a documented limitation).
+ *
+ * @param input - a raw HTML string (Node). A live DOM node is not handled in this release.
+ * @returns one `CardData` per detected card (empty array when no grid of ≥2 cards is found).
+ */
+export function parseCards(input: string, options?: ParseCardsOptions): CardData[]

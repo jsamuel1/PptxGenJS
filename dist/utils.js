@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T16:40:13.958Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T17:07:07.202Z */
 'use strict';
 
 /**
@@ -542,7 +542,7 @@ function parsePoints(raw) {
 // SVG element / attribute / gradient extraction
 // ──────────────────────────────────────────────────────────────────────────────────────────
 /** Extract attributes from an element's opening-tag attribute string. */
-function parseAttrs(attrStr) {
+function parseAttrs$1(attrStr) {
     const out = {};
     const re = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
     let m;
@@ -551,7 +551,7 @@ function parseAttrs(attrStr) {
     return out;
 }
 /** Read a CSS-like `style="a:b;c:d"` attribute into a property map. */
-function parseStyle(style) {
+function parseStyle$1(style) {
     const out = {};
     for (const decl of (style || '').split(';')) {
         const ix = decl.indexOf(':');
@@ -566,7 +566,7 @@ function collectGradients(markup) {
     const re = /<(linearGradient|radialGradient)\b([^>]*)>([\s\S]*?)<\/(?:linearGradient|radialGradient)>/gi;
     let m;
     while ((m = re.exec(markup)) !== null) {
-        const attrs = parseAttrs(m[2]);
+        const attrs = parseAttrs$1(m[2]);
         const id = attrs.id;
         if (!id)
             continue;
@@ -576,8 +576,8 @@ function collectGradients(markup) {
         let s;
         const rawStops = [];
         while ((s = stopRe.exec(body)) !== null) {
-            const sa = parseAttrs(s[1]);
-            const style = parseStyle(sa.style || '');
+            const sa = parseAttrs$1(s[1]);
+            const style = parseStyle$1(sa.style || '');
             const color = style['stop-color'] || sa['stop-color'] || '#000000';
             const offRaw = sa.offset;
             let offset;
@@ -654,8 +654,8 @@ function parseSvg(markup, opts = {}) {
         vb = { w: opts.viewBox.w, h: opts.viewBox.h };
     // 2) root <svg> inherited paint
     const svgTagM = markup.match(/<svg\b([^>]*)>/i);
-    const rootAttrs = svgTagM ? parseAttrs(svgTagM[1]) : {};
-    const rootStyle = parseStyle(rootAttrs.style || '');
+    const rootAttrs = svgTagM ? parseAttrs$1(svgTagM[1]) : {};
+    const rootStyle = parseStyle$1(rootAttrs.style || '');
     const rootFill = rootStyle.fill || rootAttrs.fill;
     const rootStroke = rootStyle.stroke || rootAttrs.stroke;
     const rootStrokeW = rootStyle['stroke-width'] || rootAttrs['stroke-width'];
@@ -669,8 +669,8 @@ function parseSvg(markup, opts = {}) {
     let em;
     while ((em = elRe.exec(drawable)) !== null) {
         const tag = em[1].toLowerCase();
-        const attrs = parseAttrs(em[2]);
-        const style = parseStyle(attrs.style || '');
+        const attrs = parseAttrs$1(em[2]);
+        const style = parseStyle$1(attrs.style || '');
         const get = (k) => style[k] !== undefined ? style[k] : attrs[k];
         // path d, or primitive → d
         const d = tag === 'path'
@@ -740,5 +740,496 @@ function finalizePart(raw, d, vb, fallback) {
     return part;
 }
 
+/**
+ * PptxGenJS — Generic Card-Structure parser (docs/feature-parse-card-structure.md)
+ *
+ * `parseCards()` turns an HTML card-grid (the kind every HTML-to-deck converter has to detect by
+ * hand) into a list of `CardData` objects that spread directly into `slide.addCard()` v2. Detection
+ * is STRUCTURE-driven, not class-name driven, so it works across framework naming conventions
+ * (`cap-item`, `wf-card`, `feature-tile`, …): cards are found by a (configurable) class pattern, or
+ * by a grid/flex container, then each card's icon / title / description / badge / colours are read
+ * from its internal structure. An inline `<svg>` icon is handed to {@link parseSvg} so a multi-colour
+ * logo survives as per-path `SvgPart`s.
+ *
+ * Pure, DEPENDENCY-FREE parsing — a tiny stack-based HTML tree-builder (no cheerio, no DOM, no
+ * third-party library), mirroring `src/utils/parse-svg.ts` / `src/utils/extract-theme.ts`. This is an
+ * OPTIONAL utility imported from `@jsamuel1/pptxgenjs/utils`; it emits NO OOXML and touches no core
+ * code path.
+ *
+ * COLOUR SCOPE (this release): colours are read from INLINE `style="…"` only. The deeper CSS cascade
+ * (class rules, `var()` against `:root`, browser computed styles) described in the spec is a
+ * documented limitation tracked as a converter-gaps follow-up — it is NOT silently dropped.
+ */
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Pattern defaults — tested against EACH class token, so a bare `card`/`grid` matches as well as
+// `feature-card`/`cap-grid` (the `(?:^|-)` prefix). These cover every framework naming style in
+// the spec's test cases.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+const DEFAULT_CARD = /(?:^|-)(card|item|tile|cell)\b/;
+const DEFAULT_CONTAINER = /(?:^|-)grid\b/;
+const DEFAULT_EXCLUDE = /(?:^|-)(anim-right|product-anim|flow|feed-item)\b/;
+const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)\b/;
+const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)\b/;
+const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)\b/;
+/** Void (self-terminating) HTML elements that never push onto the open-element stack. */
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+/** Extract `name="value"` attributes from an element's opening-tag inner string. */
+function parseAttrs(attrStr) {
+    const out = {};
+    const re = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+    let m;
+    while ((m = re.exec(attrStr)) !== null) {
+        out[m[1].toLowerCase()] = m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : (m[5] || ''));
+    }
+    return out;
+}
+/** Read a CSS-like `style="a:b;c:d"` attribute into a property map (keys lowercased). */
+function parseStyle(style) {
+    const out = {};
+    for (const decl of (style || '').split(';')) {
+        const ix = decl.indexOf(':');
+        if (ix > 0)
+            out[decl.slice(0, ix).trim().toLowerCase()] = decl.slice(ix + 1).trim();
+    }
+    return out;
+}
+/** Make an element node from a tag name + opening-tag attribute string. */
+function makeEl(tag, attrStr) {
+    const attrs = parseAttrs(attrStr);
+    const classes = (attrs.class || '').split(/\s+/).filter(Boolean);
+    const style = parseStyle(attrs.style || '');
+    return { tag: tag.toLowerCase(), attrs, classes, style, children: [], parent: null };
+}
+/** Find the index of the `>` that closes the tag starting at `lt`, respecting quoted attributes. */
+function findTagEnd(html, lt) {
+    let i = lt + 1;
+    let q = null;
+    const n = html.length;
+    while (i < n) {
+        const c = html[i];
+        if (q) {
+            if (c === q)
+                q = null;
+        }
+        else if (c === '"' || c === "'")
+            q = c;
+        else if (c === '>')
+            return i;
+        i++;
+    }
+    return n;
+}
+/** Capture a full `<svg>…</svg>` subtree as a raw string. Returns `[raw, endIndexExclusive]`. */
+function captureSvg(html, start) {
+    const n = html.length;
+    let depth = 0;
+    let i = start;
+    while (i < n) {
+        const lower = html.slice(i, i + 6).toLowerCase();
+        if (lower.startsWith('</svg')) {
+            const gt = html.indexOf('>', i);
+            const end = gt === -1 ? n : gt + 1;
+            depth--;
+            if (depth <= 0)
+                return [html.slice(start, end), end];
+            i = end;
+        }
+        else if (/^<svg[\s>/]/i.test(html.slice(i, i + 5))) {
+            const gt = findTagEnd(html, i);
+            const selfClose = html[gt - 1] === '/';
+            if (selfClose) {
+                if (depth === 0)
+                    return [html.slice(start, gt + 1), gt + 1];
+            }
+            else
+                depth++;
+            i = (gt === -1 ? n : gt + 1);
+        }
+        else {
+            i++;
+        }
+    }
+    return [html.slice(start), n];
+}
+/** Parse an HTML string into a lightweight element tree (stack-based, error-tolerant). */
+function buildTree(html) {
+    const root = { tag: '', attrs: {}, classes: [], style: {}, children: [], parent: null };
+    const stack = [root];
+    const top = () => stack[stack.length - 1];
+    const addChild = (node) => { node.parent = top(); top().children.push(node); };
+    const addText = (raw) => {
+        if (raw.length === 0)
+            return;
+        addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: raw });
+    };
+    let i = 0;
+    const n = html.length;
+    while (i < n) {
+        const lt = html.indexOf('<', i);
+        if (lt === -1) {
+            addText(html.slice(i));
+            break;
+        }
+        if (lt > i)
+            addText(html.slice(i, lt));
+        // comment
+        if (html.startsWith('<!--', lt)) {
+            const e = html.indexOf('-->', lt + 4);
+            i = e === -1 ? n : e + 3;
+            continue;
+        }
+        // doctype / declaration / processing instruction
+        if (html[lt + 1] === '!' || html[lt + 1] === '?') {
+            const e = html.indexOf('>', lt);
+            i = e === -1 ? n : e + 1;
+            continue;
+        }
+        // inline <svg> — captured opaque and handed to parseSvg later
+        if (/^<svg[\s>/]/i.test(html.slice(lt, lt + 5))) {
+            const [raw, end] = captureSvg(html, lt);
+            const svgTagM = raw.match(/^<svg\b([^>]*)>/i);
+            const svg = makeEl('svg', svgTagM ? svgTagM[1] : '');
+            svg.raw = raw;
+            addChild(svg);
+            i = end;
+            continue;
+        }
+        // end tag
+        if (html[lt + 1] === '/') {
+            const e = html.indexOf('>', lt);
+            const name = html.slice(lt + 2, e === -1 ? n : e).trim().toLowerCase();
+            // pop until the matching open tag (tolerant of unclosed elements)
+            for (let s = stack.length - 1; s >= 1; s--) {
+                if (stack[s].tag === name) {
+                    stack.length = s;
+                    break;
+                }
+            }
+            i = e === -1 ? n : e + 1;
+            continue;
+        }
+        // start tag
+        const e = findTagEnd(html, lt);
+        const inner = html.slice(lt + 1, e);
+        const mName = inner.match(/^([\w:-]+)/);
+        if (!mName) {
+            i = e + 1;
+            continue;
+        }
+        const name = mName[1].toLowerCase();
+        const attrStr = inner.slice(mName[1].length);
+        const selfClose = inner.trimEnd().endsWith('/');
+        const node = makeEl(name, attrStr);
+        addChild(node);
+        if (!selfClose && !VOID_TAGS.has(name))
+            stack.push(node);
+        i = e + 1;
+    }
+    return root;
+}
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Tree helpers
+// ──────────────────────────────────────────────────────────────────────────────────────────
+/** All element (non-text) descendants of `node`, preorder. */
+function elements(node, out = []) {
+    for (const c of node.children) {
+        if (c.tag === '#text')
+            continue;
+        out.push(c);
+        elements(c, out);
+    }
+    return out;
+}
+/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
+function textOf(node) {
+    if (node.tag === '#text')
+        return node.text || '';
+    if (node.tag === 'svg')
+        return '';
+    let s = '';
+    for (const c of node.children)
+        s += textOf(c);
+    return s;
+}
+/** True when any class token of `el` matches `pat`. */
+function classMatch(el, pat) {
+    return el.classes.some(c => pat.test(c));
+}
+/** True when `a` is an ancestor of (or equal to) `b`. */
+function isAncestorOrSelf(a, b) {
+    let cur = b;
+    while (cur) {
+        if (cur === a)
+            return true;
+        cur = cur.parent;
+    }
+    return false;
+}
+/** True when `el` (or an ancestor) matches the exclude pattern. */
+function isExcluded(el, pat) {
+    let cur = el;
+    while (cur) {
+        if (cur.classes.length && classMatch(cur, pat))
+            return true;
+        cur = cur.parent;
+    }
+    return false;
+}
+/** First descendant element of `root` matching `pred`, preorder, skipping `skip` subtrees. */
+function findFirst(root, pred, skip) {
+    const stack = [...root.children].reverse().filter(c => c.tag !== '#text');
+    while (stack.length) {
+        const el = stack.pop();
+        if (skip && skip.has(el))
+            continue;
+        if (pred(el))
+            return el;
+        const kids = el.children.filter(c => c.tag !== '#text');
+        for (let k = kids.length - 1; k >= 0; k--)
+            stack.push(kids[k]);
+    }
+    return null;
+}
+/** Is this class token a Font-Awesome marker (`fa`, `fas`, `far`, `fab`, … or `fa-*`)? */
+function isFaClass(tok) {
+    return /^fa[srlbdt]?$/.test(tok) || /^fa-/.test(tok);
+}
+/** Extract the first colour in a CSS value as 6-digit hex (no `#`); handles `#rgb`/`#rrggbb`/`rgb()`. */
+function extractHex(v) {
+    if (!v)
+        return undefined;
+    const hm = v.match(/#([0-9a-fA-F]{3,8})\b/);
+    if (hm) {
+        let h = hm[1];
+        if (h.length === 3)
+            h = h.split('').map(c => c + c).join('');
+        return h.slice(0, 6).toUpperCase();
+    }
+    const rgb = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (rgb) {
+        const to2 = (s) => Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, '0');
+        return (to2(rgb[1]) + to2(rgb[2]) + to2(rgb[3])).toUpperCase();
+    }
+    return undefined;
+}
+/** Background colour of an element from its inline style. */
+function bgOf(el) {
+    return extractHex(el.style.background) || extractHex(el.style['background-color']);
+}
+/** Leading emoji (pictographic) cluster at the start of a string, if any. */
+function leadingEmoji(text) {
+    const t = text.trim();
+    if (!t)
+        return undefined;
+    // Match a leading emoji / pictographic / symbol code point (incl. surrogate pairs + VS16/ZWJ runs).
+    const m = t.match(/^(?:\p{Extended_Pictographic}(?:\u200D|\uFE0F)?)+/u);
+    return m ? m[0] : undefined;
+}
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Per-card structure analysis
+// ──────────────────────────────────────────────────────────────────────────────────────────
+/** Ordered "text blocks" of a card: leaf-most text-bearing elements, skipping `skip` subtrees + `<svg>`. */
+function textBlocks(card, skip) {
+    const out = [];
+    const walk = (el) => {
+        if (skip.has(el) || el.tag === 'svg')
+            return;
+        const childEls = el.children.filter(c => c.tag !== '#text' && !skip.has(c) && c.tag !== 'svg');
+        const childWithText = childEls.filter(c => textOf(c).trim().length > 0);
+        if (childWithText.length === 0) {
+            const t = textOf(el).trim();
+            if (t)
+                out.push({ el, text: t });
+        }
+        else {
+            for (const c of childWithText)
+                walk(c);
+        }
+    };
+    for (const c of card.children) {
+        if (c.tag !== '#text')
+            walk(c);
+    }
+    return out;
+}
+/** Build a `CardData` from a single card element. */
+function analyzeCard(card, opts) {
+    const skip = new Set();
+    // ── icon ──────────────────────────────────────────────────────────────────────────────
+    let icon;
+    let iconEl = null;
+    const svgEl = findFirst(card, e => e.tag === 'svg');
+    if (svgEl) {
+        iconEl = svgEl;
+        skip.add(svgEl);
+        const parts = parseSvg(svgEl.raw || '', opts.defaultFill ? { defaultFill: opts.defaultFill } : {});
+        icon = { type: 'svg', parts };
+    }
+    else {
+        const faEl = findFirst(card, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass));
+        if (faEl) {
+            iconEl = faEl;
+            skip.add(faEl);
+            icon = { type: 'fontIcon', char: '', fontFace: 'Font Awesome 6 Free' };
+        }
+    }
+    // ── badge ─────────────────────────────────────────────────────────────────────────────
+    let badge;
+    const badgeEl = findFirst(card, e => classMatch(e, BADGE_PAT) && textOf(e).trim().length > 0 && textOf(e).trim().length <= 24, skip);
+    if (badgeEl) {
+        skip.add(badgeEl);
+        const bt = textOf(badgeEl).trim();
+        const bc = bgOf(badgeEl);
+        badge = { text: bt, color: bc || '' };
+    }
+    // ── title ─────────────────────────────────────────────────────────────────────────────
+    const titleEl = findByTitle(card, skip);
+    let title = '';
+    if (titleEl)
+        title = textOf(titleEl).trim();
+    else {
+        const heading = findFirst(card, e => /^(h[1-4]|strong|b)$/.test(e.tag), skip);
+        if (heading)
+            title = textOf(heading).trim();
+    }
+    // ── description ───────────────────────────────────────────────────────────────────────
+    let description;
+    let descEl = findFirst(card, e => classMatch(e, DESC_PAT) && textOf(e).trim().length > 0, skip);
+    const blocks = textBlocks(card, skip);
+    if (!title && blocks.length) {
+        title = blocks[0].text;
+    }
+    if (descEl) {
+        description = textOf(descEl).trim() || undefined;
+    }
+    else {
+        const cand = blocks.find(b => b.text !== title && !(titleEl && isAncestorOrSelf(titleEl, b.el)));
+        if (cand) {
+            description = cand.text;
+            descEl = cand.el;
+        }
+    }
+    // ── emoji icon fallback (no svg/fontIcon) ───────────────────────────────────────────────
+    if (!icon) {
+        const lead = leadingEmoji(title);
+        if (lead) {
+            icon = { type: 'emoji', text: lead };
+        }
+        else {
+            const firstBlock = blocks[0];
+            const le = firstBlock ? leadingEmoji(firstBlock.text) : undefined;
+            if (le)
+                icon = { type: 'emoji', text: le };
+        }
+    }
+    // ── colours (inline styles only) ────────────────────────────────────────────────────────
+    const colors = {};
+    const cardFill = bgOf(card);
+    if (cardFill)
+        colors.cardFill = cardFill;
+    const borderColor = extractHex(card.style.border) || extractHex(card.style['border-color']);
+    if (borderColor)
+        colors.borderColor = borderColor;
+    if (titleEl) {
+        const c = extractHex(titleEl.style.color);
+        if (c)
+            colors.titleColor = c;
+    }
+    if (descEl) {
+        const c = extractHex(descEl.style.color);
+        if (c)
+            colors.descColor = c;
+    }
+    if (iconEl) {
+        const ic = extractHex(iconEl.style.color) || extractHex(iconEl.attrs.color) || extractHex(iconEl.attrs.stroke) || extractHex(iconEl.attrs.fill);
+        if (ic)
+            colors.iconColor = ic;
+        if (iconEl.parent && iconEl.parent !== card) {
+            const tf = bgOf(iconEl.parent);
+            if (tf)
+                colors.tileFill = tf;
+        }
+    }
+    // ── accent bar (border-left rule) ───────────────────────────────────────────────────────
+    let accentBar;
+    const bl = card.style['border-left'];
+    if (bl) {
+        const c = extractHex(bl);
+        const w = parseFloat(bl);
+        if (c)
+            accentBar = { color: c, width: isFinite(w) ? w : 4 };
+    }
+    const out = { title, colors };
+    if (icon)
+        out.icon = icon;
+    if (description !== undefined)
+        out.description = description;
+    if (badge)
+        out.badge = badge;
+    if (accentBar)
+        out.accentBar = accentBar;
+    out._el = card;
+    return out;
+}
+/** Title element: a `*-title|name|heading|head|label` class, skipping `skip` subtrees. */
+function findByTitle(card, skip) {
+    return findFirst(card, e => classMatch(e, TITLE_PAT) && textOf(e).trim().length > 0, skip);
+}
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// parseCards — the public entry
+// ──────────────────────────────────────────────────────────────────────────────────────────
+/** Locate a grid/flex container whose repeated children are the cards. */
+function findContainer(allEls, contPat, exclPat) {
+    for (const e of allEls) {
+        if (isExcluded(e, exclPat))
+            continue;
+        const childEls = e.children.filter(c => c.tag !== '#text');
+        if (childEls.length < 2)
+            continue;
+        if (classMatch(e, contPat))
+            return e;
+        const disp = e.style.display;
+        if ((disp === 'grid' || e.style['grid-template-columns'] !== undefined) && childEls.length >= 2)
+            return e;
+        if (disp === 'flex' && childEls.length >= 3)
+            return e;
+    }
+    return null;
+}
+/**
+ * Parse an HTML card-grid into `CardData[]` ready to spread into `slide.addCard()`.
+ *
+ * @param input - a raw HTML string (Node). A live DOM node is not handled in this release.
+ * @param opts - detection patterns + `defaultFill`
+ * @returns one `CardData` per detected card (empty array when no grid of ≥2 cards is found)
+ */
+function parseCards(input, opts = {}) {
+    if (typeof input !== 'string' || input.length === 0)
+        return [];
+    const cardPat = opts.cardPattern || DEFAULT_CARD;
+    const contPat = opts.containerPattern || DEFAULT_CONTAINER;
+    const exclPat = opts.excludeWithin || DEFAULT_EXCLUDE;
+    const root = buildTree(input);
+    const allEls = elements(root);
+    // 1) cards by class pattern → keep only outermost matches
+    const matched = allEls.filter(e => classMatch(e, cardPat) && !isExcluded(e, exclPat));
+    const outer = matched.filter(e => !matched.some(o => o !== e && isAncestorOrSelf(o, e.parent)));
+    let cards = [];
+    if (outer.length >= 2) {
+        cards = outer;
+    }
+    else {
+        // 2) else a grid/flex container's repeated children are the cards
+        const cont = findContainer(allEls, contPat, exclPat);
+        if (cont)
+            cards = cont.children.filter(c => c.tag !== '#text');
+    }
+    // clamp-don't-crash: a lone card (or none) is not a grid → empty result
+    if (cards.length < 2)
+        return [];
+    return cards.map(c => analyzeCard(c, opts));
+}
+
 exports.extractThemeFromCSS = extractThemeFromCSS;
+exports.parseCards = parseCards;
 exports.parseSvg = parseSvg;

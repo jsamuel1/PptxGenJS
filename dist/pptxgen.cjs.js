@@ -1,4 +1,4 @@
-/* PptxGenJS 4.1.7 @ 2026-06-08T16:40:13.958Z */
+/* PptxGenJS 4.1.7 @ 2026-06-08T17:07:07.202Z */
 'use strict';
 
 var JSZip = require('jszip');

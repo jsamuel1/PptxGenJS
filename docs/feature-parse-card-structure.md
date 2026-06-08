@@ -1,10 +1,22 @@
 # Feature: Generic Card Structure Parser — `parseCards()`
 
-> **Status:** Proposed
-> **Target:** `@jsamuel1/pptxgenjs/utils` (next minor)
-> **Implements (when built):** `src/utils/parse-cards.ts`; exported from `src/utils.ts`; types `types/utils.d.ts` (`CardData`, `ParseCardsOptions`); tests `test/feature-parse-cards.test.js`
+> **Status:** Implemented (v4.1.7)
+> **Target:** `@jsamuel1/pptxgenjs/utils`
+> **Implemented in:** `src/utils/parse-cards.ts`; exported from `src/utils.ts`; types `types/utils.d.ts` (`CardData`, `ParseCardsOptions`); tests `test/feature-parse-cards.test.js`
 > **Depends on:** `parseSvg()` (see `feature-svg-normalisation.md`)
 > **Priority:** High — turns the converter's grid handling into a 3-line call
+
+> **Implementation notes (shipped):**
+> - **Dependency-free.** Parsing uses a small built-in stack-based HTML tree-builder — NOT cheerio
+>   — to preserve the library's zero-runtime-dependency guarantee (consistent with `parseSvg()` and
+>   `extractThemeFromCSS()`). An inline `<svg>` subtree is captured raw and handed to `parseSvg()`.
+> - **Default class patterns** are tested per class token with a `(?:^|-)` prefix, so a bare `card`/
+>   `grid` matches as well as `feature-card`/`cap-grid`: `cardPattern` `/(?:^|-)(card|item|tile|cell)\b/`,
+>   `containerPattern` `/(?:^|-)grid\b/`.
+> - **Colour scope:** colours are read from INLINE `style="…"` attributes only in this release. The
+>   deeper CSS cascade (class rules, `var()` against `:root`, browser computed styles) described below
+>   is a documented limitation tracked as a converter-gaps follow-up — it is not silently dropped.
+> - A live DOM `Node` input is not handled in this release (string input only).
 
 ## Problem
 
