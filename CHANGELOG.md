@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `<c:invertIfNegative>` was emitted as a direct child of every series type in `makeChartType` (area/line/radar as well as bar/bar3D), but it is only valid on `CT_BarSer`; this produced an "unexpected child element 'invertIfNegative'" schema error for area, line, radar, and combo charts. The series-level emit is now gated to `BAR`/`BAR3D` only, so those chart types validate against the OOXML schema (bar/bar3D output is unchanged; the data-point-level `<c:dPt><c:invertIfNegative>` emits are left intact since `CT_DPt` permits the element)
 - Section GUIDs (`<p14:section id>`) were emitted with lowercase hex, violating the OOXML `ST_Guid` pattern (`\{[0-9A-F]{8}-…\}`); `getUuid` now emits uppercase hex so section-bearing decks validate against the schema
 - Line shapes with negative width/height (drawn backwards) produced invalid OOXML — now normalized to positive extents with flipH/flipV flags
 - Shape entrance animations did not cascade — `genXmlTiming` wrapped every effect inside one shared parallel `<p:cTn>` container, so `afterPrevious`/`withPrevious` triggers were treated as simultaneous (the number-counter and grouped entrances all fired at once). Effects are now grouped into build steps by trigger and emitted as separate `<p:par>` elements directly under `<p:seq nodeType="mainSeq">`, so PowerPoint plays them one-after-the-previous.

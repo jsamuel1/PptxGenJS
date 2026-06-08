@@ -883,7 +883,11 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
 
 				strXml += '  </c:spPr>'
-				strXml += '  <c:invertIfNegative val="0"/>'
+				// `c:invertIfNegative` is only valid on bar/bar3D series (CT_BarSer). Emitting it for
+				// area/line/radar series violates the OOXML schema (invalid child of CT_AreaSer/CT_LineSer/CT_RadarSer).
+				if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) {
+					strXml += '  <c:invertIfNegative val="0"/>'
+				}
 
 				// Data Labels per series
 				// NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
