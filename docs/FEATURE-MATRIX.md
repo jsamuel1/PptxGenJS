@@ -52,7 +52,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 |-------|-------|
 | ✅ Done | core slide/text/table/shape/image/media/chart + fork features |
 | ⚠️ Partial | animations, shape fills, hyperlinks, effects |
-| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, custom shows, photo album, handout master, ink |
+| ❌ Missing | comments, talking-points notes export, embedded fonts, SmartArt, motion animations, photo album, handout master, ink |
 | 🚫 Out of scope (authoring) | OLE objects, VBA/macros, ActiveX controls, password/modifyVerifier |
 
 ---
@@ -68,7 +68,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Sections | `p:sectionLst` (ext) | ✅ Done | `addSection()` |
 | Default text style | `p:defaultTextStyle` | ✅ Done | |
 | Handout master | `p:handoutMasterIdLst` | ❌ Missing | |
-| Custom shows | `p:custShowLst` | ❌ Missing | subset slideshows |
+| Custom shows | `p:custShowLst` | ✅ Done | subset slideshows via `pptx.addCustomShow()` |
 | Photo album | `p:photoAlbum` | ❌ Missing | |
 | Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ❌ Missing | needed for portable decks; README markets "Asian fonts" but no embedding exists |
 | Kinsoku (E-Asian breaks) | `p:kinsoku` | ✅ Done | `pptx.kinsoku = { lang?, invalStChars?, invalEndChars? }` → `<p:kinsoku>` in `presentation.xml` (ja-JP defaults, XML-escaped, default-off) |
@@ -154,7 +154,7 @@ The work order (driven from this matrix) lives in [`PROMPT.md` → Implementatio
 2. **Further shape work** — picture-fill polish.
 3. **Timing depth** — emphasis variants, action jumps.
 4. **Header/footer** — first-class hf config + per-slide show/hide.
-5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, custom shows, photo album, hover links, **ink** (niche but tractable).
+5. **Then everything else** — comments, talking-points notes export, embedded fonts, SmartArt, handout master, photo album, hover links, **ink** (niche but tractable).
 
 **Out of scope (authoring only):** OLE objects, VBA/macros, ActiveX controls,
 password/encryption — each requires binary part formats and/or whole-package

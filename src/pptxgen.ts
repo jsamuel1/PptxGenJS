@@ -82,6 +82,7 @@ import {
 	HeaderFooterProps,
 	IPresentationProps,
 	KinsokuProps,
+	CustomShowProps,
 	LayoutGridProps,
 	LayoutGridResult,
 	PresLayout,
@@ -276,6 +277,12 @@ export default class PptxGenJS implements IPresentationProps {
 		return this._sections
 	}
 
+	/** this Presentation's custom shows */
+	private readonly _customShows: CustomShowProps[]
+	public get customShows(): CustomShowProps[] {
+		return this._customShows
+	}
+
 	/** slide layout definition objects, used for generating slide layout files */
 	private readonly _slideLayouts: SlideLayout[]
 	public get slideLayouts(): SlideLayout[] {
@@ -389,6 +396,7 @@ export default class PptxGenJS implements IPresentationProps {
 		]
 		this._slides = []
 		this._sections = []
+		this._customShows = []
 		this._masterSlide = {
 			addChart: null,
 			addImage: null,
@@ -694,6 +702,28 @@ export default class PptxGenJS implements IPresentationProps {
 
 		if (section.order) this.sections.splice(section.order, 0, newSection)
 		else this._sections.push(newSection)
+	}
+
+	/**
+	 * Add a new Custom Show (named subset/ordering of slides) to Presentation
+	 * @param {CustomShowProps} show - custom show properties
+	 * @example pptx.addCustomShow({ name:'Exec Summary', slides:[slide1, slide3] });
+	 */
+	addCustomShow(show: CustomShowProps): void {
+		if (!show) {
+			console.warn('addCustomShow requires an argument')
+			return
+		}
+		if (!show.name) {
+			console.warn('addCustomShow requires a `name`')
+			return
+		}
+		if (!show.slides || !Array.isArray(show.slides) || show.slides.length === 0) {
+			console.warn('addCustomShow requires a non-empty `slides` array')
+			return
+		}
+
+		this._customShows.push({ name: show.name, slides: show.slides })
 	}
 
 	/**

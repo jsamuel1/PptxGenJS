@@ -1,6 +1,6 @@
 # Feature: Custom Shows (`p:custShowLst`)
 
-> **Status:** Proposed
+> **Status:** Implemented — `pptx.addCustomShow({ name, slides })` → `<p:custShowLst>` in `presentation.xml` (commit `feat(presentation): add custom shows`); schema fixture `custom shows (pptx.addCustomShow -> p:custShowLst)` in `test/schema.test.js`.
 > **Priority:** Low — Phase 4 (matrix `❌ Missing` → `✅`)
 > **Matrix row:** §1 Presentation container — "Custom shows"
 

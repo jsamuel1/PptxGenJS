@@ -617,6 +617,53 @@ module.exports = [
 		}
 	},
 	{
+		name: 'custom shows (pptx.addCustomShow -> p:custShowLst)',
+		fn: async () => {
+			let s1, s2, s3
+			const { buf, zip } = await build(p => {
+				s1 = p.addSlide(); s1.addText('one', { x: 1, y: 1, w: 4, h: 1 })
+				s2 = p.addSlide(); s2.addText('two', { x: 1, y: 1, w: 4, h: 1 })
+				s3 = p.addSlide(); s3.addText('three', { x: 1, y: 1, w: 4, h: 1 })
+				p.addCustomShow({ name: 'Exec Summary', slides: [s1, s3] })
+				p.addCustomShow({ name: 'Deep Dive', slides: [s1, s2, s3] })
+			})
+			const presXml = await readEntry(zip, 'ppt/presentation.xml')
+			// First show: name + 0-based id + sldLst with the included slides' r:ids
+			assert(
+				new RegExp(`<p:custShow name="Exec Summary" id="0"><p:sldLst><p:sld r:id="rId${s1._rId}"/><p:sld r:id="rId${s3._rId}"/></p:sldLst></p:custShow>`).test(presXml),
+				'custom-shows: first show must emit name, id="0", and the included slides r:ids'
+			)
+			// Second show: id increments to 1, all three slides
+			assert(
+				new RegExp(`<p:custShow name="Deep Dive" id="1"><p:sldLst><p:sld r:id="rId${s1._rId}"/><p:sld r:id="rId${s2._rId}"/><p:sld r:id="rId${s3._rId}"/></p:sldLst></p:custShow>`).test(presXml),
+				'custom-shows: second show must have id="1" and all three slides'
+			)
+			// r:id in the custom show must MATCH the r:id assigned in <p:sldIdLst>
+			assert(new RegExp(`<p:sldId id="[0-9]+" r:id="rId${s1._rId}"/>`).test(presXml), 'custom-shows: s1 r:id must match its <p:sldId> entry')
+			assert(new RegExp(`<p:sldId id="[0-9]+" r:id="rId${s3._rId}"/>`).test(presXml), 'custom-shows: s3 r:id must match its <p:sldId> entry')
+			// Child-order (CT_Presentation): <p:custShowLst> must sit AFTER <p:notesSz> and BEFORE <p:defaultTextStyle>
+			assert(/<p:notesSz [^>]*\/><p:custShowLst>/.test(presXml), 'custom-shows: <p:custShowLst> must come right after <p:notesSz>')
+			assert(/<\/p:custShowLst><p:defaultTextStyle>/.test(presXml), 'custom-shows: <p:custShowLst> must come before <p:defaultTextStyle>')
+			// XML-escape proof: a show name with & and < emits escaped
+			let e1, e2
+			const { zip: zipEsc } = await build(p => {
+				e1 = p.addSlide(); e1.addText('a', { x: 1, y: 1, w: 4, h: 1 })
+				e2 = p.addSlide(); e2.addText('b', { x: 1, y: 1, w: 4, h: 1 })
+				p.addCustomShow({ name: 'R&D <draft>', slides: [e1, e2] })
+			})
+			const presEsc = await readEntry(zipEsc, 'ppt/presentation.xml')
+			assert(/<p:custShow name="R&amp;D &lt;draft&gt;" id="0">/.test(presEsc), 'custom-shows: name must XML-escape & and <')
+			assert(!/name="R&D <draft>"/.test(presEsc), 'custom-shows: raw & / < must NOT appear in name')
+			// Default-off invariant: a deck with NO custom shows must emit NO <p:custShowLst>
+			const { zip: zip2 } = await build(p => {
+				p.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			const presDefault = await readEntry(zip2, 'ppt/presentation.xml')
+			assert(!/<p:custShowLst\b/.test(presDefault), 'custom-shows: default (no config) presentation.xml must NOT emit <p:custShowLst>')
+			await expectNoSchemaErrors(buf, 'custom-shows')
+		}
+	},
+	{
 		name: 'slide with number-counter (stacked appear/disappear frames)',
 		fn: async () => {
 			const { buf } = await build(p => {

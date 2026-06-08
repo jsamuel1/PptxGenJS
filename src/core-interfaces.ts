@@ -2418,6 +2418,11 @@ export interface PresentationProps {
 	 * Default-off: when unset, no `<p:kinsoku>` element is emitted.
 	 */
 	kinsoku?: KinsokuProps
+	/**
+	 * Custom shows — named subsets of slides emitted as `<p:custShowLst>` in `presentation.xml`.
+	 * Default-off: when unset/empty, no `<p:custShowLst>` element is emitted.
+	 */
+	customShows?: CustomShowProps[]
 }
 /**
  * Kinsoku — East-Asian line-break rules (`<p:kinsoku>` in `presentation.xml`).
@@ -2440,9 +2445,20 @@ export interface KinsokuProps {
 	 */
 	invalEndChars?: string
 }
+/**
+ * Custom show — a named subset/ordering of slides (`<p:custShow>` in `presentation.xml`).
+ * Lets a presentation define alternate slideshow sequences over the existing slides.
+ */
+export interface CustomShowProps {
+	/** Display name of the custom show. */
+	name: string
+	/** Slides included in the show, in presentation order. Each must already be added to the deck. */
+	slides: PresSlide[]
+}
 // PRIVATE interface
 export interface IPresentationProps extends PresentationProps {
 	sections: SectionProps[]
+	customShows: CustomShowProps[]
 	slideLayouts: SlideLayout[]
 	slides: PresSlide[]
 }

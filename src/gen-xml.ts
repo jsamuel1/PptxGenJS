@@ -2559,6 +2559,21 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
 	strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`
 
+	// STEP 4a: Add custom shows (named slide subsets) — default-off.
+	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
+	// <p:custShowLst> after <p:notesSz> and before <p:kinsoku>. Each
+	// <p:sld r:id> reuses the slide's existing presentation relationship id
+	// (`slide._rId`, the same number used by <p:sldId> above).
+	if (pres.customShows && pres.customShows.length > 0) {
+		strXml += '<p:custShowLst>'
+		pres.customShows.forEach((show, idx) => {
+			strXml += `<p:custShow name="${encodeXmlEntities(show.name)}" id="${idx}"><p:sldLst>`
+			show.slides.forEach(slide => (strXml += `<p:sld r:id="rId${slide._rId}"/>`))
+			strXml += '</p:sldLst></p:custShow>'
+		})
+		strXml += '</p:custShowLst>'
+	}
+
 	// STEP 4b: Add kinsoku (East-Asian line-break rules) — default-off.
 	// Canonical CT_Presentation child order (ECMA-376 §19.2.1.26) places
 	// <p:kinsoku> after <p:notesSz> and immediately before <p:defaultTextStyle>.
