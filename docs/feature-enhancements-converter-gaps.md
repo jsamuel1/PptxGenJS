@@ -2,7 +2,7 @@
 
 > **Status:** Partially Implemented  
 > **Created:** 2026-06-08  
-> **Progress:** §1 `addCard` enhancements ✅ Implemented (v4.1.7) · §2 `addCallout` enhancements ✅ Implemented (v4.1.7) · §3 theme-extraction equivalence ✅ Implemented (v4.1.7) · §4.1 separator helper ✅ Implemented (v4.1.7) · §4.2 count badge ⏳ remaining · parseCards deep CSS-cascade colour follow-up ⏳ remaining  
+> **Progress:** §1 `addCard` enhancements ✅ Implemented (v4.1.7) · §2 `addCallout` enhancements ✅ Implemented (v4.1.7) · §3 theme-extraction equivalence ✅ Implemented (v4.1.7) · §4.1 separator helper ✅ Implemented (v4.1.7) · §4.2 count badge ✅ Implemented (v4.1.7) · parseCards deep CSS-cascade colour follow-up ⏳ remaining  
 > **Context:** Gaps identified during `html-to-pptx` skill conversion of a 14-slide scroll-snap presentation. The converter currently bypasses `addCard` and `addCallout` and uses manual shape composition because these APIs lack features needed for faithful HTML→PPTX rendering.  
 > **Goal:** Close these gaps so the converter can adopt the native helpers, reducing boilerplate from ~60 lines/card to ~6 lines while maintaining or improving fidelity.  
 > **Principle:** Where native library functionality exists and can do the job well, the converter SHOULD adopt it rather than reimplementing with manual shapes. This reduces maintenance surface, ensures OOXML correctness, and means future library improvements automatically benefit all converters.
@@ -432,6 +432,13 @@ badge?: CardBadgeProps | {
   position?: 'top-right' | 'inline-right'  // NEW: inline-right for nav items
 }
 ```
+
+✅ **Implemented (v4.1.7).** `addCard`'s `badge` now accepts a count-bubble variant
+`{ type: 'count', value, fill?, color?, position? }`. It draws a small circle (OVAL → `prst="ellipse"`)
+with the count centred inside — `'top-right'` (default) or `'inline-right'` (vertically centred on the
+card's right edge, for nav/sidebar items). Pure composition of existing primitives (no new OOXML, no new
+dependency). Non-finite `value` renders `'0'` (never throws). The existing `{ text }` text-pill path is
+byte-identical (the count branch fires only on `badge.type === 'count'`).
 
 ---
 

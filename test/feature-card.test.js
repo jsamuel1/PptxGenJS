@@ -325,4 +325,64 @@ module.exports = [
 			assert((inner.match(/<a:custGeom>/g) || []).length === 1, 'expected exactly 1 custGeom (single svgPath); got: ' + inner)
 		},
 	},
+	{
+		name: 'addCard: count badge (top-right) → 1 ellipse bubble + value text, default fill 7C3AED',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'Inbox', badge: { type: 'count', value: 5 } }))
+			const inner = groupInner(xml)
+			assert((inner.match(/prst="ellipse"/g) || []).length === 1, 'expected exactly 1 ellipse bubble; got: ' + inner)
+			assert(inner.indexOf('<a:t>5</a:t>') !== -1, 'expected count value text "5"; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected default count bubble fill 7C3AED; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: count badge (inline-right) → bubble y differs from top-right (vertically centred)',
+		fn: async () => {
+			const top = groupInner(await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'A', badge: { type: 'count', value: 3 } })))
+			const inline = groupInner(await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'A', badge: { type: 'count', value: 3, position: 'inline-right' } })))
+			// The bubble is the only ellipse; compare its <a:off y="…"> within the ellipse <p:sp>.
+			const bubbleY = inner => {
+				const e = inner.indexOf('prst="ellipse"')
+				const sp = inner.lastIndexOf('<a:off ', e)
+				return inner.substring(sp, inner.indexOf('/>', sp))
+			}
+			const topY = bubbleY(top)
+			const inlineY = bubbleY(inline)
+			assert(topY !== inlineY, 'inline-right bubble y must differ from top-right; both were: ' + topY)
+			// top-right sits at padding (0.2in = 182880 EMU); inline-right is centred lower.
+			assert(topY.indexOf('y="182880"') !== -1, 'expected top-right bubble at padding y=182880; got: ' + topY)
+			assert(inlineY.indexOf('y="786384"') !== -1, 'expected inline-right bubble centred at y=786384; got: ' + inlineY)
+		},
+	},
+	{
+		name: 'addCard: count badge custom fill/color → exact srgbClr values on bubble + text',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'N', badge: { type: 'count', value: 99, fill: 'EF4444', color: '111827' } }))
+			const inner = groupInner(xml)
+			assert(inner.indexOf('<a:srgbClr val="EF4444"/>') !== -1, 'expected custom bubble fill EF4444; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="111827"/>') !== -1, 'expected custom value text color 111827; got: ' + inner)
+			assert(inner.indexOf('<a:t>99</a:t>') !== -1, 'expected value text "99"; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: DEFAULT-OFF — text-pill badge { text } still renders roundRect pill (NOT ellipse)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3.5, h: 2.5, title: 'Card', badge: { text: 'ACTIVE', fill: '10B981' } }))
+			const inner = groupInner(xml)
+			assert((inner.match(/prst="ellipse"/g) || []).length === 0, 'text-pill badge must emit NO ellipse; got: ' + inner)
+			// bg + pill = 2 roundRects, unchanged from v1
+			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + pill); got: ' + inner)
+			assert(inner.indexOf('<a:t>ACTIVE</a:t>') !== -1, 'expected pill text ACTIVE; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="10B981"/>') !== -1, 'expected pill fill 10B981; got: ' + inner)
+		},
+	},
+	{
+		name: 'addCard: count badge GUARD — non-finite value renders "0", does not throw',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addCard({ x: 1, y: 1, w: 3, h: 2, title: 'G', badge: { type: 'count', value: NaN } }))
+			const inner = groupInner(xml)
+			assert((inner.match(/prst="ellipse"/g) || []).length === 1, 'expected bubble still drawn; got: ' + inner)
+			assert(inner.indexOf('<a:t>0</a:t>') !== -1, 'expected non-finite value to render "0"; got: ' + inner)
+		},
+	},
 ]

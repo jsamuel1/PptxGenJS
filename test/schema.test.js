@@ -912,6 +912,39 @@ module.exports = [
 		}
 	},
 	{
+		name: 'addCard v2 count badge (ellipse bubble + value text, top-right + inline-right)',
+		fn: async () => {
+			const { buf, zip } = await build(p => {
+				const s = p.addSlide()
+				// top-right count badge (default fill)
+				s.addCard({ x: 0.5, y: 0.5, w: 3, h: 2, title: 'Inbox', badge: { type: 'count', value: 7 } })
+				// inline-right count badge with custom fill/colour
+				s.addCard({ x: 4, y: 0.5, w: 3, h: 2, title: 'Alerts', badge: { type: 'count', value: 23, fill: 'EF4444', color: '111827', position: 'inline-right' } })
+			})
+			// Baseline: the count badge composes already-validated primitives (ellipse + text run)
+			// inside the card group — the deck is schema-clean.
+			await expectNoSchemaErrors(buf, 'card-v2-count-badge')
+
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Exact-emission regression-catch (per RUNNER mem-1): two count bubbles → exactly 2
+			// ellipses; value text + custom fill present. ST_ShapeType=ellipse + the value string
+			// are not things the validator catches semantically — hence explicit assertions.
+			assert((slideXml.match(/prst="ellipse"/g) || []).length === 2, 'count-badge: expected 2 ellipse bubbles; got: ' + (slideXml.match(/prst="ellipse"/g) || []).length)
+			assert(slideXml.indexOf('<a:t>7</a:t>') !== -1, 'count-badge: expected value text 7')
+			assert(slideXml.indexOf('<a:t>23</a:t>') !== -1, 'count-badge: expected value text 23')
+			assert(slideXml.indexOf('<a:srgbClr val="EF4444"/>') !== -1, 'count-badge: expected custom bubble fill EF4444')
+
+			// Validator regression-catch: prove the OOXMLValidator is engaged on the bubble XML —
+			// corrupt the ellipse preset geometry to an invalid ST_ShapeType enum.
+			const badSlide = slideXml.replace('prst="ellipse"', 'prst="notARealShape"')
+			assert(badSlide !== slideXml, 'count-badge: mutation precondition (found a prst to corrupt)')
+			zip.file('ppt/slides/slide1.xml', badSlide)
+			const badBuf = await zip.generateAsync({ type: 'nodebuffer' })
+			const badErrors = await validateBuf(badBuf)
+			assert(badErrors.length > 0, 'count-badge: validator should flag an invalid preset geometry (regression-catch)')
+		}
+	},
+	{
 		name: 'addCallout v2 (accent bar + attribution + gradient bar)',
 		fn: async () => {
 			const { buf, zip } = await build(p => {

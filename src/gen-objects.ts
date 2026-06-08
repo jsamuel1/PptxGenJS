@@ -1100,17 +1100,31 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 		})
 	}
 
-	// 6) Badge (top-right)
-	if (options.badge && options.badge.text) {
+	// 6) Badge (top-right). Either a count bubble (`{ type:'count', value }`) or a text pill.
+	const badge = options.badge
+	if (badge && 'type' in badge && badge.type === 'count') {
+		const label = Number.isFinite(badge.value) ? String(badge.value) : '0'
+		const dia = 0.28
+		const bx = w - dia - padding
+		const by = badge.position === 'inline-right' ? Math.max(0, (h - dia) / 2) : padding
+		group.addShape(SHAPE_TYPE.OVAL, {
+			x: bx, y: by, w: dia, h: dia,
+			fill: { color: badge.fill || '7C3AED' }, line: { type: 'none' },
+		})
+		group.addText(label, {
+			x: bx, y: by, w: dia, h: dia,
+			align: 'center', valign: 'middle', fontSize: 8, bold: true, color: badge.color || 'FFFFFF',
+		})
+	} else if (badge && !('type' in badge) && badge.text) {
 		const badgeH = 0.28
-		const badgeW = Math.max(0.5, options.badge.text.length * 0.11 + 0.2)
+		const badgeW = Math.max(0.5, badge.text.length * 0.11 + 0.2)
 		group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
 			x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
-			fill: { color: options.badge.fill || '10B981' }, rectRadius: badgeH / 2, line: { type: 'none' },
+			fill: { color: badge.fill || '10B981' }, rectRadius: badgeH / 2, line: { type: 'none' },
 		})
-		group.addText(options.badge.text, {
+		group.addText(badge.text, {
 			x: w - badgeW - padding, y: padding, w: badgeW, h: badgeH,
-			align: 'center', valign: 'middle', fontSize: 8, bold: true, color: options.badge.color || 'FFFFFF',
+			align: 'center', valign: 'middle', fontSize: 8, bold: true, color: badge.color || 'FFFFFF',
 		})
 	}
 }

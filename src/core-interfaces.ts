@@ -1102,6 +1102,18 @@ export interface CardBadgeProps {
 	/** Badge text color (hex). @default 'FFFFFF' */
 	color?: HexColor
 }
+export interface CardCountBadgeProps {
+	/** Discriminant selecting the count-bubble variant. */
+	type: 'count'
+	/** The count to display (rendered as `String(value)`; non-finite values render as `'0'`). */
+	value: number
+	/** Bubble fill (hex). @default '7C3AED' (accent) */
+	fill?: HexColor
+	/** Bubble text colour (hex). @default 'FFFFFF' */
+	color?: HexColor
+	/** Placement. @default 'top-right'. `'inline-right'` = vertically centred on the card's right edge (nav/sidebar items). */
+	position?: 'top-right' | 'inline-right'
+}
 export interface CardProps extends PositionProps, ObjectNameProps {
 	/** Card title (required). */
 	title: string
@@ -1119,8 +1131,12 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	 *   of being flattened to a single tint. `iconColor` does NOT override per-part colours.
 	 */
 	icon?: { svgPath: { d: string, viewBox: { w: number, h: number } } } | string | { char: string, fontFace: string, color?: HexColor } | { parts: SvgPart[] }
-	/** Optional badge, positioned top-right. */
-	badge?: CardBadgeProps
+	/**
+	 * Optional badge. Either a text pill (`{ text }`, positioned top-right) or a count bubble
+	 * (`{ type: 'count', value }` — a small circle with a number, `'top-right'` (default) or
+	 * `'inline-right'` for nav/sidebar items).
+	 */
+	badge?: CardBadgeProps | CardCountBadgeProps
 	/** Card background fill (hex or fill props). @default '1a1a24' */
 	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
 	/** Card border. */
