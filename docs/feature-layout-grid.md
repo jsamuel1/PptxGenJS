@@ -1,6 +1,7 @@
 # Feature: layoutGrid()
 
-> **Status:** Proposed  
+> **Status:** Implemented (v4.2.0)  
+> **Implemented:** src/gen-utils.ts (layoutGrid), instance method re-exported via src/pptxgen.ts; tests test/feature-layout-grid.test.js  
 > **Priority:** High — eliminates repetitive grid-math in every converter/builder
 
 ## Problem
