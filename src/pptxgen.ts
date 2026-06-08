@@ -108,7 +108,7 @@ import * as genXml from './gen-xml'
 import * as genSmartArt from './gen-smartart'
 import { layoutGrid as layoutGridUtil } from './gen-utils'
 
-const VERSION = '4.2.0'
+const VERSION = '4.2.1'
 
 export default class PptxGenJS implements IPresentationProps {
 	// Property getters/setters

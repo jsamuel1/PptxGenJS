@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.2.1) - 2026-06-08
+
 ### Changed
 
 - `parseCards` (`@jsamuel1/pptxgenjs/utils`) colour resolution — card colours (`cardFill`, `borderColor`, `titleColor`, `descColor`, `iconColor`, `tileFill`, the badge fill, and the `accentBar`) now resolve through a cascade-lite of the input HTML's `<style>` block in addition to inline `style="…"`: simple class rules (`.foo { background; color; border; border-left }`, last-declared wins) and `var(--name[, fallback])` references against `:root`/`html`/`body` custom properties — in both inline styles and class rules. Precedence is inline style > class rule. The browser computed-style cascade (specificity ranking, id/descendant/combinator selectors, `@media`) stays out of scope (needs a live DOM). Inputs with no `<style>` block and no `var()` produce byte-identical `CardData` to before.
