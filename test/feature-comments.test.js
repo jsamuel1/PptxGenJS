@@ -98,6 +98,28 @@ module.exports = [
 		}
 	},
 	{
+		// Regression-catch for the per-slide idx-reset defect (critic iter 7): `p:cm/@idx` must be
+		// UNIQUE per author across the whole presentation and `lastIdx` must equal the max idx used.
+		name: 'comments: per-author idx is unique across slides (slide1 idx=1, slide3 idx=2); lastIdx == max idx',
+		fn: async () => {
+			const { zip } = await build(p => {
+				p.addSlide().addComment({ author: 'Reviewer One', text: 's1' })
+				p.addSlide() // slide 2: no comments
+				p.addSlide().addComment({ author: 'Reviewer One', text: 's3' })
+			})
+			const cm1 = await readEntry(zip, 'ppt/comments/comment1.xml')
+			const cm3 = await readEntry(zip, 'ppt/comments/comment3.xml')
+			assert(/authorId="0"[^>]*idx="1"><p:pos[^>]*\/><p:text>s1<\/p:text>/.test(cm1), 'slide 1 comment must be idx=1; got: ' + cm1)
+			// The defect produced idx=1 again on slide 3 — it MUST be idx=2 (unique per author across the presentation).
+			assert(/authorId="0"[^>]*idx="2"><p:pos[^>]*\/><p:text>s3<\/p:text>/.test(cm3), 'slide 3 comment must be idx=2 (unique across slides); got: ' + cm3)
+			assert(!/idx="1"/.test(cm3), 'slide 3 must NOT reuse idx=1 for the same author; got: ' + cm3)
+			// lastIdx must equal the max idx used (2), not just the count
+			const authorsXml = await readEntry(zip, 'ppt/commentAuthors.xml')
+			const m = authorsXml.match(/id="0"[^>]*lastIdx="(\d+)"/)
+			assert(m && m[1] === '2', 'lastIdx must equal max idx (2); got: ' + authorsXml)
+		}
+	},
+	{
 		name: 'comments: default anchor 0.5in,0.5in; negative coords clamped to 0',
 		fn: async () => {
 			const { zip } = await build(p => {

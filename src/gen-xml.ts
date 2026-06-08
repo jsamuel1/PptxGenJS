@@ -172,7 +172,16 @@ export function makeXmlCommentAuthors (slides: PresSlide[]): string {
  */
 export function makeXmlComments (slide: PresSlide, slides: PresSlide[]): string {
 	const authors = collectCommentAuthors(slides)
+	// `p:cm/@idx` (ST_Index) must be UNIQUE per author across the ENTIRE presentation, numbered in
+	// slide order, with `<p:cmAuthor>/@lastIdx` == the author's max idx. Seed the per-author counter
+	// from comments by that author on PRIOR slides so multi-slide authors keep ascending unique idx.
+	const slideIdx = slides.indexOf(slide)
 	const perAuthorIdx = new Map<string, number>()
+	for (let i = 0; i < slideIdx; i++) {
+		;(slides[i]._comments || []).forEach(cm => {
+			perAuthorIdx.set(cm.author, (perAuthorIdx.get(cm.author) || 0) + 1)
+		})
+	}
 	let body = ''
 	;(slide._comments || []).forEach(cm => {
 		const meta = authors.get(cm.author)
