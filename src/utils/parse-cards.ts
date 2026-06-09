@@ -29,11 +29,13 @@ import { detectIcon, extractCssCodepoints } from './icon-classify'
 import type { GradientFillProps } from '../core-interfaces'
 // Shared, dependency-free HTML tree-builder + helpers (promoted out of this file — see
 // docs/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
-import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf, parseStyle } from './html-dom'
+import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf } from './html-dom'
 import type { HNode } from './html-dom'
-
-/** Hex colour string (6-digit, no leading `#`). */
-type HexColor = string
+// Shared, dependency-free CSS colour-resolution context (promoted out of this file — see
+// docs/feature-html-content-extractors.md). `parseCards` behaviour is unchanged: it uses the
+// identical colour logic, now shared with the HTML content extractors.
+import { extractHex, parseStyleSheets, cssProp, bgOfCtx, colorOf } from './css-context'
+import type { HexColor, CssContext } from './css-context'
 
 /** A single parsed card, shaped to spread straight into `slide.addCard()` v2. */
 export interface CardData {
@@ -176,111 +178,6 @@ function inlineStyleBlocks (html: string): string[] {
 	let m: RegExpExecArray | null
 	while ((m = re.exec(html)) !== null) blocks.push(m[1])
 	return blocks
-}
-
-/** Extract the first colour in a CSS value as 6-digit hex (no `#`); handles `#rgb`/`#rrggbb`/`rgb()`. */
-function extractHex (v: string | undefined): string | undefined {
-	if (!v) return undefined
-	const hm = v.match(/#([0-9a-fA-F]{3,8})\b/)
-	if (hm) {
-		let h = hm[1]
-		if (h.length === 3) h = h.split('').map(c => c + c).join('')
-		return h.slice(0, 6).toUpperCase()
-	}
-	const rgb = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
-	if (rgb) {
-		const to2 = (s: string): string => Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, '0')
-		return (to2(rgb[1]) + to2(rgb[2]) + to2(rgb[3])).toUpperCase()
-	}
-	return undefined
-}
-
-// ──────────────────────────────────────────────────────────────────────────────────────────
-// CSS cascade-lite: `<style>` block class rules + `:root`/`html`/`body` `var()` custom properties.
-// String-input + dependency-free. Out of scope: id/descendant/combinator selectors, specificity
-// ranking, `@media`, browser COMPUTED styles (needs a live DOM).
-// ──────────────────────────────────────────────────────────────────────────────────────────
-
-/** A simple single-element class rule from a `<style>` block. */
-interface ClassRule { classes: string[], decls: Record<string, string> }
-
-/** Parsed stylesheet context threaded through card analysis. Empty ⇒ inline-only (legacy) behaviour. */
-interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[] }
-
-/** Empty context — yields byte-identical output to inline-only parsing. */
-const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [] }
-
-/** Resolve `var(--name[, fallback])` references against `rootVars`; left as-is when unresolved. */
-function resolveVars (value: string | undefined, rootVars: Record<string, string>): string | undefined {
-	if (!value || value.indexOf('var(') === -1) return value
-	let prev = ''
-	let cur = value
-	let guard = 0
-	while (cur !== prev && guard++ < 10) {
-		prev = cur
-		cur = cur.replace(/var\(\s*(--[\w-]+)\s*(?:,\s*([^)]*))?\)/g, (m, name, fb) => {
-			const v = rootVars[name]
-			if (v !== undefined) return v
-			if (fb !== undefined) return fb.trim()
-			return m
-		})
-	}
-	return cur
-}
-
-/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
-function parseStyleSheets (html: string): CssContext {
-	const rootVars: Record<string, string> = {}
-	const classRules: ClassRule[] = []
-	let css = ''
-	const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
-	let sm: RegExpExecArray | null
-	while ((sm = styleRe.exec(html)) !== null) css += sm[1] + '\n'
-	if (!css) return EMPTY_CSS
-	css = css.replace(/\/\*[\s\S]*?\*\//g, '') // strip comments
-	const ruleRe = /([^{}]+)\{([^{}]*)\}/g
-	let rm: RegExpExecArray | null
-	while ((rm = ruleRe.exec(css)) !== null) {
-		const decls = parseStyle(rm[2])
-		for (const sel of rm[1].split(',')) {
-			const s = sel.trim()
-			if (!s) continue
-			if (/^(?::root|html|body)$/i.test(s)) {
-				for (const k of Object.keys(decls)) if (k.startsWith('--')) rootVars[k] = decls[k]
-			} else if (/^(?:\.[-\w]+)+$/.test(s)) {
-				// simple class selector only (`.a` or chained `.a.b`); no element/id/combinator/pseudo
-				classRules.push({ classes: s.split('.').filter(Boolean), decls })
-			}
-		}
-	}
-	return { rootVars, classRules }
-}
-
-/** Merged declarations of all class rules matching `el` (every selector class present); later wins. */
-function classDecls (el: HNode, ctx: CssContext): Record<string, string> {
-	if (ctx.classRules.length === 0 || el.classes.length === 0) return {}
-	const out: Record<string, string> = {}
-	for (const rule of ctx.classRules) {
-		if (rule.classes.every(c => el.classes.includes(c))) Object.assign(out, rule.decls)
-	}
-	return out
-}
-
-/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
-function cssProp (el: HNode, prop: string, ctx: CssContext): string | undefined {
-	const inline = resolveVars(el.style[prop], ctx.rootVars)
-	if (inline !== undefined && inline !== '') return inline
-	return resolveVars(classDecls(el, ctx)[prop], ctx.rootVars)
-}
-
-/** Background colour of `el` honouring the cascade (inline > class rule, with `var()` resolved). */
-function bgOfCtx (el: HNode, ctx: CssContext): string | undefined {
-	return extractHex(cssProp(el, 'background', ctx)) || extractHex(cssProp(el, 'background-color', ctx))
-}
-
-/** Colour of a single CSS property of `el` honouring the cascade (inline > class rule). */
-function colorOf (el: HNode, prop: string, ctx: CssContext): string | undefined {
-	return extractHex(cssProp(el, prop, ctx))
 }
 
 /** Leading emoji (pictographic) cluster at the start of a string, if any. */

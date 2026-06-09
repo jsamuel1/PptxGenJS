@@ -1,0 +1,123 @@
+'use strict'
+
+// Feature: HTML content extractors — parseTable + parseColumns (Slice 2a)
+// (docs/feature-html-content-extractors.md).
+//
+// NEUTRAL, ADDITIVE structural recognisers — they represent the HTML, they do NOT classify it into
+// an "archetype". Each answers "is THIS structure present, and what is its data?" and returns data
+// or null. parseTable maps to an OOXML table; parseColumns maps to multi-column text. Colours reuse
+// the shared parseCards colour context (./css-context) and are NEVER guessed (field omitted when
+// undetectable). Both accept a raw HTML string OR an HNode produced by parseHtml.
+
+const { assert } = require('./helpers')
+const {
+	parseTable, parseColumns, parseHtml,
+} = require('../src/bld/utils.cjs.js')
+
+module.exports = [
+	{
+		name: 'parseTable: header detection + cell colour (spec fixture)',
+		fn: async () => {
+			const t = parseTable('<table><tr><th>Name</th><th>Role</th></tr><tr><td style="color:#10B981">Ada</td><td>Eng</td></tr></table>')
+			assert(t !== null, 'expected a TableData, got null')
+			assert(t.rows.length === 2, 'expected 2 rows; got: ' + t.rows.length)
+			assert(t.rows[0][0].isHeader === true, 'row0 cell0 should be a header (<th>)')
+			assert(t.rows[0][1].text === 'Role', 'row0 cell1 text should be Role; got: ' + t.rows[0][1].text)
+			// REGRESSION-CATCH (mem-1): the EXACT resolved colour. If colorOf/extractHex wiring (the
+			// css-context factor) regressed, this 6-hex uppercased, hash-stripped value would change.
+			assert(t.rows[1][0].color === '10B981', 'row1 cell0 colour should be 10B981; got: ' + t.rows[1][0].color)
+			assert(t.rows[1][0].isHeader === false, 'row1 cell0 should NOT be a header (<td>)')
+			assert(t.rows[1][1].isHeader === false, 'row1 cell1 should NOT be a header (<td>)')
+			// colour is OMITTED, never guessed, when undetectable
+			assert(!('color' in t.rows[1][1]), 'a cell with no colour must omit the color field')
+		},
+	},
+	{
+		name: 'parseTable: colour via <style> class rule (shared css-context)',
+		fn: async () => {
+			// Proves parseTable resolves colours through the SAME <style>/var() context as parseCards
+			// (the factored css-context.ts), not just inline styles.
+			const t = parseTable('<style>.hot{color:#FF0000}</style><table><tr><td class="hot">x</td></tr></table>')
+			assert(t.rows[0][0].color === 'FF0000', 'class-rule colour should resolve to FF0000; got: ' + t.rows[0][0].color)
+		},
+	},
+	{
+		name: 'parseTable: nested table cells are not double-counted',
+		fn: async () => {
+			const html = '<table><tr><td>outer<table><tr><td>inner</td></tr></table></td></tr></table>'
+			const t = parseTable(html)
+			// Outer table has exactly one row with one cell (the inner table's row/cell belong to it,
+			// not the outer table).
+			assert(t.rows.length === 1, 'outer table should have exactly 1 row; got: ' + t.rows.length)
+			assert(t.rows[0].length === 1, 'outer row should have exactly 1 cell; got: ' + t.rows[0].length)
+		},
+	},
+	{
+		name: 'parseTable: accepts an HNode input (parse once, query many)',
+		fn: async () => {
+			const root = parseHtml('<div><table><tr><td>a</td><td>b</td></tr></table></div>')
+			const t = parseTable(root)
+			assert(t !== null && t.rows.length === 1 && t.rows[0].length === 2, 'HNode input should yield 1 row of 2 cells')
+		},
+	},
+	{
+		name: 'parseTable: empty table is still a table ({rows:[]}, not null)',
+		fn: async () => {
+			const t = parseTable('<table></table>')
+			assert(t !== null, 'an empty <table> is still a table, not null')
+			assert(Array.isArray(t.rows) && t.rows.length === 0, 'empty table → { rows: [] }')
+		},
+	},
+	{
+		name: 'parseTable: no-false-positive — non-table input returns null',
+		fn: async () => {
+			// REGRESSION-CATCH (mem-1): MUST be null (not {rows:[]}, not a throw). If the "no <table>"
+			// guard regressed, prose would wrongly produce an empty table.
+			const r = parseTable('<p>just text</p>')
+			assert(r === null, 'plain prose must return null; got: ' + JSON.stringify(r))
+		},
+	},
+	{
+		name: 'parseColumns: explicit .col children → one entry per column',
+		fn: async () => {
+			const cols = parseColumns('<div><div class="col">A</div><div class="col">B</div></div>')
+			assert(cols !== null, 'expected ColumnData[], got null')
+			assert(cols.length === 2, 'expected 2 columns; got: ' + cols.length)
+			assert(cols[0].text === 'A' && cols[1].text === 'B', 'column texts should be A,B; got: ' + JSON.stringify(cols))
+		},
+	},
+	{
+		name: 'parseColumns: CSS column-count >= 2 → each block child is a column',
+		fn: async () => {
+			const cols = parseColumns('<div style="column-count:2"><p>one</p><p>two</p></div>')
+			assert(cols !== null && cols.length === 2, 'column-count:2 should yield 2 columns; got: ' + JSON.stringify(cols))
+			assert(cols[0].text === 'one' && cols[1].text === 'two', 'texts should be one,two')
+		},
+	},
+	{
+		name: 'parseColumns: no-false-positive — prose AND a bare table return null',
+		fn: async () => {
+			assert(parseColumns('<p>just text</p>') === null, 'plain prose must return null')
+			// A table is NEVER columns (explicitly guarded).
+			assert(parseColumns('<table><tr><td>a</td><td>b</td></tr></table>') === null, 'a bare table must NOT be treated as columns')
+		},
+	},
+	{
+		name: 'composability: one input yields BOTH a table and columns (additive, no archetype)',
+		fn: async () => {
+			// The same HTML legitimately contains a multi-column region AND a table; the extractors run
+			// independently and BOTH report — no single-archetype collapse.
+			const html = '<section><div><div class="col">L</div><div class="col">R</div></div><table><tr><td>x</td></tr></table></section>'
+			assert(parseColumns(html) !== null, 'columns should be detected')
+			assert(parseTable(html) !== null, 'table should be detected from the same input')
+		},
+	},
+	{
+		name: 'parseTable + parseColumns: excludeWithin skips matching regions',
+		fn: async () => {
+			// A table inside a `.mockup` region is skipped → no table found → null.
+			const html = '<div class="mockup"><table><tr><td>x</td></tr></table></div>'
+			assert(parseTable(html, { excludeWithin: /mockup/ }) === null, 'table inside excluded region should be skipped')
+		},
+	},
+]

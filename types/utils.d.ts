@@ -285,3 +285,51 @@ export interface IconResolveOptions {
  * (the call never throws for one bad icon).
  */
 export function resolveIconFonts(html: string, options?: IconResolveOptions): Promise<Map<string, ResolvedSvgPart[]>>
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// HTML content extractors (docs/feature-html-content-extractors.md) — NEUTRAL, additive structural
+// recognisers. No `Archetype`/`classifySlide` API by design: each answers "is THIS structure
+// present, and what is its data?" and returns data or `null`. All take an HTML string OR an `HNode`.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** A single parsed table cell, shaped to map onto `slide.addTable()` rows. */
+export interface TableCell {
+	/** Cell text (trimmed). */
+	text: string
+	/** True when the source cell was a `<th>` (→ bold/header options). */
+	isHeader: boolean
+	/** Cell text colour (6-digit hex, no `#`), when detectable. Omitted otherwise. */
+	color?: string
+}
+
+/** A parsed HTML `<table>`: rows of cells. Maps straight onto `slide.addTable()`. */
+export interface TableData {
+	rows: TableCell[][]
+}
+
+/** One detected column of a multi-column structure. */
+export interface ColumnData {
+	text: string
+}
+
+/** Options shared by the content extractors (mirrors `parseCards`). */
+export interface ParseContentOptions {
+	/** Class pattern; elements within a matching region are skipped (mockups/flows). */
+	excludeWithin?: RegExp
+}
+
+/**
+ * Parse the first HTML `<table>` into neutral `TableData` (rows of `{ text, isHeader, color? }`),
+ * ready to map onto `slide.addTable()`. Cells of a deeper NESTED `<table>` are not double-counted.
+ * A `<table>` with zero `<tr>` returns `{ rows: [] }`; only the absence of any `<table>` returns
+ * `null`. Accepts a raw HTML string OR an `HNode` from `parseHtml`.
+ */
+export function parseTable(input: string | HNode, options?: ParseContentOptions): TableData | null
+
+/**
+ * Detect an EXPLICIT multi-column structure and return one `{ text }` per column. Signals: a
+ * container with ≥2 direct-child elements each carrying a `col`/`column`/`col-*` class, or a
+ * container whose `column-count`/`columns` shorthand sets a count ≥ 2. Plain prose, a single block,
+ * or a `<table>` are NOT columns → `null`. Accepts a raw HTML string OR an `HNode` from `parseHtml`.
+ */
+export function parseColumns(input: string | HNode, options?: ParseContentOptions): ColumnData[] | null
