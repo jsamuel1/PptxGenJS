@@ -194,6 +194,64 @@ export interface ParseCardsOptions {
  */
 export function parseCards(input: string, options?: ParseCardsOptions): CardData[]
 
+/**
+ * A lightweight HTML element/text node produced by `parseHtml()`. A dependency-free, DOM-free
+ * shape: `tag` is `'#text'` for text nodes and `''` for the synthetic document root.
+ */
+export interface HNode {
+	/** Lowercase tag name; `'#text'` for text nodes; `''` for the synthetic root. */
+	tag: string
+	/** Attributes (keys lowercased). */
+	attrs: Record<string, string>
+	/** Class tokens (from the `class` attribute). */
+	classes: string[]
+	/** Parsed inline `style="…"` declarations (keys lowercased). */
+	style: Record<string, string>
+	/** Child nodes (elements and `#text`), in document order. */
+	children: HNode[]
+	/** Parent node, or `null` for the synthetic root. */
+	parent: HNode | null
+	/** Raw text (text nodes only). */
+	text?: string
+	/** Verbatim outer markup of an `<svg>…</svg>` subtree (svg nodes only). */
+	raw?: string
+}
+
+/**
+ * Parse an HTML string into a lightweight {@link HNode} tree. Tolerant — never throws on
+ * malformed/unclosed HTML. `<svg>` subtrees are captured opaque on `node.raw`.
+ */
+export function parseHtml(html: string): HNode
+
+/**
+ * Find all descendants of `root` matching a CSS `selector`, in document order (like
+ * `querySelectorAll`). Supports a BOUNDED grammar only: universal `*`, type, `.class`, `#id`,
+ * `[attr]`, `[attr="v"]`, `[attr*="v"]`, compound (type+class/attr, no space), descendant (space),
+ * child (`>`), and selector lists (comma). Anything outside it throws `unsupported selector: …`.
+ */
+export function query(root: HNode, selector: string): HNode[]
+
+/** First descendant of `root` matching `selector`, or `null` (like `querySelector`). */
+export function queryOne(root: HNode, selector: string): HNode | null
+
+/** Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`). */
+export function closest(node: HNode, selector: string): HNode | null
+
+/** True when `node` matches `selector` (node is the rightmost target; see `query` for the grammar). */
+export function matches(node: HNode, selector: string): boolean
+
+/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
+export function textOf(node: HNode): string
+
+/** Get an attribute value (case-insensitive name), or `undefined` when absent. */
+export function attr(node: HNode, name: string): string | undefined
+
+/** Deep-copy a node (children re-parented to the copy). The result is detached (`parent === null`). */
+export function clone(node: HNode): HNode
+
+/** Serialize a node back to HTML. Uses `raw` verbatim for captured `<svg>` subtrees. */
+export function outerHtml(node: HNode): string
+
 /** How a resolved icon part was produced. */
 export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
 

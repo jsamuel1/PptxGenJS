@@ -1,0 +1,492 @@
+/**
+ * PptxGenJS — shared, dependency-free HTML tree-builder + a bounded selector engine
+ * (docs/feature-html-tree-query.md).
+ *
+ * This module promotes the private, stack-based HTML tree-builder that already backs
+ * `parseCards()` / `parseSvg()` / `extractThemeFromCSS()` into a shared, exported surface, and
+ * layers a small **bounded** CSS-selector engine on top (`query`/`queryOne`/`closest`/`matches`).
+ * It is a pure string → node-tree → query helper: no cheerio, no DOM, no browser, no OOXML.
+ *
+ * PARSING is tolerant — `parseHtml` never throws on malformed/unclosed HTML. QUERYING is strict —
+ * the selector grammar is a documented, finite subset (universal/type/class/id/attribute-present/
+ * attribute-exact/attribute-substring, plus compound/descendant/child combinators and selector
+ * lists). Anything outside that grammar throws a clear `unsupported selector` error rather than
+ * silently returning a wrong answer (a consumer needing the full cascade still needs a live DOM).
+ */
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// HTML tree node
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** A lightweight HTML element/text node produced by {@link parseHtml}. */
+export interface HNode {
+	/** Lowercase tag name; `'#text'` for text nodes; `''` for the synthetic root. */
+	tag: string
+	/** Attributes (keys lowercased). */
+	attrs: Record<string, string>
+	/** Class tokens (from the `class` attribute). */
+	classes: string[]
+	/** Parsed inline `style="…"` declarations (keys lowercased). */
+	style: Record<string, string>
+	/** Child nodes (elements and `#text`), in document order. */
+	children: HNode[]
+	/** Parent node, or `null` for the synthetic root. */
+	parent: HNode | null
+	/** Raw text (text nodes only). */
+	text?: string
+	/** Verbatim outer markup of an `<svg>…</svg>` subtree (svg nodes only) — fed to `parseSvg`. */
+	raw?: string
+}
+
+/** Void (self-terminating) HTML elements that never push onto the open-element stack. */
+const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Tree builder (stack-based, error-tolerant)
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract attributes from an element's opening-tag inner string. Captures both `name="value"`
+ * forms and valueless boolean attributes (`disabled`, `data-demo`, … → stored as `''`) so that
+ * attribute-present selectors (`[data-demo]`) work. Keys are lowercased.
+ */
+function parseAttrs (attrStr: string): Record<string, string> {
+	const out: Record<string, string> = {}
+	const re = /([\w:-]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g
+	let m: RegExpExecArray | null
+	while ((m = re.exec(attrStr)) !== null) {
+		const name = m[1].toLowerCase()
+		out[name] = m[2] === undefined
+			? ''
+			: (m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : (m[5] || '')))
+	}
+	return out
+}
+
+/** Read a CSS-like `style="a:b;c:d"` attribute into a property map (keys lowercased). */
+export function parseStyle (style: string): Record<string, string> {
+	const out: Record<string, string> = {}
+	for (const decl of (style || '').split(';')) {
+		const ix = decl.indexOf(':')
+		if (ix > 0) out[decl.slice(0, ix).trim().toLowerCase()] = decl.slice(ix + 1).trim()
+	}
+	return out
+}
+
+/** Make an element node from a tag name + opening-tag attribute string. */
+function makeEl (tag: string, attrStr: string): HNode {
+	const attrs = parseAttrs(attrStr)
+	const classes = (attrs.class || '').split(/\s+/).filter(Boolean)
+	const style = parseStyle(attrs.style || '')
+	return { tag: tag.toLowerCase(), attrs, classes, style, children: [], parent: null }
+}
+
+/** Find the index of the `>` that closes the tag starting at `lt`, respecting quoted attributes. */
+function findTagEnd (html: string, lt: number): number {
+	let i = lt + 1
+	let q: string | null = null
+	const n = html.length
+	while (i < n) {
+		const c = html[i]
+		if (q) { if (c === q) q = null } else if (c === '"' || c === "'") q = c
+		else if (c === '>') return i
+		i++
+	}
+	return n
+}
+
+/** Capture a full `<svg>…</svg>` subtree as a raw string. Returns `[raw, endIndexExclusive]`. */
+function captureSvg (html: string, start: number): [string, number] {
+	const n = html.length
+	let depth = 0
+	let i = start
+	while (i < n) {
+		const lower = html.slice(i, i + 6).toLowerCase()
+		if (lower.startsWith('</svg')) {
+			const gt = html.indexOf('>', i)
+			const end = gt === -1 ? n : gt + 1
+			depth--
+			if (depth <= 0) return [html.slice(start, end), end]
+			i = end
+		} else if (/^<svg[\s>/]/i.test(html.slice(i, i + 5))) {
+			const gt = findTagEnd(html, i)
+			const selfClose = html[gt - 1] === '/'
+			if (selfClose) { if (depth === 0) return [html.slice(start, gt + 1), gt + 1] } else depth++
+			i = (gt === -1 ? n : gt + 1)
+		} else {
+			i++
+		}
+	}
+	return [html.slice(start), n]
+}
+
+/**
+ * Parse an HTML string into a lightweight element tree (stack-based, error-tolerant). Never throws
+ * on malformed or unclosed HTML — unmatched end tags are ignored and unclosed elements are popped
+ * tolerantly. `<svg>` subtrees are captured opaque (their outer markup is kept on `node.raw`).
+ */
+export function parseHtml (html: string): HNode {
+	const root: HNode = { tag: '', attrs: {}, classes: [], style: {}, children: [], parent: null }
+	if (typeof html !== 'string' || html.length === 0) return root
+	const stack: HNode[] = [root]
+	const top = (): HNode => stack[stack.length - 1]
+	const addChild = (node: HNode): void => { node.parent = top(); top().children.push(node) }
+	const addText = (raw: string): void => {
+		if (raw.length === 0) return
+		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: raw })
+	}
+
+	let i = 0
+	const n = html.length
+	while (i < n) {
+		const lt = html.indexOf('<', i)
+		if (lt === -1) { addText(html.slice(i)); break }
+		if (lt > i) addText(html.slice(i, lt))
+
+		// comment
+		if (html.startsWith('<!--', lt)) { const e = html.indexOf('-->', lt + 4); i = e === -1 ? n : e + 3; continue }
+		// doctype / declaration / processing instruction
+		if (html[lt + 1] === '!' || html[lt + 1] === '?') { const e = html.indexOf('>', lt); i = e === -1 ? n : e + 1; continue }
+		// inline <svg> — captured opaque and handed to parseSvg later
+		if (/^<svg[\s>/]/i.test(html.slice(lt, lt + 5))) {
+			const [raw, end] = captureSvg(html, lt)
+			const svgTagM = raw.match(/^<svg\b([^>]*)>/i)
+			const svg = makeEl('svg', svgTagM ? svgTagM[1] : '')
+			svg.raw = raw
+			addChild(svg)
+			i = end
+			continue
+		}
+		// end tag
+		if (html[lt + 1] === '/') {
+			const e = html.indexOf('>', lt)
+			const name = html.slice(lt + 2, e === -1 ? n : e).trim().toLowerCase()
+			// pop until the matching open tag (tolerant of unclosed elements)
+			for (let s = stack.length - 1; s >= 1; s--) {
+				if (stack[s].tag === name) { stack.length = s; break }
+			}
+			i = e === -1 ? n : e + 1
+			continue
+		}
+		// start tag
+		const e = findTagEnd(html, lt)
+		const inner = html.slice(lt + 1, e)
+		const mName = inner.match(/^([\w:-]+)/)
+		if (!mName) { i = e + 1; continue }
+		const name = mName[1].toLowerCase()
+		const attrStr = inner.slice(mName[1].length)
+		const selfClose = inner.trimEnd().endsWith('/')
+		const node = makeEl(name, attrStr)
+		addChild(node)
+		if (!selfClose && !VOID_TAGS.has(name)) stack.push(node)
+		i = e + 1
+	}
+	return root
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Tree helpers
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** All element (non-text) descendants of `node`, preorder (document order). */
+export function elements (node: HNode, out: HNode[] = []): HNode[] {
+	for (const c of node.children) {
+		if (c.tag === '#text') continue
+		out.push(c)
+		elements(c, out)
+	}
+	return out
+}
+
+/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
+export function textOf (node: HNode): string {
+	if (node.tag === '#text') return node.text || ''
+	if (node.tag === 'svg') return ''
+	let s = ''
+	for (const c of node.children) s += textOf(c)
+	return s
+}
+
+/** True when any class token of `el` matches `pat`. */
+export function classMatch (el: HNode, pat: RegExp): boolean {
+	return el.classes.some(c => pat.test(c))
+}
+
+/** True when `a` is an ancestor of (or equal to) `b`. */
+export function isAncestorOrSelf (a: HNode, b: HNode | null): boolean {
+	let cur: HNode | null = b
+	while (cur) { if (cur === a) return true; cur = cur.parent }
+	return false
+}
+
+/** Get an attribute value (case-insensitive name), or `undefined` when absent. */
+export function attr (node: HNode, name: string): string | undefined {
+	return node.attrs[String(name).toLowerCase()]
+}
+
+/** Deep-copy a node (children re-parented to the copy). The result is detached (`parent === null`). */
+export function clone (node: HNode): HNode {
+	const copy: HNode = {
+		tag: node.tag,
+		attrs: { ...node.attrs },
+		classes: [...node.classes],
+		style: { ...node.style },
+		children: [],
+		parent: null,
+	}
+	if (node.text !== undefined) copy.text = node.text
+	if (node.raw !== undefined) copy.raw = node.raw
+	for (const c of node.children) {
+		const cc = clone(c)
+		cc.parent = copy
+		copy.children.push(cc)
+	}
+	return copy
+}
+
+/** Escape a string for use in HTML text/attribute context. */
+function esc (s: string, isAttr: boolean): string {
+	let out = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+	if (isAttr) out = out.replace(/"/g, '&quot;')
+	return out
+}
+
+/** Serialize a node back to HTML. Uses `raw` verbatim for captured `<svg>` subtrees. */
+export function outerHtml (node: HNode): string {
+	if (node.tag === '#text') return esc(node.text || '', false)
+	if (node.raw) return node.raw
+	const inner = node.children.map(outerHtml).join('')
+	// synthetic root: emit children only
+	if (node.tag === '') return inner
+	const attrStr = Object.keys(node.attrs)
+		.map(k => ` ${k}="${esc(node.attrs[k], true)}"`)
+		.join('')
+	if (VOID_TAGS.has(node.tag)) return `<${node.tag}${attrStr}>`
+	return `<${node.tag}${attrStr}>${inner}</${node.tag}>`
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Bounded selector engine
+//
+// Grammar (the ENTIRE supported subset — anything else throws `unsupported selector`):
+//   universal `*` · type `div` · class `.x` · id `#x` · `[attr]` · `[attr="v"]` · `[attr*="v"]`
+//   compound (type+class/attr, no space) · descendant (space) · child (`>`) · list (comma)
+// Explicitly unsupported (throws): pseudo-classes/elements (`:`/`::`), sibling combinators
+// (`+`/`~`), `^=`/`$=`/`~=`/`|=` attribute operators, namespaces, `@media`, specificity.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** A single attribute condition within a compound selector. */
+interface AttrCond { name: string, op: 'present' | 'exact' | 'substring', value: string }
+
+/** A compound selector (simple selectors with no combinator between them). */
+interface Compound { universal: boolean, type?: string, id?: string, classes: string[], attrs: AttrCond[] }
+
+/** One step of a complex selector: a compound plus the combinator linking it to the previous step. */
+interface Segment { combinator: 'descendant' | 'child' | null, compound: Compound }
+
+/** Raise the canonical bounded-grammar error. */
+function unsupported (selector: string): never {
+	throw new Error(`unsupported selector: ${selector}`)
+}
+
+/** Strip surrounding single/double quotes from an attribute value. */
+function unquote (v: string): string {
+	const t = v.trim()
+	if (t.length >= 2 && ((t[0] === '"' && t[t.length - 1] === '"') || (t[0] === "'" && t[t.length - 1] === "'"))) {
+		return t.slice(1, -1)
+	}
+	return t
+}
+
+/** Parse a single `[...]` attribute condition body (the text between the brackets). */
+function parseAttrCond (body: string, selector: string): AttrCond {
+	const m = body.match(/^\s*([-\w:]+)\s*(?:([*^$~|]?=)\s*(.*?))?\s*$/)
+	if (!m) unsupported(selector)
+	const name = m[1].toLowerCase()
+	if (m[2] === undefined) return { name, op: 'present', value: '' }
+	if (m[2] === '=') return { name, op: 'exact', value: unquote(m[3] ?? '') }
+	if (m[2] === '*=') return { name, op: 'substring', value: unquote(m[3] ?? '') }
+	// ^=, $=, ~=, |= are out of the bounded grammar
+	return unsupported(selector)
+}
+
+/** Parse one compound selector token (no combinators inside) into a {@link Compound}. */
+function parseCompound (token: string, selector: string): Compound {
+	const compound: Compound = { universal: false, classes: [], attrs: [] }
+	let i = 0
+	const n = token.length
+	if (n === 0) unsupported(selector)
+
+	// optional leading universal or type
+	if (token[0] === '*') {
+		compound.universal = true
+		i = 1
+	} else if (/[a-zA-Z]/.test(token[0])) {
+		const m = token.slice(i).match(/^[-\w]+/)
+		if (!m) unsupported(selector)
+		compound.type = m[0].toLowerCase()
+		i += m[0].length
+	}
+
+	while (i < n) {
+		const c = token[i]
+		if (c === '.') {
+			const m = token.slice(i + 1).match(/^[-\w]+/)
+			if (!m) unsupported(selector)
+			compound.classes.push(m[0])
+			i += 1 + m[0].length
+		} else if (c === '#') {
+			const m = token.slice(i + 1).match(/^[-\w]+/)
+			if (!m) unsupported(selector)
+			compound.id = m[0]
+			i += 1 + m[0].length
+		} else if (c === '[') {
+			const close = token.indexOf(']', i + 1)
+			if (close === -1) unsupported(selector)
+			compound.attrs.push(parseAttrCond(token.slice(i + 1, close), selector))
+			i = close + 1
+		} else {
+			// `:`/`::` (pseudo), `+`/`~` (siblings), or any other char → unsupported
+			unsupported(selector)
+		}
+	}
+	return compound
+}
+
+/** Split a selector list on top-level commas (ignoring commas inside `[...]` or quotes). */
+function splitList (selector: string): string[] {
+	const parts: string[] = []
+	let depth = 0
+	let q: string | null = null
+	let start = 0
+	for (let i = 0; i < selector.length; i++) {
+		const c = selector[i]
+		if (q) { if (c === q) q = null; continue }
+		if (c === '"' || c === "'") { q = c; continue }
+		if (c === '[') depth++
+		else if (c === ']') depth = Math.max(0, depth - 1)
+		else if (c === ',' && depth === 0) { parts.push(selector.slice(start, i)); start = i + 1 }
+	}
+	parts.push(selector.slice(start))
+	return parts.map(p => p.trim()).filter(p => p.length > 0)
+}
+
+/** Parse one complex selector (combinator-joined compounds) into an ordered {@link Segment} list. */
+function parseComplex (selector: string, original: string): Segment[] {
+	const segments: Segment[] = []
+	let i = 0
+	const n = selector.length
+	let pendingCombinator: 'descendant' | 'child' | null = null
+	let first = true
+
+	while (i < n) {
+		// consume whitespace (a descendant combinator unless an explicit `>` overrides it)
+		let sawWs = false
+		while (i < n && /\s/.test(selector[i])) { sawWs = true; i++ }
+		if (i >= n) break
+		if (selector[i] === '>') {
+			pendingCombinator = 'child'
+			i++
+			continue
+		}
+		if (sawWs && !first && pendingCombinator === null) pendingCombinator = 'descendant'
+
+		// read a compound token: up to the next top-level whitespace or `>`
+		const start = i
+		let depth = 0
+		let q: string | null = null
+		while (i < n) {
+			const c = selector[i]
+			if (q) { if (c === q) q = null; i++; continue }
+			if (c === '"' || c === "'") { q = c; i++; continue }
+			if (c === '[') { depth++; i++; continue }
+			if (c === ']') { depth = Math.max(0, depth - 1); i++; continue }
+			if (depth === 0 && (/\s/.test(c) || c === '>')) break
+			i++
+		}
+		const token = selector.slice(start, i)
+		if (token.length === 0) unsupported(original)
+		segments.push({ combinator: first ? null : pendingCombinator, compound: parseCompound(token, original) })
+		pendingCombinator = null
+		first = false
+	}
+
+	if (segments.length === 0) unsupported(original)
+	return segments
+}
+
+/** Parse a selector list into one {@link Segment} chain per comma-group. */
+function parseSelector (selector: string): Segment[][] {
+	if (typeof selector !== 'string') unsupported(String(selector))
+	const groups = splitList(selector)
+	if (groups.length === 0) unsupported(selector)
+	return groups.map(g => parseComplex(g, selector))
+}
+
+/** True when an element node satisfies a single compound selector. (Text/root nodes never match.) */
+function matchCompound (node: HNode, c: Compound): boolean {
+	if (node.tag === '#text' || node.tag === '') return false
+	if (c.type !== undefined && node.tag !== c.type) return false
+	for (const cls of c.classes) if (!node.classes.includes(cls)) return false
+	if (c.id !== undefined && node.attrs.id !== c.id) return false
+	for (const a of c.attrs) {
+		const v = node.attrs[a.name]
+		if (a.op === 'present') { if (v === undefined) return false }
+		else if (a.op === 'exact') { if (v !== a.value) return false }
+		else if (a.op === 'substring') { if (v === undefined || v.indexOf(a.value) === -1) return false }
+	}
+	return true
+}
+
+/** True when `node` matches `segments[0..index]` with `node` as the `segments[index]` target. */
+function matchSegments (node: HNode, segments: Segment[], index: number): boolean {
+	if (!matchCompound(node, segments[index].compound)) return false
+	if (index === 0) return true
+	const comb = segments[index].combinator
+	if (comb === 'child') {
+		return node.parent ? matchSegments(node.parent, segments, index - 1) : false
+	}
+	// descendant: try each ancestor (backtracking)
+	let p = node.parent
+	while (p) {
+		if (matchSegments(p, segments, index - 1)) return true
+		p = p.parent
+	}
+	return false
+}
+
+/** True when `node` matches `selector` (any group of a selector list; node is the rightmost target). */
+export function matches (node: HNode, selector: string): boolean {
+	const groups = parseSelector(selector)
+	return groups.some(seg => matchSegments(node, seg, seg.length - 1))
+}
+
+/** All descendants of `root` matching `selector`, in document order (like `querySelectorAll`). */
+export function query (root: HNode, selector: string): HNode[] {
+	const groups = parseSelector(selector)
+	const out: HNode[] = []
+	for (const el of elements(root)) {
+		if (groups.some(seg => matchSegments(el, seg, seg.length - 1))) out.push(el)
+	}
+	return out
+}
+
+/** First descendant of `root` matching `selector`, or `null` (like `querySelector`). */
+export function queryOne (root: HNode, selector: string): HNode | null {
+	const groups = parseSelector(selector)
+	for (const el of elements(root)) {
+		if (groups.some(seg => matchSegments(el, seg, seg.length - 1))) return el
+	}
+	return null
+}
+
+/** Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`). */
+export function closest (node: HNode, selector: string): HNode | null {
+	const groups = parseSelector(selector)
+	let cur: HNode | null = node
+	while (cur && cur.tag !== '') {
+		if (groups.some(seg => matchSegments(cur as HNode, seg, seg.length - 1))) return cur
+		cur = cur.parent
+	}
+	return null
+}

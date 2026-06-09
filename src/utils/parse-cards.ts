@@ -27,6 +27,10 @@ import { parseSvg } from './parse-svg'
 import type { SvgPart } from './parse-svg'
 import { detectIcon, extractCssCodepoints } from './icon-classify'
 import type { GradientFillProps } from '../core-interfaces'
+// Shared, dependency-free HTML tree-builder + helpers (promoted out of this file — see
+// docs/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
+import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf, parseStyle } from './html-dom'
+import type { HNode } from './html-dom'
 
 /** Hex colour string (6-digit, no leading `#`). */
 type HexColor = string
@@ -103,188 +107,13 @@ const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)\b/
 const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)\b/
 const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)\b/
 
-/** Void (self-terminating) HTML elements that never push onto the open-element stack. */
-const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
-
 // ──────────────────────────────────────────────────────────────────────────────────────────
-// HTML tree node + tiny dependency-free tree builder
+// HTML tree node + tiny dependency-free tree builder + tree helpers
 // ──────────────────────────────────────────────────────────────────────────────────────────
-
-interface HNode {
-	/** Lowercase tag name; `'#text'` for text nodes; `''` for the synthetic root. */
-	tag: string
-	attrs: Record<string, string>
-	classes: string[]
-	style: Record<string, string>
-	children: HNode[]
-	parent: HNode | null
-	/** Raw text (text nodes only). */
-	text?: string
-	/** Raw outer HTML of an `<svg>…</svg>` subtree (svg nodes only) — fed to parseSvg. */
-	raw?: string
-}
-
-/** Extract `name="value"` attributes from an element's opening-tag inner string. */
-function parseAttrs (attrStr: string): Record<string, string> {
-	const out: Record<string, string> = {}
-	const re = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/g
-	let m: RegExpExecArray | null
-	while ((m = re.exec(attrStr)) !== null) {
-		out[m[1].toLowerCase()] = m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : (m[5] || ''))
-	}
-	return out
-}
-
-/** Read a CSS-like `style="a:b;c:d"` attribute into a property map (keys lowercased). */
-function parseStyle (style: string): Record<string, string> {
-	const out: Record<string, string> = {}
-	for (const decl of (style || '').split(';')) {
-		const ix = decl.indexOf(':')
-		if (ix > 0) out[decl.slice(0, ix).trim().toLowerCase()] = decl.slice(ix + 1).trim()
-	}
-	return out
-}
-
-/** Make an element node from a tag name + opening-tag attribute string. */
-function makeEl (tag: string, attrStr: string): HNode {
-	const attrs = parseAttrs(attrStr)
-	const classes = (attrs.class || '').split(/\s+/).filter(Boolean)
-	const style = parseStyle(attrs.style || '')
-	return { tag: tag.toLowerCase(), attrs, classes, style, children: [], parent: null }
-}
-
-/** Find the index of the `>` that closes the tag starting at `lt`, respecting quoted attributes. */
-function findTagEnd (html: string, lt: number): number {
-	let i = lt + 1
-	let q: string | null = null
-	const n = html.length
-	while (i < n) {
-		const c = html[i]
-		if (q) { if (c === q) q = null } else if (c === '"' || c === "'") q = c
-		else if (c === '>') return i
-		i++
-	}
-	return n
-}
-
-/** Capture a full `<svg>…</svg>` subtree as a raw string. Returns `[raw, endIndexExclusive]`. */
-function captureSvg (html: string, start: number): [string, number] {
-	const n = html.length
-	let depth = 0
-	let i = start
-	while (i < n) {
-		const lower = html.slice(i, i + 6).toLowerCase()
-		if (lower.startsWith('</svg')) {
-			const gt = html.indexOf('>', i)
-			const end = gt === -1 ? n : gt + 1
-			depth--
-			if (depth <= 0) return [html.slice(start, end), end]
-			i = end
-		} else if (/^<svg[\s>/]/i.test(html.slice(i, i + 5))) {
-			const gt = findTagEnd(html, i)
-			const selfClose = html[gt - 1] === '/'
-			if (selfClose) { if (depth === 0) return [html.slice(start, gt + 1), gt + 1] } else depth++
-			i = (gt === -1 ? n : gt + 1)
-		} else {
-			i++
-		}
-	}
-	return [html.slice(start), n]
-}
-
-/** Parse an HTML string into a lightweight element tree (stack-based, error-tolerant). */
-function buildTree (html: string): HNode {
-	const root: HNode = { tag: '', attrs: {}, classes: [], style: {}, children: [], parent: null }
-	const stack: HNode[] = [root]
-	const top = (): HNode => stack[stack.length - 1]
-	const addChild = (node: HNode): void => { node.parent = top(); top().children.push(node) }
-	const addText = (raw: string): void => {
-		if (raw.length === 0) return
-		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: raw })
-	}
-
-	let i = 0
-	const n = html.length
-	while (i < n) {
-		const lt = html.indexOf('<', i)
-		if (lt === -1) { addText(html.slice(i)); break }
-		if (lt > i) addText(html.slice(i, lt))
-
-		// comment
-		if (html.startsWith('<!--', lt)) { const e = html.indexOf('-->', lt + 4); i = e === -1 ? n : e + 3; continue }
-		// doctype / declaration / processing instruction
-		if (html[lt + 1] === '!' || html[lt + 1] === '?') { const e = html.indexOf('>', lt); i = e === -1 ? n : e + 1; continue }
-		// inline <svg> — captured opaque and handed to parseSvg later
-		if (/^<svg[\s>/]/i.test(html.slice(lt, lt + 5))) {
-			const [raw, end] = captureSvg(html, lt)
-			const svgTagM = raw.match(/^<svg\b([^>]*)>/i)
-			const svg = makeEl('svg', svgTagM ? svgTagM[1] : '')
-			svg.raw = raw
-			addChild(svg)
-			i = end
-			continue
-		}
-		// end tag
-		if (html[lt + 1] === '/') {
-			const e = html.indexOf('>', lt)
-			const name = html.slice(lt + 2, e === -1 ? n : e).trim().toLowerCase()
-			// pop until the matching open tag (tolerant of unclosed elements)
-			for (let s = stack.length - 1; s >= 1; s--) {
-				if (stack[s].tag === name) { stack.length = s; break }
-			}
-			i = e === -1 ? n : e + 1
-			continue
-		}
-		// start tag
-		const e = findTagEnd(html, lt)
-		const inner = html.slice(lt + 1, e)
-		const mName = inner.match(/^([\w:-]+)/)
-		if (!mName) { i = e + 1; continue }
-		const name = mName[1].toLowerCase()
-		const attrStr = inner.slice(mName[1].length)
-		const selfClose = inner.trimEnd().endsWith('/')
-		const node = makeEl(name, attrStr)
-		addChild(node)
-		if (!selfClose && !VOID_TAGS.has(name)) stack.push(node)
-		i = e + 1
-	}
-	return root
-}
-
-// ──────────────────────────────────────────────────────────────────────────────────────────
-// Tree helpers
-// ──────────────────────────────────────────────────────────────────────────────────────────
-
-/** All element (non-text) descendants of `node`, preorder. */
-function elements (node: HNode, out: HNode[] = []): HNode[] {
-	for (const c of node.children) {
-		if (c.tag === '#text') continue
-		out.push(c)
-		elements(c, out)
-	}
-	return out
-}
-
-/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
-function textOf (node: HNode): string {
-	if (node.tag === '#text') return node.text || ''
-	if (node.tag === 'svg') return ''
-	let s = ''
-	for (const c of node.children) s += textOf(c)
-	return s
-}
-
-/** True when any class token of `el` matches `pat`. */
-function classMatch (el: HNode, pat: RegExp): boolean {
-	return el.classes.some(c => pat.test(c))
-}
-
-/** True when `a` is an ancestor of (or equal to) `b`. */
-function isAncestorOrSelf (a: HNode, b: HNode | null): boolean {
-	let cur: HNode | null = b
-	while (cur) { if (cur === a) return true; cur = cur.parent }
-	return false
-}
+// `HNode`, `parseHtml`(↦ local alias `buildTree`), `elements`, `textOf`, `classMatch`,
+// `isAncestorOrSelf`, and `parseStyle` now live in `./html-dom` (imported at the top of this
+// file). They are shared with the public `parseHtml`/`query` selector engine. `parseCards`
+// behaviour is unchanged — it uses the identical parser, now in one place.
 
 /** True when `el` (or an ancestor) matches the exclude pattern. */
 function isExcluded (el: HNode, pat: RegExp): boolean {
