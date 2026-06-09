@@ -1,8 +1,8 @@
 # Feature: Dynamic Icon-Font Resolver — `resolveIconFonts()`
 
-> **Status:** Proposed
-> **Target:** `@jsamuel1/pptxgenjs/utils` (next minor)
-> **Implements (when built):** `src/utils/resolve-icon-fonts.ts`; exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`resolveIconFonts`, `IconResolveOptions`, `ResolvedIcon`); tests `test/feature-icon-font-resolver.test.js`; demo `demos/browser/icon-font-resolver.html`
+> **Status:** Implemented (Unreleased)
+> **Target:** `@jsamuel1/pptxgenjs/utils`
+> **Implemented:** `src/utils/resolve-icon-fonts.ts` (orchestrator; + shared classifier `src/utils/icon-classify.ts` and last-resort glyph map `src/utils/bundled-icons.ts`); exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`resolveIconFonts`, `IconResolveOptions`, `ResolvedSvgPart`); tests `test/feature-icon-font-resolver.test.js`; demo `demos/browser/icon-font-resolver.html`
 > **Depends on:** `parseSvg()` (see `feature-svg-normalisation.md`)
 > **Priority:** High — replaces the converter's hardcoded `FA_SVG` map with a resolver that works for ANY icon font
 > **See also:** `feature-parse-cards-icon-resolution.md` — the synchronous `iconResolver`
@@ -123,15 +123,23 @@ values drop straight into `addCard({ icon: { parts } })` or are rendered as
 
 ## Implementation location
 
+> **As shipped:** the proposed `src/utils/icon-registries.ts` and `src/utils/woff-glyph.ts`
+> split was not created as separate modules; their responsibilities (the known-font
+> registry/CDN templates and glyph handling) were consolidated into
+> `src/utils/resolve-icon-fonts.ts` together with the bundled fallback map in
+> `src/utils/bundled-icons.ts`. The icon-family classifier is shared via
+> `src/utils/icon-classify.ts` (used by both `resolveIconFonts()` and `parseCards()`).
+
 - `src/utils/resolve-icon-fonts.ts` — orchestrator: HTML scan → per-icon resolution
   chain → `Map`. Pure logic; the only side effects are optional CDN `fetch` and
-  `cacheDir` reads/writes (both gated/optional).
-- `src/utils/icon-registries.ts` — the known-font registry table + CDN templates.
-- `src/utils/woff-glyph.ts` — minimal woff2/woff/ttf glyph-outline reader (optional
-  `opentype.js` acceleration).
+  `cacheDir` reads/writes (both gated/optional). Also holds the known-font registry +
+  CDN templates (the proposed `icon-registries.ts`) and glyph handling (the proposed
+  `woff-glyph.ts`).
+- `src/utils/icon-classify.ts` — shared icon-family classifier (`detectIcon`), so
+  `resolveIconFonts()` and `parseCards()` recognise icon families identically.
 - `src/utils/bundled-icons.ts` — the last-resort common-icon map.
-- Re-export `resolveIconFonts` from `src/utils.ts`; add types to `types/utils.d.ts`.
-- Reuse `parseSvg()` to normalise every produced path; reuse `GradientFillProps`.
+- Re-exported `resolveIconFonts` from `src/utils.ts`; types in `types/utils.d.ts`.
+- Reuses `parseSvg()` to normalise every produced path; reuses `GradientFillProps`.
 
 ## Test cases
 
