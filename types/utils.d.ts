@@ -333,3 +333,57 @@ export function parseTable(input: string | HNode, options?: ParseContentOptions)
  * or a `<table>` are NOT columns → `null`. Accepts a raw HTML string OR an `HNode` from `parseHtml`.
  */
 export function parseColumns(input: string | HNode, options?: ParseContentOptions): ColumnData[] | null
+
+/** One row of a timeline: a time/marker token plus the remaining row text. */
+export interface TimelineRow {
+	/** The time/marker token, e.g. `'7:00 AM'` or a `.time`/`.timeline-time` element's text. */
+	marker: string
+	/** The remaining row text (the marker stripped from the front). */
+	body: string
+}
+
+/** A parsed quotation + optional attribution. */
+export interface QuoteData {
+	/** The quotation text, surrounding quote glyphs and the attribution substring removed. */
+	text: string
+	/** The `cite`/`.quote-attr` text, when present. Omitted otherwise. */
+	attribution?: string
+}
+
+/** A parsed callout (bordered/`.callout` box). */
+export interface CalloutData {
+	/** The callout's text. */
+	text: string
+	/** The border/border-left/border-color colour (6-digit hex, no `#`), when detectable. Omitted otherwise. */
+	accent?: string
+}
+
+/**
+ * Parse a list of time-stamped rows into neutral `{ marker, body }` rows. Detection is EXPLICIT
+ * (`.timeline-item`, else the first `.timeline` container's direct children) then HEURISTIC
+ * (elements whose text starts with a `7:00`/`12:30 PM` time token, nested wrappers de-duped so a row
+ * counts once). NEUTRAL — never decides "this is a timeline slide". `null` when no rows are found.
+ * Accepts a raw HTML string OR an `HNode` from `parseHtml`.
+ */
+export function parseTimeline(input: string | HNode, options?: ParseContentOptions): TimelineRow[] | null
+
+/**
+ * Parse the first quotation (`blockquote`, else `.quote-text`) into `{ text, attribution? }`. The
+ * attribution (`cite`/`.quote-attr`) is removed from `text` and surrounding quote glyphs stripped.
+ * NEUTRAL — never decides "this slide IS a quote". `null` when no quote. Accepts a string OR `HNode`.
+ */
+export function parseQuote(input: string | HNode, options?: ParseContentOptions): QuoteData | null
+
+/**
+ * Parse pill/badge labels (`[class*="badge"|"pill"|"tag"]`) into a `string[]` (NOT `null` — `[]`
+ * when none). Nested badges are de-duped (outermost wins) and empties dropped. Accepts a string OR
+ * an `HNode` from `parseHtml`.
+ */
+export function parseBadges(input: string | HNode, options?: ParseContentOptions): string[]
+
+/**
+ * Parse the first callout — a BORDERED box (detectable `border`/`border-left`/`border-color`
+ * colour) OR a `[class*="callout"]` element — into `{ text, accent? }`. The first non-excluded match
+ * in document order wins. NEUTRAL — structural only. `null` when none. Accepts a string OR `HNode`.
+ */
+export function parseCallout(input: string | HNode, options?: ParseContentOptions): CalloutData | null

@@ -12,14 +12,14 @@
  * consumer composes them. Naming follows the HTML structure or a real PowerPoint construct
  * (`parseTable` ↔ OOXML table, `parseColumns` ↔ multi-column text), never a slide role.
  *
- * Pure, synchronous, DEPENDENCY-FREE — reuses `parseHtml`/`query`/`textOf`/`closest` from
- * `./html-dom` and the shared colour context from `./css-context`. Colours are NEVER guessed: where
- * no colour is detectable the field is simply omitted.
+ * Pure, synchronous, DEPENDENCY-FREE — reuses `parseHtml`/`query`/`queryOne`/`textOf`/`closest`/
+ * `elements`/`classMatch`/`isAncestorOrSelf` from `./html-dom` and the shared colour context from
+ * `./css-context`. Colours are NEVER guessed: where no colour is detectable the field is omitted.
  *
- * This Slice ships the two extractors with the clearest structural / PPTX anchor: `parseTable` and
- * `parseColumns`. `parseTimeline`/`parseQuote`/`parseBadges`/`parseCallout` follow in a sibling slice.
+ * Ships all six neutral extractors: `parseTable` and `parseColumns` (clearest structural / PPTX
+ * anchor), plus `parseTimeline`, `parseQuote`, `parseBadges`, and `parseCallout`.
  */
-import { parseHtml, query, textOf, closest, elements, classMatch } from './html-dom'
+import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf } from './html-dom'
 import type { HNode } from './html-dom'
 import { parseStyleSheets, colorOf, cssProp, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
@@ -152,6 +152,188 @@ export function parseColumns (input: string | HNode, opts: ParseContentOptions =
 		// (b) CSS column-count / columns shorthand ≥ 2 → each top-level block child is a column
 		if (columnCountOf(el, ctx) >= 2) {
 			return childEls.map(c => ({ text: textOf(c).trim() }))
+		}
+	}
+	return null
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Slice 2b — parseTimeline / parseQuote / parseBadges / parseCallout
+//
+// Same NEUTRAL contract: each answers "is THIS structure present, and what is its data?" and
+// returns data or `null`/`[]`. No archetype/`classifySlide` judgement. Both `string` and `HNode`
+// inputs are accepted via the shared `toRoot`/`ctxOf` helpers above.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** One row of a timeline: a time/marker token plus the remaining row text. */
+export interface TimelineRow {
+	/** The time/marker token, e.g. `'7:00 AM'` or a `.time`/`.timeline-time` element's text. */
+	marker: string
+	/** The remaining row text (the marker stripped from the front). */
+	body: string
+}
+
+/** A parsed quotation + optional attribution. */
+export interface QuoteData {
+	/** The quotation text, surrounding quote glyphs and the attribution substring removed. */
+	text: string
+	/** The `cite`/`.quote-attr` text, when present. Omitted otherwise. */
+	attribution?: string
+}
+
+/** A parsed callout (bordered/`.callout` box). */
+export interface CalloutData {
+	/** The callout's text. */
+	text: string
+	/** The border/border-left/border-color colour (6-digit hex, no `#`), when detectable. Omitted otherwise. */
+	accent?: HexColor
+}
+
+/** Leading-time matcher (`7:00`, `12:30 PM`, …). Case-insensitive. */
+const TIME_RE = /^(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i
+
+/** The leading time token of a string (whitespace-normalised, upper-cased), or `null` when none. */
+function leadingTime (s: string): string | null {
+	const m = TIME_RE.exec(s.trim())
+	return m ? m[1].replace(/\s+/g, ' ').toUpperCase() : null
+}
+
+/** Strip a known prefix (case-insensitively) from `full`, else remove the first occurrence; trimmed. */
+function stripPrefix (full: string, marker: string): string {
+	if (!marker) return full.trim()
+	if (full.toUpperCase().startsWith(marker.toUpperCase())) return full.slice(marker.length).trim()
+	return full.replace(marker, '').trim()
+}
+
+/** Strip surrounding straight/curly/guillemet quote glyphs from `s`. */
+function stripQuoteGlyphs (s: string): string {
+	return s
+		.replace(/^[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB]+/, '')
+		.replace(/[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB]+$/, '')
+		.trim()
+}
+
+/**
+ * Parse a list of time-stamped rows into neutral `{ marker, body }` rows. Detection priority:
+ *  - EXPLICIT: `.timeline-item` elements, else the direct element children of the first `.timeline`
+ *    container. Each row's `marker` is a `.time`/`.timeline-time` descendant's text when present,
+ *    else the row's leading time token; `body` is the row text with the marker stripped.
+ *  - HEURISTIC (only when explicit finds nothing): elements whose text STARTS WITH a time token.
+ *    Nested wrappers are de-duped — a candidate is dropped when an ANCESTOR candidate has the SAME
+ *    leading time token, so a row wrapped N-deep counts once (the outermost match wins).
+ *
+ * NEUTRAL: it never decides "this is a timeline slide". Returns `null` when no rows are found.
+ *
+ * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
+ * @param opts - `excludeWithin` skips rows inside a matching region.
+ */
+export function parseTimeline (input: string | HNode, opts: ParseContentOptions = {}): TimelineRow[] | null {
+	const root = toRoot(input)
+	const exclPat = opts.excludeWithin
+
+	// (a) EXPLICIT — `.timeline-item`, else the direct children of the first `.timeline` container.
+	let rowEls = query(root, '.timeline-item')
+	if (rowEls.length === 0) {
+		const containers = query(root, '.timeline')
+		if (containers.length > 0) rowEls = containers[0].children.filter(c => c.tag !== '#text')
+	}
+	if (rowEls.length > 0) {
+		const rows: TimelineRow[] = []
+		for (const el of rowEls) {
+			if (exclPat && isExcluded(el, exclPat)) continue
+			const full = textOf(el).trim()
+			const timeEl = queryOne(el, '.time') || queryOne(el, '.timeline-time')
+			const marker = timeEl ? textOf(timeEl).trim() : (leadingTime(full) || '')
+			rows.push({ marker, body: stripPrefix(full, marker) })
+		}
+		if (rows.length > 0) return rows
+	}
+
+	// (b) HEURISTIC — elements whose text starts with a time token, de-duped by nested-wrapper.
+	const cands = elements(root).filter(el =>
+		(!exclPat || !isExcluded(el, exclPat)) && leadingTime(textOf(el)) !== null)
+	const kept = cands.filter(el => {
+		const t = leadingTime(textOf(el))
+		return !cands.some(o => o !== el && isAncestorOrSelf(o, el) && leadingTime(textOf(o)) === t)
+	})
+	if (kept.length === 0) return null
+	return kept.map(el => {
+		const full = textOf(el).trim()
+		const marker = leadingTime(full) || ''
+		return { marker, body: stripPrefix(full, marker) }
+	})
+}
+
+/**
+ * Parse the first quotation into `{ text, attribution? }`. The quote element is the first
+ * `blockquote`, else the first `.quote-text`. The `attribution` is a `cite`/`.quote-attr`
+ * descendant's text (omitted when absent); it is removed from `text`, and surrounding quote glyphs
+ * are stripped. NEUTRAL: it never decides "this slide IS a quote". Returns `null` when no quote.
+ *
+ * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
+ * @param opts - `excludeWithin` skips a quote inside a matching region.
+ */
+export function parseQuote (input: string | HNode, opts: ParseContentOptions = {}): QuoteData | null {
+	const root = toRoot(input)
+	const exclPat = opts.excludeWithin
+	const candidates = [...query(root, 'blockquote'), ...query(root, '.quote-text')]
+	const quoteEl = candidates.find(el => !exclPat || !isExcluded(el, exclPat)) || null
+	if (!quoteEl) return null
+	const attrEl = queryOne(quoteEl, 'cite') || queryOne(quoteEl, '.quote-attr')
+	const attribution = attrEl ? textOf(attrEl).trim() : undefined
+	let text = textOf(quoteEl).trim()
+	if (attribution) text = text.replace(attribution, '').trim()
+	text = stripQuoteGlyphs(text)
+	const out: QuoteData = { text }
+	if (attribution) out.attribution = attribution
+	return out
+}
+
+/**
+ * Parse pill/badge labels into a `string[]` (NOT `null` — `[]` when none). Selects elements whose
+ * class matches `badge`/`pill`/`tag`, skips excluded regions, de-dups nested matches (the outermost
+ * badge wins), and drops empties. NEUTRAL — labels only, no slide-role judgement.
+ *
+ * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
+ * @param opts - `excludeWithin` skips badges inside a matching region.
+ */
+export function parseBadges (input: string | HNode, opts: ParseContentOptions = {}): string[] {
+	const root = toRoot(input)
+	const exclPat = opts.excludeWithin
+	const matched = elements(root).filter(el =>
+		(!exclPat || !isExcluded(el, exclPat)) && classMatch(el, /badge|pill|tag/i))
+	// nested de-dup: drop a badge that has a badge ANCESTOR (keep the outermost)
+	const kept = matched.filter(el => !matched.some(o => o !== el && isAncestorOrSelf(o, el)))
+	const out: string[] = []
+	for (const el of kept) { const t = textOf(el).trim(); if (t) out.push(t) }
+	return out
+}
+
+/** The first detectable border colour of `el` (border-left › border-color › border), or undefined. */
+function calloutAccent (el: HNode, ctx: CssContext): HexColor | undefined {
+	return colorOf(el, 'border-left', ctx) || colorOf(el, 'border-color', ctx) || colorOf(el, 'border', ctx)
+}
+
+/**
+ * Parse the first callout — a BORDERED box (a detectable `border`/`border-left`/`border-color`
+ * colour) OR a `[class*="callout"]` element — into `{ text, accent? }`. The first non-excluded match
+ * in document order wins; `accent` is the resolved border colour when detectable (omitted otherwise).
+ * NEUTRAL — structural only. Returns `null` when no bordered/callout box exists.
+ *
+ * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
+ * @param opts - `excludeWithin` skips a callout inside a matching region.
+ */
+export function parseCallout (input: string | HNode, opts: ParseContentOptions = {}): CalloutData | null {
+	const root = toRoot(input)
+	const ctx = ctxOf(input)
+	const exclPat = opts.excludeWithin
+	for (const el of elements(root)) {
+		if (exclPat && isExcluded(el, exclPat)) continue
+		const accent = calloutAccent(el, ctx)
+		if (accent || classMatch(el, /callout/i)) {
+			const out: CalloutData = { text: textOf(el).trim() }
+			if (accent) out.accent = accent
+			return out
 		}
 	}
 	return null

@@ -11,7 +11,7 @@
 
 const { assert } = require('./helpers')
 const {
-	parseTable, parseColumns, parseHtml,
+	parseTable, parseColumns, parseTimeline, parseQuote, parseBadges, parseCallout, parseHtml,
 } = require('../src/bld/utils.cjs.js')
 
 module.exports = [
@@ -118,6 +118,72 @@ module.exports = [
 			// A table inside a `.mockup` region is skipped → no table found → null.
 			const html = '<div class="mockup"><table><tr><td>x</td></tr></table></div>'
 			assert(parseTable(html, { excludeWithin: /mockup/ }) === null, 'table inside excluded region should be skipped')
+		},
+	},
+	// ── Slice 2b: parseTimeline / parseQuote / parseBadges / parseCallout ──────────────────
+	{
+		name: 'parseTimeline: explicit .timeline-item + .time marker (spec fixture)',
+		fn: async () => {
+			const tl = parseTimeline('<div class="timeline"><div class="timeline-item"><span class="time">7:00 AM</span> Standup</div><div class="timeline-item"><span class="time">9:00 AM</span> Build</div></div>')
+			assert(tl !== null, 'expected TimelineRow[], got null')
+			assert(tl.length === 2, 'expected 2 rows; got: ' + tl.length)
+			assert(tl[0].marker === '7:00 AM', "row0 marker should be '7:00 AM'; got: " + tl[0].marker)
+			assert(/Standup/.test(tl[0].body), 'row0 body should contain Standup; got: ' + tl[0].body)
+		},
+	},
+	{
+		name: 'parseTimeline: heuristic + nested-wrapper de-dup (REGRESSION-CATCH)',
+		fn: async () => {
+			// REGRESSION-CATCH (mem-1): the nested de-dup via isAncestorOrSelf. Each item is wrapped two
+			// levels deep; without the same-leading-time ancestor skip this yields 5+ rows. Assert exactly 2.
+			const tl2 = parseTimeline('<div><div><div>7:00 AM Wake</div></div><div><div>8:00 AM Run</div></div></div>')
+			assert(tl2 !== null, 'expected TimelineRow[], got null')
+			assert(tl2.length === 2, 'nested wrappers must collapse to exactly 2 rows; got: ' + tl2.length)
+		},
+	},
+	{
+		name: 'parseQuote: blockquote + cite (REGRESSION-CATCH on cite-removal + glyph-strip)',
+		fn: async () => {
+			// REGRESSION-CATCH (mem-1): exact 'Ship it'. If the cite-removal regressed, 'Grace' would
+			// leak into text; if the glyph-strip regressed, the surrounding " quotes would remain.
+			const q = parseQuote('<blockquote>"Ship it"<cite>Grace</cite></blockquote>')
+			assert(q !== null, 'expected QuoteData, got null')
+			assert(q.text === 'Ship it', "quote text should be exactly 'Ship it'; got: " + JSON.stringify(q.text))
+			assert(q.attribution === 'Grace', "attribution should be 'Grace'; got: " + q.attribution)
+		},
+	},
+	{
+		name: 'parseBadges: badge + pill labels (spec fixture)',
+		fn: async () => {
+			const b = parseBadges('<span class="badge">NEW</span><span class="pill">BETA</span>')
+			assert(b.length === 2, 'expected 2 badges; got: ' + b.length)
+			assert(b[0] === 'NEW' && b[1] === 'BETA', 'badge labels should be NEW,BETA; got: ' + JSON.stringify(b))
+		},
+	},
+	{
+		name: 'parseCallout: bordered box resolves accent colour',
+		fn: async () => {
+			const c = parseCallout('<div style="border-left:4px solid #FF0000">Heads up</div>')
+			assert(c !== null, 'expected CalloutData, got null')
+			assert(c.text === 'Heads up', 'callout text should be Heads up; got: ' + c.text)
+			assert(c.accent === 'FF0000', 'callout accent should be FF0000; got: ' + c.accent)
+		},
+	},
+	{
+		name: 'composability: one input yields BOTH a quote and a table (additive, no archetype)',
+		fn: async () => {
+			const html = '<section><blockquote>"Hi"</blockquote><table><tr><td>x</td></tr></table></section>'
+			assert(parseQuote(html) !== null, 'quote should be detected')
+			assert(parseTable(html) !== null, 'table should be detected from the same input')
+		},
+	},
+	{
+		name: 'no-false-positive: structured extractors return null/[] on plain prose',
+		fn: async () => {
+			assert(parseTimeline('<p>just text</p>') === null, 'prose → parseTimeline null')
+			assert(parseQuote('<p>just text</p>') === null, 'prose → parseQuote null')
+			assert(parseBadges('<p>x</p>').length === 0, 'prose → parseBadges []')
+			assert(parseCallout('<p>x</p>') === null, 'prose → parseCallout null')
 		},
 	},
 ]
