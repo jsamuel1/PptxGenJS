@@ -1,7 +1,8 @@
 # Feature: Native Arc (`A`) & Smooth-Curve (`S`/`T`) Geometry in custGeom
 
-> **Status:** Proposed
-> **Target:** `src/gen-objects.ts` (the `<a:custGeom>` path-command parser used by `addShapeDefinition` / the `svgPath` path builder); tests `test/feature-arc-smooth-geometry.test.js`
+> **Status:** Implemented (Unreleased)
+> **Target:** `src/gen-utils.ts` — `svgPathToOoxml()`, the `<a:custGeom>` path-command parser used by the `svgPath` shape builder; tests `test/feature-arc-smooth-geometry.test.js`
+> **Implemented:** `src/gen-utils.ts` (`svgPathToOoxml` now pre-folds the path through `normalizeSvgPath`) reusing the tested arc/smooth geometry (`arcToCubics`/`normalizeSvgPath`/`tokenizeSvgPath`) in `src/utils/parse-svg.ts`; tests `test/feature-arc-smooth-geometry.test.js`
 > **Priority:** High — correctness fix (current behaviour emits garbage points) **and** eliminates 100+ lines of pre-normalisation in every consumer
 > **Related:** `feature-svg-normalisation.md` (`parseSvg`), `feature-parse-card-structure.md`, `feature-icon-font-resolver.md`
 
@@ -120,18 +121,30 @@ as `L`/`C`/`Q`, so scaling is unchanged.
 
 ## Implementation location
 
-- `src/gen-objects.ts` — in the path-command `switch` (the one with `case 'M'`,
-  `case 'L'`, `case 'C'`, `case 'Q'`, `case 'Z'`):
-  - **add** `case 'A': case 'a':` → `arcToCubics(...)` helper, push N `cubicBezTo`.
-  - **add** `case 'S': case 's':` → infer `cp1`, push `cubicBezTo`.
-  - **add** `case 'T': case 't':` → infer `cp`, push `quadBezTo`.
-  - **confirm** `case 'H'/'V'` expand to `lnTo`.
-  - Track `prevCmd`, `prevCubicCp2`, `prevQuadCp` across iterations so `S`/`T`
-    reflection is correct.
-- Add a private `arcToCubics(x1, y1, rx, ry, φdeg, largeArc, sweep, x2, y2)` helper
-  returning an array of `[c1x,c1y,c2x,c2y,ex,ey]` cubic segments (W3C F.6.5).
-- No type/interface changes — `svgPath.d` already accepts a string; this widens the
-  command set it understands.
+Shipped via **reuse**, not duplication: `svgPathToOoxml()` in **`src/gen-utils.ts`**
+pre-folds its input through the already-tested `normalizeSvgPath()` in
+`src/utils/parse-svg.ts` before its single-pass `M/L/C/Q/Z` parser runs:
+
+- `src/gen-utils.ts` — `import { normalizeSvgPath } from './utils/parse-svg'`, then at the
+  top of `svgPathToOoxml` (after the input guard): `const pathD = normalizeSvgPath(svgPathD) || svgPathD`
+  and parse `pathD`. `normalizeSvgPath` folds `A`→cubics (via `arcToCubics`, W3C F.6.5),
+  `S`→`C` and `T`→`Q` (reflecting the previous control point), `H`/`V`→`L`, and
+  relative→absolute, emitting only absolute `M`/`L`/`C`/`Q`/`Z` — exactly the subset the
+  parser's `commandRegex` already covers. The parser's own `H`/`V`/relative branches become
+  defensive no-ops on the pre-normalised input.
+- `src/utils/parse-svg.ts` — already contains `arcToCubics(x1,y1,rx,ry,φdeg,large,sweep,x2,y2)`
+  (returns ≤4 cubic segments, ≤90° each), `tokenizeSvgPath`, and `normalizeSvgPath`. It imports
+  only a *type* from `core-interfaces`, so the `gen-utils → utils/parse-svg` runtime import is
+  acyclic.
+- No type/interface changes — `svgPath.d` already accepts a string; this widens the command
+  set it understands.
+
+> Note: a degenerate arc (`rx`/`ry` = 0) is emitted as a degenerate `cubicBezTo` whose
+> control points collapse onto the start/end (geometrically a straight line) rather than a
+> literal `lnTo`; the two are visually identical and render the same in PowerPoint.
+
+Alternative (not taken): adding `case 'A'/'S'/'T'` directly to the parser switch would have
+duplicated ~80 lines of the arc/smooth math that already lives, tested, in `parse-svg.ts`.
 
 ## OOXML mapping
 

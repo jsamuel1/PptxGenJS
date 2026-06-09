@@ -4,6 +4,7 @@
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
 import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, Shape3DProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { normalizeSvgPath } from './utils/parse-svg'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -464,6 +465,14 @@ export function correctShadowOptions (ShadowProps: ShadowProps): ShadowProps | u
 export function svgPathToOoxml (svgPathD: string, width: number, height: number): string {
 	if (!svgPathD || typeof svgPathD !== 'string' || !(width > 0) || !(height > 0)) return ''
 
+	// Fold the full SVG command set (`A`/`S`/`T`/`H`/`V` + relative forms) into absolute
+	// `M`/`L`/`C`/`Q`/`Z` BEFORE the single-pass parser runs. Without this, the parser's
+	// command regex omits `A`/`S`/`T`, so their numeric args get swallowed by the previous
+	// command and rendered as garbage lineTo points (overflow spikes). Reuses the tested
+	// arc/smooth geometry in `utils/parse-svg` (`arcToCubics`/`normalizeSvgPath`) — no
+	// duplicated math. Falls back to the raw input if normalisation yields nothing.
+	const pathD = normalizeSvgPath(svgPathD) || svgPathD
+
 	const scale = 914400 / width
 	const pathW = Math.round(width * scale)
 	const pathH = Math.round(height * scale)
@@ -482,7 +491,7 @@ export function svgPathToOoxml (svgPathD: string, width: number, height: number)
 	let xml = ''
 
 	let match: RegExpExecArray | null
-	while ((match = commandRegex.exec(svgPathD)) !== null) {
+	while ((match = commandRegex.exec(pathD)) !== null) {
 		const cmd = match[1]
 		const isRel = cmd >= 'a' && cmd <= 'z'
 		const upper = cmd.toUpperCase()

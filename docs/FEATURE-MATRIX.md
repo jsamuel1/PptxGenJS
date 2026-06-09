@@ -83,7 +83,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Text boxes (rich runs) | `p:sp` + `a:txBody` | ✅ Done | bullets, multi-run, RTL, fonts |
 | Tables | `a:tbl` in `a:graphicFrame` | ✅ Done | incl. col/row span |
 | Shapes (preset geometry) | `a:prstGeom` | ✅ Done | full preset name set |
-| Shapes (custom geometry) | `a:custGeom` | ✅ Done | via `svgPath` (M/L/C/Q/H/V/Z) |
+| Shapes (custom geometry) | `a:custGeom` | ✅ Done | via `svgPath` (full SVG path set: M/L/H/V/C/Q/S/T/A/Z + relative) |
 | Shape grouping | `p:grpSp` | ✅ Done | `addGroup()` |
 | Images | `p:pic` + `a:blipFill` | ✅ Done | incl. SVG, GIF, base64 |
 | Media (video/audio) | `p:pic` + `a:videoFile`/`p14:media` | ✅ Done | incl. YouTube embed |
