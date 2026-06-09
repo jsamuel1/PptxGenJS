@@ -25,6 +25,7 @@
  */
 import { parseSvg } from './parse-svg'
 import type { SvgPart } from './parse-svg'
+import { detectIcon, extractCssCodepoints } from './icon-classify'
 import type { GradientFillProps } from '../core-interfaces'
 
 /** Hex colour string (6-digit, no leading `#`). */
@@ -35,7 +36,19 @@ export interface CardData {
 	/** Card icon — an inline SVG (multi-path), a Font-Awesome glyph, or a leading emoji. */
 	icon?:
 		| { type: 'svg', parts: SvgPart[] }
-		| { type: 'fontIcon', char: string, fontFace: string }
+		| {
+			type: 'fontIcon'
+			/** Resolved glyph codepoint as a string, or `''` when only the class is known. */
+			char: string
+			/** PowerPoint font family to render the glyph with. */
+			fontFace: string
+			/** NEW: glyph token without the family prefix, e.g. `'users'` for `fa-users`. */
+			glyphName?: string
+			/** NEW: the icon element's full class string, e.g. `'fas fa-users'`. */
+			className?: string
+			/** NEW: detected icon-font family key: `'fa' | 'bi' | 'ph' | 'ion' | 'material' | string`. */
+			fontFamily?: string
+		}
 		| { type: 'emoji', text: string }
 	/** Card title (always present; `''` when none could be detected). */
 	title: string
@@ -68,6 +81,14 @@ export interface ParseCardsOptions {
 	excludeWithin?: RegExp
 	/** Fallback fill (6-hex, no `#`) handed to `parseSvg` for unpainted icon elements. */
 	defaultFill?: string
+	/**
+	 * Optional SYNCHRONOUS resolver from an icon-element class string to vector parts. When it
+	 * returns a non-empty array for a card's font-icon, `parseCards` emits `{ type: 'svg', parts }`
+	 * instead of `{ type: 'fontIcon', … }`, so the card renders as a crisp custGeom vector with no
+	 * icon font installed. Returning `null`/`[]` falls back to the (glyph-aware) `fontIcon`
+	 * descriptor. Must be sync — `parseCards` stays synchronous.
+	 */
+	iconResolver?: (className: string, fontFamily: string, glyphName: string) => SvgPart[] | null
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -290,6 +311,44 @@ function isFaClass (tok: string): boolean {
 	return /^fa[srlbdt]?$/.test(tok) || /^fa-/.test(tok)
 }
 
+/**
+ * Pick the PowerPoint font family for a detected icon family + class tokens. Font Awesome resolves
+ * to one of its three installed families (Solid / Regular / Brands); anything else falls back to the
+ * generic FA Free family (in practice only FA icons reach the font-icon branch of `parseCards`).
+ */
+function fontFaceFor (family: string, classes: string[]): string {
+	if (family === 'fa') {
+		if (classes.some(c => c === 'fab' || c === 'fa-brands')) return 'Font Awesome 6 Brands'
+		if (classes.some(c => c === 'far' || c === 'fa-regular')) return 'Font Awesome 6 Free Regular'
+		return 'Font Awesome 6 Free Solid'
+	}
+	return 'Font Awesome 6 Free'
+}
+
+/** First class of `classes` that has a `::before` codepoint in `cssCodepoints`, as a glyph char. */
+function codepointFor (classes: string[], cssCodepoints: Record<string, string>): string {
+	for (const c of classes) {
+		const cp = cssCodepoints[c]
+		if (!cp) continue
+		const hex = cp.replace(/[^0-9a-fA-F]/g, '')
+		if (!hex) continue
+		const n = parseInt(hex, 16)
+		if (isFinite(n) && n > 0) {
+			try { return String.fromCodePoint(n) } catch (_) { /* invalid codepoint → skip */ }
+		}
+	}
+	return ''
+}
+
+/** Pull inline `<style>…</style>` block bodies out of an HTML string (for codepoint extraction). */
+function inlineStyleBlocks (html: string): string[] {
+	const blocks: string[] = []
+	const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+	let m: RegExpExecArray | null
+	while ((m = re.exec(html)) !== null) blocks.push(m[1])
+	return blocks
+}
+
 /** Extract the first colour in a CSS value as 6-digit hex (no `#`); handles `#rgb`/`#rrggbb`/`rgb()`. */
 function extractHex (v: string | undefined): string | undefined {
 	if (!v) return undefined
@@ -427,7 +486,7 @@ function textBlocks (card: HNode, skip: Set<HNode>): Array<{ el: HNode, text: st
 }
 
 /** Build a `CardData` from a single card element. */
-function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext): CardData {
+function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, cssCodepoints: Record<string, string>): CardData {
 	const skip = new Set<HNode>()
 
 	// ── icon ──────────────────────────────────────────────────────────────────────────────
@@ -444,7 +503,24 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext): Ca
 		if (faEl) {
 			iconEl = faEl
 			skip.add(faEl)
-			icon = { type: 'fontIcon', char: '', fontFace: 'Font Awesome 6 Free' }
+			const desc = detectIcon(faEl.classes.join(' '), textOf(faEl))
+			// `faEl` matched `isFaClass`, so `detectIcon` always returns a descriptor; guard anyway.
+			const className = desc ? desc.className : faEl.classes.join(' ')
+			const fontFamily = desc ? desc.fontFamily : 'fa'
+			const glyphName = desc ? desc.glyphName : ''
+			const parts = opts.iconResolver ? opts.iconResolver(className, fontFamily, glyphName) : null
+			if (parts && parts.length) {
+				icon = { type: 'svg', parts }
+			} else {
+				icon = {
+					type: 'fontIcon',
+					char: codepointFor(faEl.classes, cssCodepoints),
+					fontFace: fontFaceFor(fontFamily, faEl.classes),
+					glyphName,
+					className,
+					fontFamily,
+				}
+			}
 		}
 	}
 
@@ -561,6 +637,8 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 	const allEls = elements(root)
 	// Cascade-lite context: `<style>` class rules + `:root` `var()`s. Empty ⇒ inline-only (legacy).
 	const ctx = parseStyleSheets(input)
+	// Class → `::before` codepoint map from inline `<style>` blocks (populates `fontIcon.char`).
+	const cssCodepoints = extractCssCodepoints(inlineStyleBlocks(input))
 
 	// 1) cards by class pattern → keep only outermost matches
 	const matched = allEls.filter(e => classMatch(e, cardPat) && !isExcluded(e, exclPat))
@@ -578,7 +656,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 	// clamp-don't-crash: a lone card (or none) is not a grid → empty result
 	if (cards.length < 2) return []
 
-	return cards.map(c => analyzeCard(c, opts, ctx))
+	return cards.map(c => analyzeCard(c, opts, ctx, cssCodepoints))
 }
 
 export default parseCards

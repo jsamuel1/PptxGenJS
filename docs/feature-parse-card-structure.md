@@ -5,6 +5,9 @@
 > **Implemented in:** `src/utils/parse-cards.ts`; exported from `src/utils.ts`; types `types/utils.d.ts` (`CardData`, `ParseCardsOptions`); tests `test/feature-parse-cards.test.js`
 > **Depends on:** `parseSvg()` (see `feature-svg-normalisation.md`)
 > **Priority:** High — turns the converter's grid handling into a 3-line call
+> **Follow-up:** font-icon glyph resolution is incomplete — see
+> `feature-parse-cards-icon-resolution.md` (the `fontIcon` icon is currently emitted with an
+> empty `char` and no glyph name, and there is no `iconResolver` hook yet).
 
 > **Implementation notes (shipped):**
 > - **Dependency-free.** Parsing uses a small built-in stack-based HTML tree-builder — NOT cheerio
@@ -49,12 +52,16 @@ const cards: CardData[] = parseCards(htmlOrNode, {
   cardPattern?: RegExp,        // default: /-(card|item|tile|cell)\b/
   excludeWithin?: RegExp,      // default: /-(anim-right)|product-anim|flow|feed-item/ (skip mockup/flow visuals)
   defaultFill?: string,        // fallback card fill
+  iconResolver?: (className: string, fontFamily: string, glyphName: string) => SvgPart[] | null,
+                               // sync class->vector hook; when it returns parts, the card icon
+                               // becomes { type:'svg', parts } (see feature-parse-cards-icon-resolution.md)
 })
 
 interface CardData {
   icon?:
     | { type: 'svg', parts: SvgPart[] }                 // from parseSvg() — multi-path, per-path fills
-    | { type: 'fontIcon', char: string, fontFace: string }
+    | { type: 'fontIcon', char: string, fontFace: string,
+        glyphName?: string, className?: string, fontFamily?: string }  // glyph identity preserved (see follow-up)
     | { type: 'emoji', text: string }
   title: string
   description?: string
@@ -83,9 +90,12 @@ interface CardData {
    with ≥3 children) and use its repeated children as cards.
 3. **Per-card structure analysis** (NOT class-name driven):
    - **icon**: first inline `<svg>` → `parseSvg()` parts; else first
-     `<i class="fa-*">`/`<span class="fa-*">` → `{ fontIcon }` (and, if a vector
-     path map is available, prefer `{ type:'svg', parts }`); else a leading emoji
-     character → `{ emoji }`.
+     `<i class="fa-*">`/`<span class="fa-*">` → if the optional `iconResolver`
+     returns vector parts for the class, `{ type:'svg', parts }`; otherwise a
+     glyph-aware `{ type:'fontIcon', glyphName, className, fontFamily, char, fontFace }`
+     (so the icon identity is never lost — see
+     `feature-parse-cards-icon-resolution.md`); else a leading emoji character →
+     `{ emoji }`.
    - **title**: a descendant whose class matches `/-(title|name|heading|head|label)\b/`,
      else the first `h1..h4`/`strong`/`b`, else the first short text child.
    - **description**: a descendant matching `/-(desc|text|body|caption|subtitle|sub|detail|blurb)\b/`,

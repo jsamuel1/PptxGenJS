@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `parseCards` font-icon resolution (`@jsamuel1/pptxgenjs/utils`) — `parseCards()` no longer silently drops font-icon identity. A detected `<i class="fa-*">`/`<span class="fa-*">` now produces a glyph-aware `fontIcon` descriptor that carries `glyphName` (e.g. `'users'`), `className` (e.g. `'fas fa-users'`), and the detected `fontFamily` key (`'fa' | 'bi' | …`) in addition to the existing `char`/`fontFace`, and `fontFace` resolves to the correct Font Awesome family (`Font Awesome 6 Free Solid` / `… Regular` / `Font Awesome 6 Brands`). A new synchronous `iconResolver?(className, fontFamily, glyphName) => SvgPart[] | null` option on `ParseCardsOptions` lets a caller (or a bundled glyph map) upgrade a font-icon to a crisp `{ type: 'svg', parts }` vector during parsing; returning `null`/`[]` falls back to the glyph-aware `fontIcon`. When the input HTML carries an inline `<style>` `.icon::before { content: "\fXXX" }` rule, `fontIcon.char` is populated with the resolved codepoint. All additions are additive and default-off — existing `icon.type === 'fontIcon'` consumers are unchanged, and `parseCards` stays synchronous and dependency-free. The shared classifier is extracted to `src/utils/icon-classify.ts` so `parseCards()` and `resolveIconFonts()` recognise icon families identically.
+
 ## [4.2.1](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.2.1) - 2026-06-08
 
 ### Changed

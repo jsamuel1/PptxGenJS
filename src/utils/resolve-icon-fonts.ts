@@ -17,6 +17,7 @@
  */
 import { parseSvg, type SvgPart } from './parse-svg'
 import { BUNDLED_ICONS } from './bundled-icons'
+import { classTokens, detectIcon, extractCssCodepoints, type IconDescriptor } from './icon-classify'
 
 /** How a resolved part was produced. */
 export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
@@ -42,62 +43,6 @@ export interface IconResolveOptions {
 	defaultFill?: string
 }
 
-/** Font-Awesome class tokens that are STYLE/utility modifiers, not glyph names. */
-const FA_MODIFIERS = new Set([
-	'solid', 'regular', 'brands', 'light', 'thin', 'duotone', 'sharp', 'fw', 'lg', 'sm', 'xs',
-	'spin', 'pulse', 'border', 'inverse', 'stack', 'stack-1x', 'stack-2x', 'li', 'rotate-90',
-	'rotate-180', 'rotate-270', 'flip-horizontal', 'flip-vertical', '2x', '3x', '4x', '5x',
-])
-
-interface IconDescriptor {
-	/** Map key: full class string, or `family|glyph` for ligature fonts. */
-	key: string
-	/** Original element class string (passed verbatim to `customResolver`). */
-	className: string
-	/** Resolved font family / category. */
-	fontFamily: string
-	/** Glyph name (FA token name, or the ligature text for Material). */
-	glyphName: string
-	/** True for ligature fonts (Material Icons/Symbols). */
-	isLigature: boolean
-}
-
-/** Split a class attribute into non-empty tokens. */
-function classTokens (cls: string): string[] {
-	return (cls || '').trim().split(/\s+/).filter(Boolean)
-}
-
-/** Classify one element's class string (+ text content) into an icon descriptor, or null. */
-function detectIcon (cls: string, text: string): IconDescriptor | null {
-	const tokens = classTokens(cls)
-	if (tokens.length === 0) return null
-
-	// Ligature fonts (Material Icons / Material Symbols): the glyph is the element text.
-	const mat = tokens.find(t => /^material-(icons|symbols)(-[a-z]+)?$/.test(t))
-	if (mat) {
-		const glyph = (text || '').trim()
-		if (!glyph) return null
-		return { key: mat + '|' + glyph, className: cls.trim(), fontFamily: mat, glyphName: glyph, isLigature: true }
-	}
-
-	// Class-token fonts: find a glyph token among the common icon-font conventions.
-	let family = ''
-	let glyph = ''
-	for (const t of tokens) {
-		let m: RegExpExecArray | null
-		if ((m = /^fa-([a-z0-9-]+)$/.exec(t)) && !FA_MODIFIERS.has(m[1])) { glyph = glyph || m[1]; family = family || 'fa' }
-		else if (/^(fas|far|fab|fal|fad|fat|fa-solid|fa-regular|fa-brands)$/.test(t)) { family = family || 'fa' }
-		else if ((m = /^bi-([a-z0-9-]+)$/.exec(t))) { glyph = glyph || m[1]; family = family || 'bi' }
-		else if ((m = /^ph-([a-z0-9-]+)$/.exec(t)) && m[1] !== 'fill' && m[1] !== 'bold' && m[1] !== 'duotone') { glyph = glyph || m[1]; family = family || 'ph' }
-		else if ((m = /^ion-([a-z0-9-]+)$/.exec(t))) { glyph = glyph || m[1]; family = family || 'ion' }
-		else if ((m = /^icon-([a-z0-9-]+)$/.exec(t))) { glyph = glyph || m[1]; family = family || 'icon' }
-	}
-
-	// Return a descriptor for ANY classed element so the chain can still try customResolver/CSS;
-	// unresolvable elements are omitted later (never an error).
-	return { key: cls.trim(), className: cls.trim(), fontFamily: family || tokens[0], glyphName: glyph, isLigature: false }
-}
-
 /** Find icon-candidate elements (any element carrying a `class` attribute) in an HTML string. */
 function scanIcons (html: string): IconDescriptor[] {
 	const out: IconDescriptor[] = []
@@ -112,26 +57,6 @@ function scanIcons (html: string): IconDescriptor[] {
 		const text = m[6] || ''
 		const desc = detectIcon(cls, text)
 		if (desc && !seen.has(desc.key)) { seen.add(desc.key); out.push(desc) }
-	}
-	return out
-}
-
-/**
- * Extract `class -> codepoint` mappings from `::before`/`::after` `content` rules in the given CSS
- * (inline `<style>` blocks + `opts.stylesheets`). The codepoint informs font-file lookup; on its own
- * it does not produce a path in this minimal build.
- */
-function extractCssCodepoints (cssBlocks: string[]): Record<string, string> {
-	const out: Record<string, string> = {}
-	const ruleRe = /\.([\w-]+)\s*::?(?:before|after)\s*\{[^}]*?content\s*:\s*(["'])([^"']*)\2[^}]*\}/gi
-	for (const css of cssBlocks) {
-		let m: RegExpExecArray | null
-		while ((m = ruleRe.exec(css || '')) !== null) {
-			const cls = m[1]
-			const raw = m[3]
-			const cp = raw.replace(/\\([0-9a-fA-F]{1,6})\s?/g, '$1') // unescape \e900 -> e900
-			out[cls] = cp
-		}
 	}
 	return out
 }
@@ -174,7 +99,7 @@ async function fetchCdnSvg (url: string, cacheDir?: string): Promise<string | nu
 	let cacheFile: string | null = null
 	try {
 		if (cacheDir) {
-			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
 			fs = require('fs'); path = require('path')
 			const safe = url.replace(/[^a-zA-Z0-9.-]+/g, '_')
 			cacheFile = path.join(cacheDir, safe)
@@ -183,24 +108,20 @@ async function fetchCdnSvg (url: string, cacheDir?: string): Promise<string | nu
 	} catch (_) { /* cache is best-effort */ }
 
 	if (typeof fetch !== 'function') return null
+	// Network errors propagate so callers/tests can distinguish "offline" from "unresolvable".
+	const ctrl = typeof AbortController === 'function' ? new AbortController() : null
+	const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null
+	const res = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+	if (timer) clearTimeout(timer)
+	if (!res || !res.ok) return null
+	const svg = await res.text()
 	try {
-		const ctrl = typeof AbortController === 'function' ? new AbortController() : null
-		const timer = ctrl ? setTimeout(() => ctrl.abort(), 8000) : null
-		const res = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
-		if (timer) clearTimeout(timer)
-		if (!res || !res.ok) return null
-		const svg = await res.text()
-		try {
-			if (fs && path && cacheFile && cacheDir) {
-				if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true })
-				fs.writeFileSync(cacheFile, svg)
-			}
-		} catch (_) { /* cache write is best-effort */ }
-		return svg
-	} catch (e) {
-		// Surface network errors so callers/tests can distinguish "offline" from "unresolvable".
-		throw e
-	}
+		if (fs && path && cacheFile && cacheDir) {
+			if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true })
+			fs.writeFileSync(cacheFile, svg)
+		}
+	} catch (_) { /* cache write is best-effort */ }
+	return svg
 }
 
 /** Tag every part with a resolution source. */

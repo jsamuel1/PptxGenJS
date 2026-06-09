@@ -129,7 +129,19 @@ export interface CardData {
 	/** Card icon — an inline SVG (multi-path, via `parseSvg`), a Font-Awesome glyph, or a leading emoji. */
 	icon?:
 		| { type: 'svg'; parts: SvgPart[] }
-		| { type: 'fontIcon'; char: string; fontFace: string }
+		| {
+			type: 'fontIcon'
+			/** Resolved glyph codepoint as a string, or `''` when only the class is known. */
+			char: string
+			/** PowerPoint font family to render the glyph with. */
+			fontFace: string
+			/** Glyph token without the family prefix, e.g. `'users'` for `fa-users`. */
+			glyphName?: string
+			/** The icon element's full class string, e.g. `'fas fa-users'`. */
+			className?: string
+			/** Detected icon-font family key: `'fa' | 'bi' | 'ph' | 'ion' | 'material' | string`. */
+			fontFamily?: string
+		  }
 		| { type: 'emoji'; text: string }
 	/** Card title (always present; `''` when none could be detected). */
 	title: string
@@ -162,6 +174,13 @@ export interface ParseCardsOptions {
 	excludeWithin?: RegExp
 	/** Fallback fill (6-hex, no `#`) handed to `parseSvg` for unpainted icon elements. */
 	defaultFill?: string
+	/**
+	 * Optional SYNCHRONOUS resolver from an icon-element class string to vector parts. When it returns
+	 * a non-empty array for a card's font-icon, `parseCards` emits `{ type: 'svg', parts }` instead of
+	 * `{ type: 'fontIcon', … }`. Returning `null`/`[]` falls back to the (glyph-aware) `fontIcon`
+	 * descriptor. Must be sync — `parseCards` stays synchronous.
+	 */
+	iconResolver?: (className: string, fontFamily: string, glyphName: string) => SvgPart[] | null
 }
 
 /**

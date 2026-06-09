@@ -37,7 +37,8 @@ module.exports = [
 			const fa = parseCards('<div class="grid"><div class="card"><i class="fas fa-users"></i><div class="title">Team</div></div><div class="card"><i class="fas fa-code"></i><b>Build</b></div></div>')
 			assert(fa.length === 2, 'expected 2 cards; got ' + fa.length)
 			assert(fa[0].icon && (fa[0].icon.type === 'fontIcon' || fa[0].icon.type === 'svg'), 'card0 icon fontIcon/svg; got ' + JSON.stringify(fa[0].icon))
-			assert(fa[0].icon.type === 'fontIcon' && fa[0].icon.fontFace === 'Font Awesome 6 Free', 'fontIcon fontFace; got ' + JSON.stringify(fa[0].icon))
+			assert(fa[0].icon.type === 'fontIcon' && fa[0].icon.fontFace === 'Font Awesome 6 Free Solid', 'fontIcon fontFace; got ' + JSON.stringify(fa[0].icon))
+			assert(fa[0].icon.glyphName === 'users' && fa[0].icon.className === 'fas fa-users' && fa[0].icon.fontFamily === 'fa', 'fontIcon glyph identity; got ' + JSON.stringify(fa[0].icon))
 			assert(fa[0].title === 'Team', 'card0 title Team; got ' + fa[0].title)
 			assert(fa[1].title === 'Build', 'card1 title via <b> Build; got ' + fa[1].title)
 		},
@@ -184,6 +185,69 @@ module.exports = [
 			assert(c[0].colors.cardFill === '1A1A24', 'cardFill unchanged; got ' + c[0].colors.cardFill)
 			assert(c[0].title === 'X', 'title unchanged; got ' + c[0].title)
 			assert(c[1].colors.cardFill === undefined, 'card1 has no fill (no class rule); got ' + c[1].colors.cardFill)
+		},
+	},
+	// ── feature-parse-cards-icon-resolution.md: glyph identity + iconResolver hook + codepoints ──
+	{
+		name: 'parseCards icon-resolution 1: glyph identity preserved + distinguishable across cards',
+		fn: async () => {
+			const fa = parseCards('<div class="grid">' +
+				'<div class="card"><i class="fas fa-users"></i><div class="title">Team</div></div>' +
+				'<div class="card"><i class="fas fa-code"></i><b>Build</b></div></div>')
+			assert(fa.length === 2, 'expected 2 cards; got ' + fa.length)
+			assert(fa[0].icon.type === 'fontIcon', 'card0 fontIcon; got ' + JSON.stringify(fa[0].icon))
+			assert(fa[0].icon.glyphName === 'users', "card0 glyphName 'users'; got " + fa[0].icon.glyphName)
+			assert(fa[0].icon.className === 'fas fa-users', "card0 className 'fas fa-users'; got " + fa[0].icon.className)
+			assert(fa[0].icon.fontFamily === 'fa', "card0 fontFamily 'fa'; got " + fa[0].icon.fontFamily)
+			assert(fa[1].icon.glyphName === 'code', "card1 glyphName 'code' (distinguishable); got " + fa[1].icon.glyphName)
+		},
+	},
+	{
+		name: 'parseCards icon-resolution 2: iconResolver upgrades fontIcon → svg (unresolved falls back)',
+		fn: async () => {
+			const MAP = {
+				'fa-users': [{ d: 'M0 0L10 0L10 10Z', viewBox: { w: 512, h: 512 }, fill: '7C3AED', mode: 'fill' }],
+			}
+			const res = parseCards('<div class="grid">' +
+				'<div class="card"><i class="fas fa-users"></i><div class="title">Team</div></div>' +
+				'<div class="card"><i class="fas fa-code"></i><div class="title">Build</div></div></div>',
+			{ iconResolver: (cls, fam, glyph) => MAP['fa-' + glyph] || null })
+			assert(res[0].icon.type === 'svg', 'card0 resolved to svg; got ' + JSON.stringify(res[0].icon))
+			assert(res[0].icon.parts[0].d.startsWith('M'), 'card0 svg part path; got ' + JSON.stringify(res[0].icon.parts[0]))
+			assert(res[1].icon.type === 'fontIcon' && res[1].icon.glyphName === 'code', 'card1 glyph-aware fallback; got ' + JSON.stringify(res[1].icon))
+		},
+	},
+	{
+		name: 'parseCards icon-resolution 3: iconResolver returning null falls back cleanly (no throw)',
+		fn: async () => {
+			const none = parseCards('<div class="grid">' +
+				'<div class="card"><i class="fas fa-ghost"></i><div class="title">A</div></div>' +
+				'<div class="card"><i class="fas fa-ghost"></i><div class="title">B</div></div></div>',
+			{ iconResolver: () => null })
+			assert(none.length === 2, 'expected 2 cards; got ' + none.length)
+			assert(none[0].icon.type === 'fontIcon', 'card0 fontIcon fallback; got ' + JSON.stringify(none[0].icon))
+			assert(none[0].icon.glyphName === 'ghost', "card0 glyphName 'ghost'; got " + none[0].icon.glyphName)
+		},
+	},
+	{
+		name: 'parseCards icon-resolution 4: inline <style> ::before content → codepoint on char',
+		fn: async () => {
+			const cp = parseCards('<style>.fa-users::before{content:"\\f0c0"}</style><div class="grid">' +
+				'<div class="card"><i class="fas fa-users"></i><div class="title">A</div></div>' +
+				'<div class="card"><i class="fas fa-users"></i><div class="title">B</div></div></div>')
+			assert(cp.length === 2, 'expected 2 cards; got ' + cp.length)
+			assert(cp[0].icon.type === 'fontIcon', 'card0 fontIcon; got ' + JSON.stringify(cp[0].icon))
+			assert(cp[0].icon.char === '\uf0c0', 'card0 char from ::before codepoint; got ' + JSON.stringify(cp[0].icon.char))
+		},
+	},
+	{
+		name: 'parseCards icon-resolution 5: inline <svg> still wins over a font icon (precedence unchanged)',
+		fn: async () => {
+			const svg = parseCards('<div class="grid">' +
+				'<div class="card"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><i class="fas fa-users"></i><div class="title">A</div></div>' +
+				'<div class="card"><div class="title">B</div></div></div>')
+			assert(svg.length === 2, 'expected 2 cards; got ' + svg.length)
+			assert(svg[0].icon.type === 'svg', 'card0 svg wins over font icon; got ' + JSON.stringify(svg[0].icon))
 		},
 	},
 ]

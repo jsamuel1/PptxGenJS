@@ -5,6 +5,8 @@
 > **Implements (when built):** `src/utils/resolve-icon-fonts.ts`; exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`resolveIconFonts`, `IconResolveOptions`, `ResolvedIcon`); tests `test/feature-icon-font-resolver.test.js`; demo `demos/browser/icon-font-resolver.html`
 > **Depends on:** `parseSvg()` (see `feature-svg-normalisation.md`)
 > **Priority:** High — replaces the converter's hardcoded `FA_SVG` map with a resolver that works for ANY icon font
+> **See also:** `feature-parse-cards-icon-resolution.md` — the synchronous `iconResolver`
+> hook on `parseCards()` that this resolver's output (a class→`SvgPart[]` map) can feed.
 
 ## Problem
 
@@ -175,8 +177,9 @@ helper's reliance on it. The converter becomes:
 const { resolveIconFonts, parseCards } = require('@jsamuel1/pptxgenjs/utils')
 
 const icons = await resolveIconFonts(html, { stylesheets: [css], cacheDir: '/tmp/pptx-icon-cache' })
-// Pre-inline resolved icons as <svg> (or feed the map to a parseCards icon hook), then:
-const cards = parseCards(htmlWithInlinedIcons)
+// Feed the resolved map straight into parseCards via the synchronous iconResolver hook
+// (see feature-parse-cards-icon-resolution.md) — no HTML pre-inlining needed:
+const cards = parseCards(html, { iconResolver: (cls) => icons.get(cls) || null })
 cards.forEach((c, i) => slide.addCard({ ...grid[i], ...mapCard(c) }))
 ```
 
