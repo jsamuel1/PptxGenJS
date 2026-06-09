@@ -108,6 +108,14 @@ export function parseTable (input: string | HNode, opts: ParseContentOptions = {
 	return { rows }
 }
 
+/**
+ * A column child's class token: anchored `col` / `column` / `col-<n>` (case-insensitive).
+ * Anchored `^…$` (the per-class `some` already iterates each individual class token), so it
+ * REJECTS substring lookalikes — `collapse`, `protocol`, `colour-swatch`, `col-header`,
+ * `column-count`. Bootstrap responsive forms (`col-md-6`) are intentionally out of scope.
+ */
+const COL_CLASS = /^col(?:umn)?(?:-\d+)?$/i
+
 /** The column count declared by `column-count` or a `columns:` shorthand on `el` (0 when none/<1). */
 function columnCountOf (el: HNode, ctx: CssContext): number {
 	const cc = cssProp(el, 'column-count', ctx)
@@ -145,7 +153,7 @@ export function parseColumns (input: string | HNode, opts: ParseContentOptions =
 		const childEls = el.children.filter(c => c.tag !== '#text')
 		if (childEls.length < 2) continue
 		// (a) explicit column children: ≥2 direct children each with a `col`-ish class
-		const colChildren = childEls.filter(c => c.classes.some(cl => /col/i.test(cl)))
+		const colChildren = childEls.filter(c => c.classes.some(cl => COL_CLASS.test(cl)))
 		if (colChildren.length >= 2) {
 			return colChildren.map(c => ({ text: textOf(c).trim() }))
 		}

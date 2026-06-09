@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `parseColumns` (`@jsamuel1/pptxgenjs/utils`) no longer treats unrelated classes that merely contain the substring `col` — e.g. `collapse`, `protocol`, `colour-swatch`, `col-header` — as column children. The explicit-column detector previously used a case-insensitive substring test (`/col/i`) gated only on ≥2 such siblings, so two unrelated `<div class="collapse">`/`<div class="protocol">` boxes were mis-detected as a 2-column layout. The match is now anchored per class token (`/^col(?:umn)?(?:-\d+)?$/i`), accepting `col`/`column`/`col-6`/`col-12` and rejecting the substring lookalikes. The CSS `column-count`/`columns` detection branch is unchanged. (Bootstrap responsive forms like `col-md-6` remain out of scope.)
+
 ## [4.3.0](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.0) - 2026-06-09
 
 ### Fixed

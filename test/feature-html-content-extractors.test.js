@@ -120,6 +120,28 @@ module.exports = [
 			assert(parseTable(html, { excludeWithin: /mockup/ }) === null, 'table inside excluded region should be skipped')
 		},
 	},
+	{
+		name: 'parseColumns: anchored col-class rejects substring lookalikes (REGRESSION-CATCH, Slice 2c)',
+		fn: async () => {
+			// REGRESSION-CATCH (mem-1): guards the `colChildren` filter predicate in parseColumns.
+			// Two siblings whose classes merely CONTAIN the substring "col" (collapse, protocol) must
+			// NOT be mistaken for a 2-column layout. On the pre-fix substring `/col/i` predicate this
+			// wrongly returned [{…},{…}]; the anchored COL_CLASS regex returns null.
+			assert(parseColumns('<div><div class="collapse">A</div><div class="protocol">B</div></div>') === null,
+				'collapse/protocol siblings must NOT be treated as columns')
+			assert(parseColumns('<div><div class="colour-swatch">A</div><div class="col-header">B</div></div>') === null,
+				'colour-swatch/col-header siblings must NOT be treated as columns')
+		},
+	},
+	{
+		name: 'parseColumns: anchored col-class still accepts col / column / col-N (no-regression, Slice 2c)',
+		fn: async () => {
+			const c1 = parseColumns('<div><div class="col-6">A</div><div class="col-6">B</div></div>')
+			assert(c1 !== null && c1.length === 2, 'col-6 children should still yield 2 columns; got: ' + JSON.stringify(c1))
+			const c2 = parseColumns('<div><div class="column">A</div><div class="column">B</div></div>')
+			assert(c2 !== null && c2.length === 2, 'column children should still yield 2 columns; got: ' + JSON.stringify(c2))
+		},
+	},
 	// ── Slice 2b: parseTimeline / parseQuote / parseBadges / parseCallout ──────────────────
 	{
 		name: 'parseTimeline: explicit .timeline-item + .time marker (spec fixture)',
