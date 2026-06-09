@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.0](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.0) - 2026-06-09
+
 ### Fixed
 
 - Custom-geometry path parser (`svgPath`) now handles SVG elliptical-arc (`A`/`a`) and smooth-curve (`S`/`s`, `T`/`t`) commands. Previously `svgPathToOoxml()` recognised only `M`/`L`/`H`/`V`/`C`/`Q`/`Z`, so an `A`/`S`/`T` command's numeric arguments were swallowed by the preceding command and emitted as garbage `<a:lnTo>` points — rendering as overflow spikes or a broken shape PowerPoint had to "repair". The parser now pre-folds its input through the existing, tested `normalizeSvgPath()` (`@jsamuel1/pptxgenjs/utils`), which expands arcs to cubic béziers (W3C SVG 1.1 F.6.5, via `arcToCubics`), reflects smooth curves (`S`→`C`, `T`→`Q`), and resolves `H`/`V`/relative commands to absolute `M`/`L`/`C`/`Q`/`Z`. Real-world SVG paths (icon sets, logos, hand-authored arcs) now render correctly with no caller-side pre-normalisation, and plain `M/L/C/Q/H/V/Z` paths are byte-for-byte unchanged.
