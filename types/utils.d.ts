@@ -174,3 +174,37 @@ export interface ParseCardsOptions {
  * @returns one `CardData` per detected card (empty array when no grid of ≥2 cards is found).
  */
 export function parseCards(input: string, options?: ParseCardsOptions): CardData[]
+
+/** How a resolved icon part was produced. */
+export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
+
+/** A resolved `SvgPart` plus the resolution-source tag. */
+export interface ResolvedSvgPart extends SvgPart {
+	source?: IconSource
+}
+
+/** Options for `resolveIconFonts`. */
+export interface IconResolveOptions {
+	/** CSS text for `::before`/`::after` content-property codepoint extraction. */
+	stylesheets?: string[]
+	/** Local woff2/woff/ttf paths for glyph outlines, keyed by font family. */
+	fontFiles?: Record<string, string>
+	/** Allow CDN fetches for KNOWN fonts not in the bundled set. @default true */
+	useCdn?: boolean
+	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
+	customResolver?: (className: string, fontFamily: string) => Array<Partial<ResolvedSvgPart> & { d: string; viewBox: { w: number; h: number } }> | null
+	/** Directory to cache CDN-fetched glyphs (a repeat resolve is a cache hit, no network). */
+	cacheDir?: string
+	/** Fill handed to `parseSvg` for the resolved glyph (6-hex, no `#`). @default '000000' */
+	defaultFill?: string
+}
+
+/**
+ * Scan an HTML string for icon-font elements (Font Awesome, Material Icons, Bootstrap Icons,
+ * Phosphor, Ionicons, or a custom font) and resolve each to normalised vector path data. The
+ * returned `Map` is keyed by the icon element's class string (`family|glyph` for ligature fonts);
+ * each value is a `ResolvedSvgPart[]`. Resolution order (first hit wins): `customResolver` →
+ * bundled offline fallback → CDN fetch (best-effort, cached). Unresolvable icons are omitted
+ * (the call never throws for one bad icon).
+ */
+export function resolveIconFonts(html: string, options?: IconResolveOptions): Promise<Map<string, ResolvedSvgPart[]>>
