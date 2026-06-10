@@ -94,6 +94,14 @@ pptx.stream()
     });
 ```
 
+### Restricted / Sandbox Runtimes
+
+Compressed export (`stream({ compression: true })`, or any `write`/`writeFile` DEFLATE path)
+works in hardened runtimes such as a Node `vm` sandbox that omit `setImmediate`. The library
+polyfills `globalThis.setImmediate`/`clearImmediate` from `setTimeout`/`clearTimeout` only when
+they are absent, so a real Node `setImmediate` is never replaced. For a sandbox-safe write,
+use `write({ outputType: "nodebuffer" })` and hand the buffer to your own `fs.writeFileSync`.
+
 ## Saving Multiple Presentations
 
 ### In the Browser

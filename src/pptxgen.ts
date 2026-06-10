@@ -112,6 +112,32 @@ import { layoutGrid as layoutGridUtil, layoutStack as layoutStackUtil } from './
 
 const VERSION = '4.3.4'
 
+/**
+ * Ensure `globalThis.setImmediate`/`clearImmediate` exist before invoking JSZip.
+ *
+ * JSZip's DEFLATE path schedules async chunks via a bare `setImmediate(...)`
+ * global (its bundled `setimmediate` shim attaches to `self`/`global`/`exports`,
+ * none of which are reachable inside a hardened Node `vm` sandbox). Without a
+ * `setImmediate` global, generating a compressed `.pptx` throws
+ * "setImmediate is not defined".
+ *
+ * This polyfills the two globals from `setTimeout`/`clearTimeout` ONLY when they
+ * are absent, so a real Node implementation is never clobbered. No emitted XML
+ * changes; this only affects async scheduling availability.
+ */
+function ensureSetImmediate(): void {
+	const g = globalThis as unknown as {
+		setImmediate?: (callback: (...args: any[]) => void, ...args: any[]) => any
+		clearImmediate?: (handle: any) => void
+	}
+	if (typeof g.setImmediate === 'undefined') {
+		g.setImmediate = (callback: (...args: any[]) => void, ...args: any[]) => setTimeout(callback, 0, ...args)
+	}
+	if (typeof g.clearImmediate === 'undefined') {
+		g.clearImmediate = (handle: any) => { clearTimeout(handle) }
+	}
+}
+
 export default class PptxGenJS implements IPresentationProps {
 	// Property getters/setters
 
@@ -733,6 +759,9 @@ export default class PptxGenJS implements IPresentationProps {
 
 			// E: Wait for Promises (if any) then generate the PPTX file
 			return await Promise.all(arrChartPromises).then(async () => {
+				// Ensure a `setImmediate` global exists for JSZip's DEFLATE path so compressed
+				// output works in hardened runtimes (e.g. Node `vm` sandbox) that omit it.
+				ensureSetImmediate()
 				if (props.outputType === 'STREAM') {
 					// A: stream file
 					return await zip.generateAsync({ type: 'nodebuffer', compression: props.compression ? 'DEFLATE' : 'STORE' })
