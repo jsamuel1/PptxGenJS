@@ -73,6 +73,31 @@ export function parseStyle (style: string): Record<string, string> {
 	return out
 }
 
+/** The bounded set of named HTML entities decoded from text content. */
+const NAMED_ENTITIES: Record<string, string> = {
+	amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+}
+
+/**
+ * Decode the common HTML entities found in text content back to their literal characters, so that
+ * a single downstream `encodeXmlEntities` pass produces correct OOXML (`&amp;` → `&` → `&amp;`,
+ * not `&amp;amp;`). Covers the standard named entities plus decimal (`&#NN;`) and hex (`&#xHH;`)
+ * numeric forms. A single regex pass guarantees each entity is decoded exactly once (so
+ * `&amp;lt;` → `&lt;`, never `<`). The `outerHtml`/`esc` serializer re-encodes on output, so the
+ * parse→serialize round-trip stays correct.
+ */
+function decodeHtmlEntities (s: string): string {
+	if (s.indexOf('&') === -1) return s
+	return s.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g, (match: string, body: string): string => {
+		if (body[0] === '#') {
+			const code = body[1] === 'x' || body[1] === 'X' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10)
+			return Number.isFinite(code) && code >= 1 && code <= 0x10FFFF ? String.fromCodePoint(code) : match
+		}
+		const named = NAMED_ENTITIES[body]
+		return named !== undefined ? named : match
+	})
+}
+
 /** Make an element node from a tag name + opening-tag attribute string. */
 function makeEl (tag: string, attrStr: string): HNode {
 	const attrs = parseAttrs(attrStr)
@@ -133,7 +158,7 @@ export function parseHtml (html: string): HNode {
 	const addChild = (node: HNode): void => { node.parent = top(); top().children.push(node) }
 	const addText = (raw: string): void => {
 		if (raw.length === 0) return
-		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: raw })
+		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: decodeHtmlEntities(raw) })
 	}
 
 	let i = 0

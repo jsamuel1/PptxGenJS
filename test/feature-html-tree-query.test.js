@@ -155,6 +155,28 @@ module.exports = [
 		},
 	},
 	{
+		name: 'parseHtml: decodes HTML entities in text nodes (regression: & rendered as &amp;)',
+		fn: async () => {
+			// Bug: text nodes were stored verbatim, so `&amp;` survived into a SECOND
+			// XML-encoding pass (encodeXmlEntities) → `&amp;amp;` → PowerPoint showed `&amp;`.
+			// parseHtml now decodes entities once at parse time; the single downstream encode
+			// then yields correct OOXML.
+			assert(textOf(parseHtml('<p>Tom &amp; Jerry</p>')) === 'Tom & Jerry', 'named &amp; decoded')
+			assert(textOf(parseHtml('<p>a &lt;b&gt; c</p>')) === 'a <b> c', '&lt;/&gt; decoded')
+			assert(textOf(parseHtml('<p>&quot;hi&apos;</p>')) === '"hi\'', '&quot;/&apos; decoded')
+			assert(textOf(parseHtml('<p>&#65;&#x42;</p>')) === 'AB', 'decimal + hex numeric decoded')
+			assert(textOf(parseHtml('<p>x&nbsp;y</p>')) === 'x y', '&nbsp; → U+00A0')
+			// Single-pass: a double-encoded entity decodes exactly ONCE (never over-decoded).
+			assert(textOf(parseHtml('<p>&amp;lt;</p>')) === '&lt;', '&amp;lt; → &lt; (decoded once, not <)')
+			// Unknown entities and bare ampersands are left intact.
+			assert(textOf(parseHtml('<p>&bogus;</p>')) === '&bogus;', 'unknown entity left intact')
+			assert(textOf(parseHtml('<p>a & b</p>')) === 'a & b', 'bare ampersand left intact')
+			// outerHtml re-encodes on output, so the parse→serialize round-trip stays correct.
+			const root = parseHtml('<p>Tom &amp; Jerry</p>')
+			assert(outerHtml(queryOne(root, 'p')) === '<p>Tom &amp; Jerry</p>', 'round-trip re-encodes &')
+		},
+	},
+	{
 		name: 'node-arg: query/matches/closest accept an HNode (cheerio containment parity)',
 		fn: async () => {
 			// docs/feature-html-query-node-containment.md
