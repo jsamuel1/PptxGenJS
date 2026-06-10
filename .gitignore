@@ -20,6 +20,7 @@ coverage/
 
 ### Build artifacts
 src/bld/
+dist/
 
 ### Docusaurus build artifacts (the docs site lives under website/, which has its own .gitignore)
 /build/

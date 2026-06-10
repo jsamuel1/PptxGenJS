@@ -2,7 +2,6 @@
 
 ![PptxGenJS Sample Slides](https://raw.githubusercontent.com/gitbrent/PptxGenJS/gh-pages/img/readme_banner.png)
 
-![jsdelivr downloads](https://data.jsdelivr.com/v1/package/gh/gitbrent/pptxgenjs/badge)
 ![NPM Downloads](https://img.shields.io/npm/dm/@jsamuel1/pptxgenjs?style=flat-square)
 ![GitHub Repo stars](https://img.shields.io/github/stars/jsamuel1/PptxGenJS?style=flat-square)
 ![GitHub License](https://img.shields.io/github/license/jsamuel1/PptxGenJS?style=flat-square)
@@ -71,24 +70,15 @@ npm install @jsamuel1/pptxgenjs
 yarn add @jsamuel1/pptxgenjs
 ```
 
-### CDN (Browser Usage)
+### Browser Usage (Direct Download)
 
-Use the bundled or minified version via [jsDelivr](https://www.jsdelivr.com/package/gh/gitbrent/pptxgenjs):
-
-```html
-<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs/dist/pptxgen.bundle.js"></script>
-```
-
-> Includes the sole dependency (JSZip) in one file.
-
-📁 Advanced: Separate Files, Direct Download
-
-Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/releases/latest)
+Download the self-contained browser bundle from the [latest GitHub Release](https://github.com/jsamuel1/PptxGenJS/releases/latest). The `pptxgen.bundle.js` asset includes the sole dependency (JSZip) in one file:
 
 ```html
-<script src="PptxGenJS/libs/jszip.min.js"></script>
-<script src="PptxGenJS/dist/pptxgen.min.js"></script>
+<script src="pptxgen.bundle.js"></script>
 ```
+
+> Each release also attaches `pptxgen.min.js` and `pptxgen.min.js.map` if you prefer the minified standalone build.
 
 ### Contributors: Running the Test Suite
 
