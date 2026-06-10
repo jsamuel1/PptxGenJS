@@ -18,3 +18,5 @@ export { parseTable, parseColumns, parseTimeline, parseQuote, parseBadges, parse
 export type { TableData, TableCell, ColumnData, TimelineRow, QuoteData, CalloutData, ParseContentOptions } from './utils/parse-content'
 export { resolveIconFonts } from './utils/resolve-icon-fonts'
 export type { IconResolveOptions, IconSource, ResolvedSvgPart } from './utils/resolve-icon-fonts'
+export { tokenizeCode, codeRuns } from './utils/tokenize-code'
+export type { TokenKind, CodeRunsOptions } from './utils/tokenize-code'

@@ -1,6 +1,6 @@
 # Feature: Syntax-highlighted code rendering helper
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (a code render helper) + `/utils` (tokenizer)
 > **Found by:** the `html-to-pptx` converter rendering the reveal.js demo "Pretty Code" /
@@ -61,7 +61,7 @@ These are **output-producing** tests, so they belong here, not in the consumer:
 
 ## Acceptance Criteria
 
-- [ ] `/utils` exports `tokenizeCode` (dependency-free) with a documented `TokenKind` set.
-- [ ] core exports `codeRuns` producing monospace, indentation-preserving, optionally
+- [x] `/utils` exports `tokenizeCode` (dependency-free) with a documented `TokenKind` set.
+- [x] core exports `codeRuns` producing monospace, indentation-preserving, optionally
       line-emphasised runs with a default theme.
-- [ ] OOXML keeps leading whitespace and per-line breaks (regression-tested).
+- [x] OOXML keeps leading whitespace and per-line breaks (regression-tested).

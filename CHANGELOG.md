@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Syntax-Highlighted Code helper: `tokenizeCode()` tokenizer + `codeRuns()` text-run builder (docs/feature-syntax-highlighted-code.md)
+
 ## [4.3.7](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.7) - 2026-06-10
 
 ### Added
