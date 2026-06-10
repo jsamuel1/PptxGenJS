@@ -772,6 +772,11 @@ export interface ObjectNameProps {
 	 * @example 'Antenna Design 9'
 	 */
 	objectName?: string
+	/**
+	 * Stable identity for PowerPoint Morph transition matching.
+	 * Sets the shape name (cNvPr `name`) so Morph pairs shapes with the same morphId across consecutive slides.
+	 */
+	morphId?: string
 }
 export interface ThemeProps {
 	/**
@@ -2532,7 +2537,7 @@ export interface SlideBaseProps {
 	 */
 	bkgd?: string | BackgroundProps
 }
-export type TransitionType = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'split' | 'cut'
+export type TransitionType = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'split' | 'cut' | 'morph'
 export type TransitionDirection = 'left' | 'right' | 'up' | 'down'
 export interface TransitionProps {
 	/** Transition effect. @default 'none' */
@@ -2541,6 +2546,8 @@ export interface TransitionProps {
 	duration?: number
 	/** Direction for directional transitions (push/wipe/cover). @default 'left' */
 	direction?: TransitionDirection
+	/** Morph sub-option (only used when type is 'morph'). @default 'byObject' */
+	option?: 'byObject' | 'byWord' | 'byChar'
 }
 export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut' | 'motionPath'
 export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'

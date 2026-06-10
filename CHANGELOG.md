@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `fit: 'fill'` option for `addText()` — scales text UP to fill the box width/height
+- Morph slide transition (`transition: { type: 'morph', option: 'byObject' }`) emitting `<p14:morph>` for PowerPoint's Auto-Animate tween effect between consecutive slides
+- New `morphId` option on shapes/text/images for stable Morph transition matching across slides
 
 ## [4.3.6](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.6) - 2026-06-10
 

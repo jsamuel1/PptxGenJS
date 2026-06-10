@@ -1429,6 +1429,11 @@ declare namespace PptxGenJS {
 		 * @example 'Antenna Design 9'
 		 */
 		objectName?: string
+		/**
+		 * Stable identity for PowerPoint Morph transition matching.
+		 * Sets the shape name (cNvPr `name`) so Morph pairs shapes with the same morphId across consecutive slides.
+		 */
+		morphId?: string
 	}
 	export interface ThemeProps {
 		/**
@@ -2718,6 +2723,17 @@ declare namespace PptxGenJS {
 	export type AnimationType = 'appear' | 'fadeIn' | 'flyIn' | 'zoomIn' | 'pulse' | 'spin' | 'grow' | 'colorPulse' | 'disappear' | 'fadeOut' | 'flyOut' | 'zoomOut' | 'motionPath'
 	export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 	export type TransitionDirection = 'left' | 'right' | 'up' | 'down'
+	export type TransitionType = 'none' | 'fade' | 'push' | 'wipe' | 'cover' | 'split' | 'cut' | 'morph'
+	export interface TransitionProps {
+		/** Transition effect. @default 'none' */
+		type: TransitionType
+		/** Duration in milliseconds (mapped to coarse `spd`: <=250 fast, <=750 med, else slow). @default 'med' (~500ms) when omitted */
+		duration?: number
+		/** Direction for directional transitions (push/wipe/cover). @default 'left' */
+		direction?: TransitionDirection
+		/** Morph sub-option (only used when type is 'morph'). @default 'byObject' */
+		option?: 'byObject' | 'byWord' | 'byChar'
+	}
 	/**
 	 * Entrance/emphasis/exit/motion-path animation applied to a slide object via its `animation` option.
 	 */
@@ -3143,6 +3159,10 @@ declare namespace PptxGenJS {
 		 * @default false
 		 */
 		hidden: boolean
+		/**
+		 * Slide transition (entrance effect applied when navigating to this slide)
+		 */
+		transition: TransitionProps
 		/**
 		 * Slide number options
 		 */

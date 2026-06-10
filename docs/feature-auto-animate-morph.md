@@ -1,6 +1,6 @@
 # Feature: Auto-Animate morph — tween matched elements across consecutive slides
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (animation / morph)
 > **Found by:** the `html-to-pptx` converter rendering the reveal.js demo "Auto-Animate"
@@ -51,8 +51,8 @@ Output-producing:
 
 ## Acceptance Criteria
 
-- [ ] A `morph` slide transition type emitting the correct (namespaced) OOXML.
-- [ ] A `morphId` (stable shape name) so matching shapes pair deterministically.
+- [x] A `morph` slide transition type emitting the correct (namespaced) OOXML.
+- [x] A `morphId` (stable shape name) so matching shapes pair deterministically.
 - [ ] Verified to animate in PowerPoint; degrades gracefully where Morph is unsupported.
 
 ## Consumer mapping (informational)

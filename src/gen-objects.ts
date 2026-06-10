@@ -416,7 +416,7 @@ export function addImageDefinition(target: PresSlide, opt: ImageProps): void {
 	const strImageData = opt.data || ''
 	const strImagePath = opt.path || ''
 	let imageRelId = getNewRelId(target)
-	const objectName = opt.objectName ? encodeXmlEntities(opt.objectName) : `Image ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.image).length}`
+	const objectName = opt.morphId ? encodeXmlEntities(opt.morphId) : opt.objectName ? encodeXmlEntities(opt.objectName) : `Image ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.image).length}`
 
 	// REALITY-CHECK:
 	if (!strImagePath && !strImageData) {
@@ -883,7 +883,9 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
 	options.y = options.y || (options.y === 0 ? 0 : 1)
 	options.w = options.w || (options.w === 0 ? 0 : 1)
 	options.h = options.h || (options.h === 0 ? 0 : 1)
-	options.objectName = options.objectName
+	options.objectName = options.morphId
+		? encodeXmlEntities(options.morphId)
+		: options.objectName
 		? encodeXmlEntities(options.objectName)
 		: `Shape ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
@@ -1000,6 +1002,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 		if (options.fontFace !== undefined) textOpts.fontFace = options.fontFace
 		if (options.fontItalic !== undefined) textOpts.italic = options.fontItalic
 		if (options.objectName) textOpts.objectName = options.objectName
+		if (options.morphId) textOpts.morphId = options.morphId
 		addTextDefinition(target, bodyText, textOpts, false)
 		return
 	}
@@ -1270,6 +1273,7 @@ export function addAvatarDefinition(target: PresSlide, opts: AvatarProps): void 
 	}
 	if (options.animation) shapeOpts.animation = options.animation
 	if (options.objectName) shapeOpts.objectName = options.objectName
+	if (options.morphId) shapeOpts.morphId = options.morphId
 	addShapeDefinition(target, SHAPE_TYPE.OVAL, shapeOpts)
 
 	// 2) Centred initials
@@ -1318,6 +1322,7 @@ export function addBadgeDefinition(target: PresSlide, opts: BadgeProps): void {
 		: { x, y, w, h, fill: fillProps, line: { type: 'none' }, rectRadius: h / 2 }
 	if (options.animation) shapeOpts.animation = options.animation
 	if (options.objectName) shapeOpts.objectName = options.objectName
+	if (options.morphId) shapeOpts.morphId = options.morphId
 	addShapeDefinition(target, shape === 'circle' ? SHAPE_TYPE.OVAL : SHAPE_TYPE.ROUNDED_RECTANGLE, shapeOpts)
 
 	// Centred label (sized to the shape's bounding box)
@@ -1361,6 +1366,7 @@ export function addSeparatorDefinition(target: PresSlide, opts: SeparatorProps):
 	}
 	if (options.animation) shapeOpts.animation = options.animation
 	if (options.objectName) shapeOpts.objectName = options.objectName
+	if (options.morphId) shapeOpts.morphId = options.morphId
 	addShapeDefinition(target, SHAPE_TYPE.RECTANGLE, shapeOpts)
 }
 
@@ -1789,7 +1795,9 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 			}
 
 			// A.4: Other options
-			itemOpts.objectName = itemOpts.objectName
+			itemOpts.objectName = itemOpts.morphId
+				? encodeXmlEntities(itemOpts.morphId)
+				: itemOpts.objectName
 				? encodeXmlEntities(itemOpts.objectName)
 				: `Text ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 

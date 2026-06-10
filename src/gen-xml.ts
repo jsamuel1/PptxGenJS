@@ -2166,6 +2166,9 @@ export function genXmlTransition (trans?: TransitionProps): string {
 		case 'cover':
 			child = `<p:${trans.type} dir="${dir}"/>`
 			break
+		case 'morph':
+			child = `<p14:morph option="${trans.option || 'byObject'}" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main"/>`
+			break
 		default:
 			return ''
 	}
