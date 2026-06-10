@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `layoutStack()` pure vertical region-flow layout primitive — `pptx.layoutStack(props)` (the vertical companion to `layoutGrid()`). Given an `area` and a list of `blocks`, it returns one `{ x, y, w, h }` box (inches) per block, owning the y-cursor arithmetic that HTML→PPTX converters and slide builders otherwise re-hand-roll. Blocks size by fixed `height` or proportional `flex` weight (a block with neither is treated as `flex: 1`); fixed heights plus `(blocks-1)*gap` are summed and any leftover area height is split among flex blocks by weight. When no flex block is present, `align` distributes the leftover space (`start`/`center`/`end`/`between`/`stretch`); when blocks overflow the area, `overflow` controls the response (`shrink` reduces fixed blocks toward their `minHeight` proportionally to fit, `clip` keeps natural heights, `grow` keeps natural heights and sets `result.overflow = true`). Each box is `area.w - 2*inset` wide at `area.x + inset` (per-block `inset` default 0). Empty `blocks` returns `[]`; a non-positive `area` width/height throws (matching `layoutGrid`). Types `LayoutStackBlock`/`LayoutStackProps`/`LayoutStackCell`/`LayoutStackResult` are exported in `types/index.d.ts`. Pure, deterministic, side-effect-free; emits no OOXML and is additive/default-off — no existing behaviour changes.
+
 ### Fixed
 
 - `parseColumns` (`@jsamuel1/pptxgenjs/utils`) no longer treats unrelated classes that merely contain the substring `col` — e.g. `collapse`, `protocol`, `colour-swatch`, `col-header` — as column children. The explicit-column detector previously used a case-insensitive substring test (`/col/i`) gated only on ≥2 such siblings, so two unrelated `<div class="collapse">`/`<div class="protocol">` boxes were mis-detected as a 2-column layout. The match is now anchored per class token (`/^col(?:umn)?(?:-\d+)?$/i`), accepting `col`/`column`/`col-6`/`col-12` and rejecting the substring lookalikes. The CSS `column-count`/`columns` detection branch is unchanged. (Bootstrap responsive forms like `col-md-6` remain out of scope.)

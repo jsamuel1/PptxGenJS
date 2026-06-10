@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS, PRESET_PATTERN_VALS } from './core-enums'
-import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, Shape3DProps, LayoutGridProps, LayoutGridResult } from './core-interfaces'
+import { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, PatternFillProps, ImageFillProps, ReflectionProps, SoftEdgeProps, Shape3DProps, LayoutGridProps, LayoutGridResult, LayoutStackProps, LayoutStackResult } from './core-interfaces'
 import { normalizeSvgPath } from './utils/parse-svg'
 
 /**
@@ -665,6 +665,123 @@ export function layoutGrid (props: LayoutGridProps): LayoutGridResult {
 			h: cellH - 2 * padding,
 		})
 	}
+
+	return result
+}
+
+/**
+ * Stack variable-height blocks down a region (the vertical companion to `layoutGrid()`).
+ * - Pure math utility (no OOXML emission); returns one `{ x, y, w, h }` (inches) per block, in input order.
+ * - Owns the vertical-cursor arithmetic (fixed + flex sizing, gaps, alignment, overflow) so callers
+ *   compose recognised structures down a slide without re-hand-rolling y-cursor math.
+ *
+ * Behaviour:
+ * - A block with neither `height` nor `flex` is treated as `flex: 1`. Fixed `height`s plus
+ *   `(blocks-1) * gap` are summed; leftover area height is split among `flex` blocks by weight.
+ * - `align` (only when NO flex block present) distributes/removes leftover: start|center|end|between|stretch.
+ * - `overflow` (content too tall): `shrink` reduces fixed blocks toward `minHeight` proportionally;
+ *   `clip` keeps natural heights; `grow` keeps natural heights and sets `result.overflow = true`.
+ * - Every box is `area.w - 2*inset` wide at `area.x + inset` (inset default 0).
+ *
+ * @param {LayoutStackProps} props - stack options
+ * @returns {LayoutStackResult} array of `{ x, y, w, h }` boxes (inches), one per block
+ * @throws {Error} when `area` has zero/negative width or height
+ * @example pptx.layoutStack({ area: { x: 0.7, y: 0.85, w: 12, h: 6 }, blocks: [{ height: 0.7 }, { flex: 1 }], gap: 0.2 })
+ */
+export function layoutStack (props: LayoutStackProps): LayoutStackResult {
+	const { area, blocks } = props
+	const gap = props.gap ?? 0.2
+	const align = props.align ?? 'start'
+	const overflow = props.overflow ?? 'shrink'
+
+	const result = [] as unknown as LayoutStackResult
+	// Edge case: no blocks -> empty result
+	if (!blocks || blocks.length === 0) return result
+	// Guard: a zero/negative area can't be laid out within
+	if (!area || !(area.w > 0) || !(area.h > 0)) throw new Error('layoutStack: `area` requires positive `w` and `h`')
+
+	const n = blocks.length
+	const totalGap = (n - 1) * gap
+	const availForBlocks = area.h - totalGap
+
+	// A block with neither `height` nor `flex` is treated as `flex: 1`
+	const isFlex = blocks.map(b => b.flex != null || b.height == null)
+	const flexWeight = blocks.map((b, i) => (isFlex[i] ? (b.flex != null ? b.flex : 1) : 0))
+	const hasFlex = isFlex.some(Boolean)
+	const totalFlex = flexWeight.reduce((a, b) => a + b, 0)
+	const naturalFixed = (i: number): number => blocks[i].height ?? 0
+	const fixedSum = blocks.reduce((s, _b, i) => (isFlex[i] ? s : s + naturalFixed(i)), 0)
+
+	const heights = new Array<number>(n).fill(0)
+	let overflowFlag = false
+
+	// Shrink fixed blocks toward their `minHeight` proportionally until they total `target`
+	const shrinkFixedTo = (target: number): void => {
+		const minH = (i: number): number => (blocks[i].minHeight != null ? (blocks[i].minHeight as number) : naturalFixed(i))
+		const minTotal = blocks.reduce((s, _b, i) => (isFlex[i] ? s : s + minH(i)), 0)
+		const need = fixedSum - target
+		const shrinkable = fixedSum - minTotal
+		const ratio = shrinkable > 0 ? Math.min(1, Math.max(0, need / shrinkable)) : 1
+		for (let i = 0; i < n; i++) {
+			if (isFlex[i]) continue
+			heights[i] = shrinkable > 0 ? naturalFixed(i) - (naturalFixed(i) - minH(i)) * ratio : minH(i)
+		}
+	}
+
+	if (hasFlex) {
+		// Fixed blocks keep natural height; flex blocks share the leftover space
+		for (let i = 0; i < n; i++) if (!isFlex[i]) heights[i] = naturalFixed(i)
+		const leftover = availForBlocks - fixedSum
+		if (leftover >= 0) {
+			for (let i = 0; i < n; i++) if (isFlex[i]) heights[i] = totalFlex > 0 ? (leftover * flexWeight[i]) / totalFlex : 0
+		} else {
+			// Fixed blocks alone overflow the area; flex blocks floor at 0
+			for (let i = 0; i < n; i++) if (isFlex[i]) heights[i] = 0
+			if (overflow === 'shrink') shrinkFixedTo(availForBlocks)
+			else if (overflow === 'grow') overflowFlag = true
+			// 'clip': leave fixed blocks at natural height
+		}
+	} else {
+		// All fixed: assign natural heights, then handle overflow if too tall
+		for (let i = 0; i < n; i++) heights[i] = naturalFixed(i)
+		if (fixedSum > availForBlocks) {
+			if (overflow === 'shrink') shrinkFixedTo(availForBlocks)
+			else if (overflow === 'grow') overflowFlag = true
+			// 'clip': leave natural heights
+		}
+	}
+
+	// Distribute leftover vertical space via `align` (only when no flex block and the stack under-fills)
+	const contentH = heights.reduce((a, b) => a + b, 0) + totalGap
+	const slack = area.h - contentH
+	let startOffset = 0
+	let extraGap = 0
+	if (!hasFlex && slack > 1e-9) {
+		switch (align) {
+			case 'center':
+				startOffset = slack / 2
+				break
+			case 'end':
+				startOffset = slack
+				break
+			case 'between':
+				extraGap = n > 1 ? slack / (n - 1) : 0
+				break
+			case 'stretch':
+				if (fixedSum > 0) for (let i = 0; i < n; i++) heights[i] += (slack * heights[i]) / fixedSum
+				break
+			// 'start': pack at the top (no offset)
+		}
+	}
+
+	let y = area.y + startOffset
+	for (let i = 0; i < n; i++) {
+		const inset = blocks[i].inset ?? 0
+		result.push({ x: area.x + inset, y, w: area.w - 2 * inset, h: heights[i] })
+		y += heights[i] + gap + extraGap
+	}
+
+	if (overflowFlag) result.overflow = true
 
 	return result
 }

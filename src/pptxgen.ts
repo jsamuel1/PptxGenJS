@@ -88,6 +88,8 @@ import {
 	HandoutMasterProps,
 	LayoutGridProps,
 	LayoutGridResult,
+	LayoutStackProps,
+	LayoutStackResult,
 	PresLayout,
 	PresSlide,
 	SectionProps,
@@ -106,7 +108,7 @@ import * as genMedia from './gen-media'
 import * as genTable from './gen-tables'
 import * as genXml from './gen-xml'
 import * as genSmartArt from './gen-smartart'
-import { layoutGrid as layoutGridUtil } from './gen-utils'
+import { layoutGrid as layoutGridUtil, layoutStack as layoutStackUtil } from './gen-utils'
 
 const VERSION = '4.3.0'
 
@@ -996,6 +998,17 @@ export default class PptxGenJS implements IPresentationProps {
 	 */
 	layoutGrid(props: LayoutGridProps): LayoutGridResult {
 		return layoutGridUtil(props)
+	}
+
+	/**
+	 * Stack variable-height blocks down a region (the vertical companion to `layoutGrid()`).
+	 * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per block; emits no slide content.
+	 * @param {LayoutStackProps} props - stack options
+	 * @returns {LayoutStackResult} array of `{ x, y, w, h }` boxes (inches), one per block
+	 * @example const boxes = pptx.layoutStack({ area: { x: 0.7, y: 0.85, w: 12, h: 6 }, blocks: [{ height: 0.7 }, { flex: 1 }], gap: 0.2 })
+	 */
+	layoutStack(props: LayoutStackProps): LayoutStackResult {
+		return layoutStackUtil(props)
 	}
 
 	/**

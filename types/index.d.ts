@@ -151,6 +151,14 @@ declare class PptxGenJS {
 	 */
 	layoutGrid(props: PptxGenJS.LayoutGridProps): PptxGenJS.LayoutGridResult
 	/**
+	 * Stack variable-height blocks down a region (the vertical companion to `layoutGrid()`).
+	 * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per block; emits no slide content.
+	 * @param {LayoutStackProps} props stack options
+	 * @returns {LayoutStackResult} array of `{ x, y, w, h }` boxes (inches), one per block
+	 * @example const boxes = pptx.layoutStack({ area: { x: 0.7, y: 0.85, w: 12, h: 6 }, blocks: [{ height: 0.7 }, { flex: 1 }], gap: 0.2 })
+	 */
+	layoutStack(props: PptxGenJS.LayoutStackProps): PptxGenJS.LayoutStackResult
+	/**
 	 * Create a custom Slide Layout in any size
 	 * @param {PresLayout} layout an object with user-defined w/h
 	 * @example pptx.defineLayout({ name:'A3', width:16.5, height:11.7 });
@@ -923,6 +931,35 @@ declare namespace PptxGenJS {
 		h: number
 	}
 	export type LayoutGridResult = LayoutGridCell[]
+	export interface LayoutStackBlock {
+		/** Fixed block height (inches). Omit when using `flex`. */
+		height?: number
+		/** Flexible weight - shares leftover space with other `flex` blocks (proportional). Omit when fixed. */
+		flex?: number
+		/** Lower bound (inches) a fixed block may be shrunk to under `overflow:'shrink'` @default `height` */
+		minHeight?: number
+		/** Per-block width inset (inches) from the area width @default 0 */
+		inset?: number
+	}
+	export interface LayoutStackProps {
+		/** Bounding box (inches) to lay the stack out within (reuses `LayoutGridArea`) */
+		area: LayoutGridArea
+		/** Blocks to stack top->bottom, in order */
+		blocks: LayoutStackBlock[]
+		/** Vertical gap between adjacent blocks (inches) @default 0.2 */
+		gap?: number
+		/** Distribute leftover space when fixed blocks under-fill (no-op when any `flex` present) @default 'start' */
+		align?: 'start' | 'center' | 'end' | 'between' | 'stretch'
+		/** Behaviour when blocks (+gaps) exceed the area height @default 'shrink' */
+		overflow?: 'shrink' | 'clip' | 'grow'
+	}
+	export interface LayoutStackCell {
+		x: number
+		y: number
+		w: number
+		h: number
+	}
+	export type LayoutStackResult = LayoutStackCell[] & { overflow?: boolean }
 	export interface PositionProps {
 		/**
 		 * Horizontal position

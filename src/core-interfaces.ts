@@ -122,6 +122,79 @@ export interface LayoutGridCell {
  */
 export type LayoutGridResult = LayoutGridCell[]
 /**
+ * One block to place in a `layoutStack()`. Exactly one of `height` or `flex` is the sizing driver.
+ */
+export interface LayoutStackBlock {
+	/**
+	 * Fixed block height (inches). Omit when using `flex`.
+	 */
+	height?: number
+	/**
+	 * Flexible weight - shares leftover space with other `flex` blocks (proportional). Omit when fixed.
+	 */
+	flex?: number
+	/**
+	 * Lower bound (inches) a fixed block may be shrunk to under `overflow:'shrink'`
+	 * @default `height`
+	 */
+	minHeight?: number
+	/**
+	 * Per-block width inset (inches) from the area width (e.g. an indented callout)
+	 * @default 0
+	 */
+	inset?: number
+}
+/**
+ * Options for `pptx.layoutStack()` - stacks variable-height blocks down a region
+ */
+export interface LayoutStackProps {
+	/**
+	 * Bounding box (inches) to lay the stack out within (reuses `LayoutGridArea`)
+	 */
+	area: LayoutGridArea
+	/**
+	 * Blocks to stack top->bottom, in order
+	 */
+	blocks: LayoutStackBlock[]
+	/**
+	 * Vertical gap between adjacent blocks (inches)
+	 * @default 0.2
+	 */
+	gap?: number
+	/**
+	 * How to distribute leftover vertical space when fixed blocks under-fill the area
+	 * (ignored once any `flex` block is present - flex consumes the slack)
+	 * - 'start': pack at the top (leftover at the bottom)
+	 * - 'center': centre the packed stack vertically
+	 * - 'end': pack at the bottom
+	 * - 'between': equal gaps between blocks, flush top and bottom
+	 * - 'stretch': grow each fixed block proportionally to fill the area
+	 * @default 'start'
+	 */
+	align?: 'start' | 'center' | 'end' | 'between' | 'stretch'
+	/**
+	 * When the blocks (+gaps) exceed the area height
+	 * - 'shrink': reduce fixed blocks toward their `minHeight` proportionally to fit
+	 * - 'clip': keep natural heights; later boxes may extend past the area
+	 * - 'grow': keep natural heights and report the overflow via the result's `overflow` flag
+	 * @default 'shrink'
+	 */
+	overflow?: 'shrink' | 'clip' | 'grow'
+}
+/**
+ * A single positioned block (inches) returned by `layoutStack()`, in input order
+ */
+export interface LayoutStackCell {
+	x: number
+	y: number
+	w: number
+	h: number
+}
+/**
+ * Result of `layoutStack()` - one `{ x, y, w, h }` per block; carries an `overflow` flag for `overflow:'grow'`
+ */
+export type LayoutStackResult = LayoutStackCell[] & { overflow?: boolean }
+/**
  * Either `data` or `path` is required
  */
 export interface DataOrPathProps {
