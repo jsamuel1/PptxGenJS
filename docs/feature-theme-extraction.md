@@ -89,6 +89,14 @@ const theme = extractThemeFromCSS(cssString, {
 - No DOM dependency (works in Node.js, uses regex CSS parsing)
 - Add to `package.json` exports: `"./utils": "./dist/utils.js"`
 
+## Follow-up: alias coverage + font-family extraction
+
+Two extraction gaps found during the converter's preset removal — narrow colour-name
+alias coverage (decks using `--brand`/`--primary-color`/`--text-color`/`--emerald`/… fall
+back to the preset accent) and font discovery limited to `--font*` vars (a deck setting
+`body { font-family }` falls back to `Inter`) — are specced in
+[`feature-theme-extraction-aliases-and-font.md`](./feature-theme-extraction-aliases-and-font.md).
+
 ## Limitations
 
 - Regex-based CSS parsing won't handle nested `@media` blocks or `@import`
