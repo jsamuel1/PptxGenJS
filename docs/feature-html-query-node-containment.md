@@ -1,9 +1,9 @@
 # Feature: Node Arguments for `query` / `matches` / `closest` (cheerio containment parity)
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (Released in 4.3.4)
 > **Created:** 2026-06-10
 > **Implemented:** `src/utils/html-dom.ts` (`query`/`matches`/`closest` node-arg overloads + exported `isAncestorOrSelf`); covered by `test/feature-html-tree-query.test.js` (node-arg + typed-`TypeError` cases).
-> **Target:** `@jsamuel1/pptxgenjs/utils` (next minor)
+> **Released:** `@jsamuel1/pptxgenjs@4.3.4` — `query`/`matches`/`closest` accept an HNode arg; `isAncestorOrSelf` exported. Verified by the consumer converter (tests/render-archetypes.test.js capability guard).
 > **Extends:** `feature-html-tree-query.md` (the bounded selector engine)
 > **Priority:** Medium — opaque failure today; small, well-scoped fix
 > **Found by:** the `html-to-pptx` converter, rendering a real 14-slide deck (two-pane
