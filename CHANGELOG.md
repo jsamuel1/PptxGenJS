@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- CI-guard regression test proving no `eval`/`new Function`/`wasm` code-generation paths exist in the core library or its bundled dependencies. The test exports a deck inside a `vm.createContext` with `codeGeneration: { strings: false, wasm: false }` and a minimal global set (no `process`, no `setImmediate`, no `global`). Catches any future introduction of string code-generation. (`test/feature-sandbox-runtime.test.js`)
+
 ### Fixed
 
 - Compressed export (`stream({ compression: true })` / any DEFLATE write path) no longer requires a pre-existing `setImmediate` global. JSZip's DEFLATE path schedules async chunks via a bare `setImmediate(...)`; in a hardened Node `vm` sandbox (which exposes only `setTimeout`/`clearTimeout`, not `setImmediate`/`clearImmediate`) this threw `ReferenceError: setImmediate is not defined` while writing the `.pptx`. The library now polyfills `globalThis.setImmediate`/`clearImmediate` from `setTimeout`/`clearTimeout` immediately before `zip.generateAsync`, and only when they are absent — a real Node implementation is never clobbered and no emitted OOXML changes. Closes Gap 2 of `docs/feature-sandbox-runtime-compat.md`. (`src/pptxgen.ts`; regression test `test/feature-sandbox-runtime.test.js`.)

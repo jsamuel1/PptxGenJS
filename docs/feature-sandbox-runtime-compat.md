@@ -1,6 +1,6 @@
 # Feature: Sandbox Runtime Compatibility (locked-down `vm` context)
 
-> **Status:** Proposed (consumer-driven requirements)
+> **Status:** Implemented
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core + bundle (and `/utils`)
 > **Found by:** the `html-to-pptx` converter running inside the QuickWork
@@ -84,8 +84,11 @@ three gaps above at the source.
 
 ## Acceptance Criteria (upstream)
 
-- [ ] A documented sandbox-safe write path that needs neither a full `process` nor dynamic
+- [x] A documented sandbox-safe write path that needs neither a full `process` nor dynamic
       `import()` (Gap 1).
+      **Implemented:** `website/docs/usage-saving.md` documents `write({ outputType: 'nodebuffer' })`
+      as the sandbox-safe path; regression test `test/feature-sandbox-runtime.test.js`
+      (faithful-context case) proves it works in a vm with no `process` or dynamic import.
 - [x] Zip generation does not rely on a bare `setImmediate` global reachable only via
       `self`/`global`/`exports` (Gap 2).
       **Implemented:** `src/pptxgen.ts` `ensureSetImmediate()` polyfills
@@ -94,6 +97,11 @@ three gaps above at the source.
       `test/feature-sandbox-runtime.test.js` (deletes the globals, then proves a
       compressed `stream({ compression: true })` export still returns a non-empty
       nodebuffer; without the fix it throws `setImmediate is not defined`).
-- [ ] No core or `/utils` code path requires `eval`/`new Function`/`wasm` (Gap 3), with a
+- [x] No core or `/utils` code path requires `eval`/`new Function`/`wasm` (Gap 3), with a
       `codeGeneration:{strings:false}` CI guard.
-- [ ] A library regression test that exports a deck inside the faithful context above.
+      **Implemented:** `test/feature-sandbox-runtime.test.js` codegen-guard test runs a
+      full export inside `vm.createContext` with `codeGeneration: { strings: false, wasm: false }`.
+- [x] A library regression test that exports a deck inside the faithful context above.
+      **Implemented:** `test/feature-sandbox-runtime.test.js` faithful-context test exercises
+      `stream({ compression: true })` through a real vm sandbox with no `setImmediate`,
+      no `process`, no `global`, and codegen disabled.

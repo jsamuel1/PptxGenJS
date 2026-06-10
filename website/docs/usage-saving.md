@@ -101,6 +101,7 @@ works in hardened runtimes such as a Node `vm` sandbox that omit `setImmediate`.
 polyfills `globalThis.setImmediate`/`clearImmediate` from `setTimeout`/`clearTimeout` only when
 they are absent, so a real Node `setImmediate` is never replaced. For a sandbox-safe write,
 use `write({ outputType: "nodebuffer" })` and hand the buffer to your own `fs.writeFileSync`.
+The library guarantees no use of `eval`, `new Function`, or WebAssembly instantiation — it works in contexts where `codeGeneration: { strings: false, wasm: false }` is enforced.
 
 ## Saving Multiple Presentations
 

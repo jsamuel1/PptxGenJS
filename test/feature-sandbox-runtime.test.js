@@ -76,5 +76,96 @@ module.exports = [
 					'expected globalThis.clearImmediate to be defined after compressed export')
 			})
 		}
+	},
+	{
+		name: 'feature-sandbox-runtime: codegen-guard — export works in vm context with codeGeneration:{strings:false} (Gap 3)',
+		fn: async () => {
+			const vm = require('vm')
+			const path = require('path')
+
+			const restrictedBuffer = {
+				from: Buffer.from.bind(Buffer),
+				alloc: Buffer.alloc.bind(Buffer),
+				allocUnsafe: Buffer.allocUnsafe.bind(Buffer),
+				isBuffer: Buffer.isBuffer.bind(Buffer),
+				concat: Buffer.concat.bind(Buffer),
+				byteLength: Buffer.byteLength.bind(Buffer),
+				isEncoding: Buffer.isEncoding.bind(Buffer)
+			}
+
+			const ctx = vm.createContext(Object.create(null), {
+				codeGeneration: { strings: false, wasm: false }
+			})
+			ctx.require = require
+			ctx.console = console
+			ctx.setTimeout = setTimeout
+			ctx.setInterval = setInterval
+			ctx.clearTimeout = clearTimeout
+			ctx.clearInterval = clearInterval
+			ctx.Buffer = restrictedBuffer
+			ctx.URL = URL
+			ctx.URLSearchParams = URLSearchParams
+			ctx.TextEncoder = TextEncoder
+			ctx.TextDecoder = TextDecoder
+
+			const code = `(async () => { 'use strict';
+				const PptxGenJS = require(${JSON.stringify(path.resolve(__dirname, '../src/bld/pptxgen.cjs.js'))});
+				const pres = new PptxGenJS();
+				const slide = pres.addSlide();
+				slide.addText('codegen guard', { x: 1, y: 1 });
+				const buf = await pres.write({ outputType: 'nodebuffer' });
+				return buf;
+			})()`
+
+			const buf = await vm.runInContext(code, ctx)
+			assert(Buffer.isBuffer(buf), 'expected a Buffer from vm context write(); got ' + Object.prototype.toString.call(buf))
+			assert(buf.length > 0, 'expected non-empty buffer; got length ' + buf.length)
+		}
+	},
+	{
+		name: 'feature-sandbox-runtime: faithful-context — compressed stream works in vm sandbox without setImmediate (Gap 1+2+3)',
+		fn: async () => {
+			const vm = require('vm')
+			const path = require('path')
+
+			const restrictedBuffer = {
+				from: Buffer.from.bind(Buffer),
+				alloc: Buffer.alloc.bind(Buffer),
+				allocUnsafe: Buffer.allocUnsafe.bind(Buffer),
+				isBuffer: Buffer.isBuffer.bind(Buffer),
+				concat: Buffer.concat.bind(Buffer),
+				byteLength: Buffer.byteLength.bind(Buffer),
+				isEncoding: Buffer.isEncoding.bind(Buffer)
+			}
+
+			const ctx = vm.createContext(Object.create(null), {
+				codeGeneration: { strings: false, wasm: false }
+			})
+			ctx.require = require
+			ctx.console = console
+			ctx.setTimeout = setTimeout
+			ctx.setInterval = setInterval
+			ctx.clearTimeout = clearTimeout
+			ctx.clearInterval = clearInterval
+			ctx.Buffer = restrictedBuffer
+			ctx.URL = URL
+			ctx.URLSearchParams = URLSearchParams
+			ctx.TextEncoder = TextEncoder
+			ctx.TextDecoder = TextDecoder
+
+			const code = `(async () => { 'use strict';
+				const PptxGenJS = require(${JSON.stringify(path.resolve(__dirname, '../src/bld/pptxgen.cjs.js'))});
+				const pres = new PptxGenJS();
+				const slide = pres.addSlide();
+				slide.addText('faithful context', { x: 1, y: 1 });
+				const buf = await pres.stream({ compression: true });
+				return buf;
+			})()`
+
+			const buf = await vm.runInContext(code, ctx)
+			const isbuf = Buffer.isBuffer(buf) || (buf instanceof Uint8Array)
+			assert(isbuf, 'expected a Buffer/Uint8Array from vm context stream(); got ' + Object.prototype.toString.call(buf))
+			assert(buf.length > 0, 'expected non-empty compressed buffer; got length ' + buf.length)
+		}
 	}
 ]
