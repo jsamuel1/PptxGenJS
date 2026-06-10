@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `fit: 'fill'` option for `addText()` — scales text UP to fill the box width/height
+
 ## [4.3.6](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.6) - 2026-06-10
 
 ### Added

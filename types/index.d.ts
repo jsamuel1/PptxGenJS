@@ -1956,7 +1956,7 @@ declare namespace PptxGenJS {
 		 * @since v3.3.0
 		 * @default "none"
 		 */
-		fit?: 'none' | 'shrink' | 'resize'
+		fit?: 'none' | 'shrink' | 'resize' | 'fill' | 'grow'
 		/**
 		 * Shape fill
 		 * @example { color:'FF0000' } // hex color (red)

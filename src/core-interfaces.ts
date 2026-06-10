@@ -1662,7 +1662,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @since v3.3.0
 	 * @default "none"
 	 */
-	fit?: 'none' | 'shrink' | 'resize'
+	fit?: 'none' | 'shrink' | 'resize' | 'fill' | 'grow'
 	/**
 	 * Number of text columns within the text body (1 = default single column).
 	 * Emits `numCol` on `<a:bodyPr>`. Only takes effect when greater than 1.

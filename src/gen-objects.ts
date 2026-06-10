@@ -1745,6 +1745,21 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 		// Invalid counter: fall through to normal single-text behaviour (defensive, no crash).
 	}
 
+	// fit:'fill' (alias 'grow') — compute the largest font size that fits the box dimensions
+	if (opts?.fit === 'fill' || opts?.fit === 'grow') {
+		// Total character count across all text items
+		const textLength = (text || []).reduce((sum, t) => sum + (t.text || '').length, 0) || 1
+		// Box dimensions in inches (default to standard slide 10×5.625; convert percentage strings)
+		const slideW = 10
+		const slideH = 5.625
+		const w = typeof opts.w === 'string' ? (parseFloat(opts.w) / 100) * slideW : (opts.w || slideW)
+		const h = typeof opts.h === 'string' ? (parseFloat(opts.h) / 100) * slideH : (opts.h || slideH)
+		// Compute fontSize: min of height-constrained and width-constrained, clamped [1, 256]
+		const fontSize = Math.max(1, Math.min(256, Math.min(h * 72, (w * 72) / (textLength * 0.6))))
+		opts.fontSize = Math.round(fontSize)
+		opts.fit = 'none' // pre-computed size; no autofit XML needed
+	}
+
 	const newObject: ISlideObject = {
 		_type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
 		shape: (opts?.shape) || SHAPE_TYPE.RECTANGLE,

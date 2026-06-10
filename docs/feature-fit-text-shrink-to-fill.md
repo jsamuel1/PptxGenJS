@@ -1,6 +1,6 @@
 # Feature: `fit: 'grow'` — scale text UP to fill its box (complement to shrink)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (autofit)
 > **Found by:** the `html-to-pptx` converter rendering the reveal.js demo "FIT TEXT" slide
@@ -48,6 +48,6 @@ Output-producing, so they belong here:
 
 ## Acceptance Criteria
 
-- [ ] `addText` accepts `fit: 'fill'` (a.k.a. `'grow'`) and scales text up to the box.
-- [ ] Emitted OOXML renders the filled size in PowerPoint and LibreOffice.
-- [ ] Existing `fit:'shrink'` / `fit:'none'` behaviour is unchanged.
+- [x] `addText` accepts `fit: 'fill'` (a.k.a. `'grow'`) and scales text up to the box.
+- [x] Emitted OOXML renders the filled size in PowerPoint and LibreOffice.
+- [x] Existing `fit:'shrink'` / `fit:'none'` behaviour is unchanged.
