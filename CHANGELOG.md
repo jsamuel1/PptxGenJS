@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fragment animation timing-tree regression tests (ordered steps, entrance+exit, emphasis mid-chain)
 - CI-guard regression test proving no `eval`/`new Function`/`wasm` code-generation paths exist in the core library or its bundled dependencies. The test exports a deck inside a `vm.createContext` with `codeGeneration: { strings: false, wasm: false }` and a minimal global set (no `process`, no `setImmediate`, no `global`). Catches any future introduction of string code-generation. (`test/feature-sandbox-runtime.test.js`)
 
 ### Fixed

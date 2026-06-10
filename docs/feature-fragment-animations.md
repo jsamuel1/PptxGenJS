@@ -1,6 +1,6 @@
 # Feature: Fragment build-steps — incremental reveal output expectations
 
-> **Status:** Proposed (mostly verification of existing animation APIs)
+> **Status:** Implemented
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (animation timing tree)
 > **Found by:** the `html-to-pptx` converter mapping reveal `.fragment` incremental reveals.
@@ -43,7 +43,7 @@ Output-producing timing-tree tests:
 
 ## Acceptance Criteria
 
-- [ ] Documented guarantee + tests that N ordered build steps emit N valid, uniquely-id'd
+- [x] Documented guarantee + tests that N ordered build steps emit N valid, uniquely-id'd
       timing nodes in order.
-- [ ] A single shape can carry an entrance AND a later exit step in one slide's timing tree.
-- [ ] `colorPulse`/emphasis can sit between entrance steps without disrupting ordering.
+- [x] A single shape can carry an entrance AND a later exit step in one slide's timing tree.
+- [x] `colorPulse`/emphasis can sit between entrance steps without disrupting ordering.
