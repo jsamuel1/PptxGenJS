@@ -186,4 +186,51 @@ module.exports = [
 			assert(theme.barStops === undefined, 'barStops absent when derivedColors:false; got: ' + theme.barStops)
 		},
 	},
+
+	// --- Gap 1 (docs/feature-theme-extraction-aliases-and-font.md): colour-name aliases + canonicaliser ---
+	{
+		name: 'extractTheme aliases: --brand maps to accent, --text-colour (en-GB + -colour suffix) maps to text',
+		fn: async () => {
+			const theme = extractThemeFromCSS(':root{ --bg:#003344; --brand:#FFAA00; --text-colour:#EEFFEE; }')
+			assertEqual(theme.accent, 'FFAA00', 'accent via --brand alias')
+			assertEqual(theme.text, 'EEFFEE', 'text via --text-colour (folded + suffix-stripped)')
+		},
+	},
+	{
+		name: 'extractTheme aliases: extended colour synonyms (--emerald/--amber/--rose/--cyan)',
+		fn: async () => {
+			const css = ':root{ --emerald:#10B981; --amber:#FF9900; --rose:#EF4444; --cyan:#38BDF8; }'
+			const theme = extractThemeFromCSS(css)
+			assertEqual(theme.green, '10B981', 'green via --emerald')
+			assertEqual(theme.orange, 'FF9900', 'orange via --amber')
+			assertEqual(theme.red, 'EF4444', 'red via --rose')
+			assertEqual(theme.sky, '38BDF8', 'sky via --cyan')
+		},
+	},
+	{
+		name: 'extractTheme aliases: -color suffix stripping resolves --primary-color/--bg-color/--accent-color',
+		fn: async () => {
+			const css = ':root{ --bg-color:#101010; --primary-color:#FF0000; --accent-color:#00FF00; }'
+			const theme = extractThemeFromCSS(css)
+			assertEqual(theme.bg, '101010', 'bg via --bg-color')
+			// both --primary-color and --accent-color map to accent; last-declared wins
+			assertEqual(theme.accent, '00FF00', 'accent via --accent-color (last declared)')
+		},
+	},
+	{
+		name: 'extractTheme aliases: matching stays EXACT — --bg vs --bg-card resolve to distinct slots',
+		fn: async () => {
+			const theme = extractThemeFromCSS(':root{ --bg:#010101; --bg-card:#020202; }')
+			assertEqual(theme.bg, '010101', 'bg slot (canonicaliser must not strip -card)')
+			assertEqual(theme.bgSecondary, '020202', 'bgSecondary slot still distinct')
+		},
+	},
+	{
+		name: 'extractTheme aliases: regression — existing exact names unchanged (--bg/--purple)',
+		fn: async () => {
+			const theme = extractThemeFromCSS(':root{ --bg:#121218; --purple:#7C3AED; }')
+			assertEqual(theme.bg, '121218', 'bg unchanged')
+			assertEqual(theme.accent, '7C3AED', 'accent via --purple unchanged')
+		},
+	},
 ]

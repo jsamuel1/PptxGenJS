@@ -128,24 +128,34 @@ const LIGHT_PRESET: ThemePalette = {
 const VAR_TO_SLOT: Record<string, keyof ThemePalette> = {
 	// bg
 	bg: 'bg', 'color-bg': 'bg', background: 'bg',
+	'bg-color': 'bg', 'background-color': 'bg', surface: 'bg', 'page-bg': 'bg', canvas: 'bg',
 	// bgSecondary
 	'bg-card': 'bgSecondary', card: 'bgSecondary', 'color-bg-secondary': 'bgSecondary', 'bg-surface': 'bgSecondary',
+	'surface-2': 'bgSecondary', 'surface-variant': 'bgSecondary', panel: 'bgSecondary', elevated: 'bgSecondary',
 	// accent
 	purple: 'accent', accent: 'accent', 'color-primary': 'accent', primary: 'accent',
+	brand: 'accent', 'brand-color': 'accent', 'primary-color': 'accent', 'accent-color': 'accent', 'theme-color': 'accent', highlight: 'accent',
 	// accentSoft
 	'purple-soft': 'accentSoft', 'accent-soft': 'accentSoft', 'color-primary-light': 'accentSoft',
+	'accent-light': 'accentSoft', 'primary-light': 'accentSoft', 'brand-light': 'accentSoft',
 	// text
 	white: 'text', text: 'text', 'color-text': 'text', foreground: 'text',
+	'text-color': 'text', fg: 'text', ink: 'text', 'body-color': 'text', 'on-background': 'text',
 	// textSecondary
 	gray: 'textSecondary', muted: 'textSecondary', 'color-text-secondary': 'textSecondary',
+	'text-muted': 'textSecondary', 'text-secondary': 'textSecondary', subtle: 'textSecondary', grey: 'textSecondary', dim: 'textSecondary',
 	// sky
 	sky: 'sky', blue: 'sky', info: 'sky',
+	cyan: 'sky', teal: 'sky', azure: 'sky',
 	// green
 	green: 'green', success: 'green',
+	emerald: 'green', lime: 'green', mint: 'green',
 	// orange
 	orange: 'orange', warning: 'orange',
+	amber: 'orange', yellow: 'orange', gold: 'orange',
 	// red
 	red: 'red', error: 'red', danger: 'red',
+	pink: 'red', rose: 'red', crimson: 'red',
 	// font
 	font: 'font', 'font-family': 'font',
 	// extended (converter-equivalence)
@@ -242,6 +252,19 @@ function normalizeFont (raw: string): string {
 }
 
 /**
+ * Canonicalise a bare CSS variable name into ordered lookup candidates for {@link VAR_TO_SLOT}.
+ * Lowercases, folds en-GB spelling (`colour`→`color`, `grey`→`gray`), and strips a trailing
+ * `-color`/`-colour` suffix. Returns `[exact]` or `[exact, stripped]` — the caller tries the
+ * exact form first, then the suffix-stripped form. Matching stays EXACT against the allowlist;
+ * this only adds deterministic spelling/suffix folding, never fuzzy/substring matching.
+ */
+function canonicalVarName (name: string): string[] {
+	const lc = name.toLowerCase().replace(/colour/g, 'color').replace(/\bgrey\b/g, 'gray')
+	const stripped = lc.replace(/-colou?r$/, '')
+	return lc === stripped ? [lc] : [lc, stripped]
+}
+
+/**
  * Extract `--name: value;` custom-property declarations from CSS text.
  * Prefers declarations inside `:root { … }` blocks; if none are found, falls back to scanning
  * the entire string (covers inline/style-block custom props without a `:root` selector).
@@ -312,7 +335,10 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		theme = { ...DARK_PRESET, ...base } as ThemePalette
 		let matched = 0
 		Object.keys(vars).forEach(name => {
-			const slot = VAR_TO_SLOT[name]
+			let slot: keyof ThemePalette | undefined
+			for (const cand of canonicalVarName(name)) {
+				if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+			}
 			if (!slot) return
 			matched++
 			let value = vars[name]
