@@ -8,7 +8,7 @@
 
 const { assert } = require('./helpers')
 const {
-	parseHtml, query, queryOne, closest, matches, textOf, attr, clone, outerHtml,
+	parseHtml, query, queryOne, closest, matches, isAncestorOrSelf, textOf, attr, clone, outerHtml,
 } = require('../src/bld/utils.cjs.js')
 
 const HTML =
@@ -152,6 +152,57 @@ module.exports = [
 			let mThrew = false
 			try { matches(query(root, 'li')[0], 'li:hover') } catch (e) { mThrew = /unsupported|selector/i.test(e.message) }
 			assert(mThrew, 'matches() should also reject unsupported selectors')
+		},
+	},
+	{
+		name: 'node-arg: query/matches/closest accept an HNode (cheerio containment parity)',
+		fn: async () => {
+			// docs/feature-html-query-node-containment.md
+			const root = parseHtml('<div class="a"><section><span id="x">hi</span></section></div>')
+			const a = queryOne(root, '.a')
+			const sec = queryOne(root, 'section')
+			const span = queryOne(root, '#x')
+
+			// query(root, node) — descendant test
+			assert(query(a, span).length === 1, 'span is a descendant of .a')
+			assert(query(a, span)[0] === span, 'query returns the node itself')
+			assert(query(sec, a).length === 0, 'a is NOT a descendant of section')
+			assert(query(a, a).length === 0, 'self is not a descendant of self')
+
+			// matches(node, node) — identity
+			assert(matches(span, span) === true, 'identity match')
+			assert(matches(span, sec) === false, 'different nodes do not match')
+
+			// closest(node, node) — ancestor-or-self identity
+			assert(closest(span, a) === a, 'a is an ancestor of span')
+			assert(closest(span, span) === span, 'self is its own closest')
+			assert(closest(a, span) === null, 'span is a descendant, not an ancestor of a')
+
+			// strings still work unchanged
+			assert(query(root, 'section').length === 1, 'string query unchanged')
+			assert(matches(span, '#x') === true, 'string matches unchanged')
+
+			// exported containment primitive
+			assert(isAncestorOrSelf(a, span) === true, 'isAncestorOrSelf exported and correct')
+			assert(isAncestorOrSelf(span, a) === false, 'isAncestorOrSelf direction respected')
+		},
+	},
+	{
+		name: 'node-arg: invalid (non-string/non-HNode) selector throws a typed TypeError',
+		fn: async () => {
+			const root = parseHtml('<div class="a"><span id="x">hi</span></div>')
+			const span = queryOne(root, '#x')
+			for (const fn of [
+				() => query(root, 42),
+				() => matches(span, 42),
+				() => closest(span, 42),
+				() => query(root, null),
+			]) {
+				let err = null
+				try { fn() } catch (e) { err = e }
+				assert(err instanceof TypeError, 'expected a TypeError for a bad arg type')
+				assert(!/\[object Object\]/.test(err.message), 'must not emit the opaque [object Object] error; got: ' + err.message)
+			}
 		},
 	},
 ]

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Node-argument overloads for the bounded HTML query helpers (`@jsamuel1/pptxgenjs/utils`) — `query`, `matches`, and `closest` now accept an `HNode` in addition to a `string` selector, giving cheerio containment/identity parity for the documented `.find`/`.is`/`.closest` mapping. `query(root, node)` is a descendant test (returns `[node]` iff `node` is a descendant of `root`, not `root` itself, else `[]`, mirroring `$(root).find(node)`); `matches(node, other)` is an identity test (`node === other`, mirroring `$(node).is(other)`); `closest(node, other)` is an ancestor-or-self identity test (returns `other` iff `other === node` or `other` is an ancestor of `node`, else `null`, mirroring `$(node).closest(other)`). All three reuse the existing `isAncestorOrSelf` primitive with no new traversal. `isAncestorOrSelf(a, b)` is now **exported** from `/utils` as a public containment primitive. Previously passing a node stringified it to `"[object Object]"` and threw the engine's opaque `unsupported selector: …` catch-all; a non-string/non-`HNode` argument now throws a typed `TypeError` instead. String-selector behaviour is byte-for-byte unchanged (existing grammar tests still pass). Pure utility; emits no OOXML and is not on the main `PptxGenJS` class.
+
 ## [4.3.1](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.1) - 2026-06-10
 
 ### Added

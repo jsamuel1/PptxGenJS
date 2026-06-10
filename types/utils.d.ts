@@ -228,17 +228,31 @@ export function parseHtml(html: string): HNode
  * `querySelectorAll`). Supports a BOUNDED grammar only: universal `*`, type, `.class`, `#id`,
  * `[attr]`, `[attr="v"]`, `[attr*="v"]`, compound (type+class/attr, no space), descendant (space),
  * child (`>`), and selector lists (comma). Anything outside it throws `unsupported selector: …`.
+ *
+ * Passing an `HNode` instead of a string is a containment/descendant test (mirrors cheerio's
+ * `$(root).find(node)`): returns `[selector]` iff `selector` is a descendant of `root` (not `root`
+ * itself), else `[]`. A non-string/non-HNode argument throws a `TypeError`.
  */
-export function query(root: HNode, selector: string): HNode[]
+export function query(root: HNode, selector: string | HNode): HNode[]
 
-/** First descendant of `root` matching `selector`, or `null` (like `querySelector`). */
+/** First descendant of `root` matching a string `selector`, or `null` (like `querySelector`). */
 export function queryOne(root: HNode, selector: string): HNode | null
 
-/** Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`). */
-export function closest(node: HNode, selector: string): HNode | null
+/**
+ * Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`).
+ * Passing an `HNode` is an ancestor-or-self identity test (mirrors `$(node).closest(other)`):
+ * returns `selector` iff `selector === node` or `selector` is an ancestor of `node`, else `null`.
+ */
+export function closest(node: HNode, selector: string | HNode): HNode | null
 
-/** True when `node` matches `selector` (node is the rightmost target; see `query` for the grammar). */
-export function matches(node: HNode, selector: string): boolean
+/**
+ * True when `node` matches `selector` (node is the rightmost target; see `query` for the grammar).
+ * Passing an `HNode` is an identity test (`node === selector`, mirrors `$(node).is(other)`).
+ */
+export function matches(node: HNode, selector: string | HNode): boolean
+
+/** True when `a` is an ancestor of (or equal to) `b`. Public containment primitive. */
+export function isAncestorOrSelf(a: HNode, b: HNode | null): boolean
 
 /** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
 export function textOf(node: HNode): string

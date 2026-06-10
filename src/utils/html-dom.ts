@@ -289,6 +289,17 @@ function unsupported (selector: string): never {
 	throw new Error(`unsupported selector: ${selector}`)
 }
 
+/**
+ * Structural type-guard for an {@link HNode}. Used by the node-vs-selector helpers
+ * (`query`/`matches`/`closest`) to distinguish a containment/identity argument from a
+ * string selector. Discriminates on the HNode shape (a `string` tag + a `children` array)
+ * so it can never collide with a string selector.
+ */
+function isHNode (v: unknown): v is HNode {
+	return typeof v === 'object' && v !== null &&
+		typeof (v as HNode).tag === 'string' && Array.isArray((v as HNode).children)
+}
+
 /** Strip surrounding single/double quotes from an attribute value. */
 function unquote (v: string): string {
 	const t = v.trim()
@@ -455,14 +466,27 @@ function matchSegments (node: HNode, segments: Segment[], index: number): boolea
 	return false
 }
 
-/** True when `node` matches `selector` (any group of a selector list; node is the rightmost target). */
-export function matches (node: HNode, selector: string): boolean {
+/**
+ * True when `node` matches `selector`. With a **string** selector this is the bounded
+ * selector grammar (node is the rightmost target). With an **HNode** argument it is an
+ * identity test (`node === selector`), mirroring cheerio's `$(node).is(other)`.
+ */
+export function matches (node: HNode, selector: string | HNode): boolean {
+	if (isHNode(selector)) return node === selector
+	if (typeof selector !== 'string') throw new TypeError('matches(node, selector): selector must be a string or HNode')
 	const groups = parseSelector(selector)
 	return groups.some(seg => matchSegments(node, seg, seg.length - 1))
 }
 
-/** All descendants of `root` matching `selector`, in document order (like `querySelectorAll`). */
-export function query (root: HNode, selector: string): HNode[] {
+/**
+ * All descendants of `root` matching `selector`, in document order (like `querySelectorAll`).
+ * With an **HNode** argument this is a containment/descendant test (mirroring cheerio's
+ * `$(root).find(node)`): returns `[selector]` iff `selector` is a descendant of `root`
+ * (not `root` itself), else `[]`.
+ */
+export function query (root: HNode, selector: string | HNode): HNode[] {
+	if (isHNode(selector)) return isAncestorOrSelf(root, selector) && selector !== root ? [selector] : []
+	if (typeof selector !== 'string') throw new TypeError('query(root, selector): selector must be a string or HNode')
 	const groups = parseSelector(selector)
 	const out: HNode[] = []
 	for (const el of elements(root)) {
@@ -471,8 +495,9 @@ export function query (root: HNode, selector: string): HNode[] {
 	return out
 }
 
-/** First descendant of `root` matching `selector`, or `null` (like `querySelector`). */
+/** First descendant of `root` matching a **string** `selector`, or `null` (like `querySelector`). */
 export function queryOne (root: HNode, selector: string): HNode | null {
+	if (typeof selector !== 'string') throw new TypeError('queryOne(root, selector): selector must be a string')
 	const groups = parseSelector(selector)
 	for (const el of elements(root)) {
 		if (groups.some(seg => matchSegments(el, seg, seg.length - 1))) return el
@@ -480,8 +505,15 @@ export function queryOne (root: HNode, selector: string): HNode | null {
 	return null
 }
 
-/** Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`). */
-export function closest (node: HNode, selector: string): HNode | null {
+/**
+ * Nearest ancestor-or-self of `node` matching `selector`, or `null` (like `Element.closest`).
+ * With an **HNode** argument this is an ancestor-or-self identity test (mirroring cheerio's
+ * `$(node).closest(other)`): returns `selector` iff `selector === node` or `selector` is an
+ * ancestor of `node`, else `null`.
+ */
+export function closest (node: HNode, selector: string | HNode): HNode | null {
+	if (isHNode(selector)) return isAncestorOrSelf(selector, node) ? selector : null
+	if (typeof selector !== 'string') throw new TypeError('closest(node, selector): selector must be a string or HNode')
 	const groups = parseSelector(selector)
 	let cur: HNode | null = node
 	while (cur && cur.tag !== '') {
