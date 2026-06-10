@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.1](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.1) - 2026-06-10
+
 ### Added
 
 - `layoutStack()` pure vertical region-flow layout primitive — `pptx.layoutStack(props)` (the vertical companion to `layoutGrid()`). Given an `area` and a list of `blocks`, it returns one `{ x, y, w, h }` box (inches) per block, owning the y-cursor arithmetic that HTML→PPTX converters and slide builders otherwise re-hand-roll. Blocks size by fixed `height` or proportional `flex` weight (a block with neither is treated as `flex: 1`); fixed heights plus `(blocks-1)*gap` are summed and any leftover area height is split among flex blocks by weight. When no flex block is present, `align` distributes the leftover space (`start`/`center`/`end`/`between`/`stretch`); when blocks overflow the area, `overflow` controls the response (`shrink` reduces fixed blocks toward their `minHeight` proportionally to fit, `clip` keeps natural heights, `grow` keeps natural heights and sets `result.overflow = true`). Each box is `area.w - 2*inset` wide at `area.x + inset` (per-block `inset` default 0). Empty `blocks` returns `[]`; a non-positive `area` width/height throws (matching `layoutGrid`). Types `LayoutStackBlock`/`LayoutStackProps`/`LayoutStackCell`/`LayoutStackResult` are exported in `types/index.d.ts`. Pure, deterministic, side-effect-free; emits no OOXML and is additive/default-off — no existing behaviour changes.
