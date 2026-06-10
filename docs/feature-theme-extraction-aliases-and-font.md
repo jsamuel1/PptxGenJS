@@ -1,6 +1,9 @@
 # Feature: Theme Extraction — colour-name aliases + font-family extraction
 
-> **Status:** Proposed
+> **Status:** Implemented
+> **Implemented:** `src/utils/extract-theme.ts` — Gap 1 colour-name aliases + canonicaliser
+>   (commit `74ea00dc`), Gap 2 font-family declaration scan (commit `6563e991`); covered by
+>   `test/feature-theme-extraction.test.js` (370 tests passing).
 > **Created:** 2026-06-10
 > **Priority:** Medium — closes two extraction gaps that currently force the `html-to-pptx`
 >   converter to re-implement alias mapping and font discovery on top of `extractThemeFromCSS`.
