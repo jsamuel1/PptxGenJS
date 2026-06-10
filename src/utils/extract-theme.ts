@@ -73,6 +73,16 @@ export interface ExtractThemeOptions {
 	parseRgb?: boolean
 	/** CSS var name for the gradient bar used by `barStops`. @default '--bar-gradient' */
 	barGradientVar?: string
+	/**
+	 * When no `--font*` custom property matched, scan top-level `font-family:` declarations
+	 * (priority selectors first) and adopt the first concrete, non-generic family. @default true
+	 */
+	scanFontFamily?: boolean
+	/**
+	 * Selector priority list scanned for a `font-family:` declaration (highest priority first).
+	 * @default [':root','html','body','.slide','section.slide','.reveal','*']
+	 */
+	fontFamilySelectors?: string[]
 }
 
 /** Built-in dark preset (matches docs/feature-theme-extraction.md). */
@@ -158,6 +168,7 @@ const VAR_TO_SLOT: Record<string, keyof ThemePalette> = {
 	pink: 'red', rose: 'red', crimson: 'red',
 	// font
 	font: 'font', 'font-family': 'font',
+	'font-sans': 'font', 'font-body': 'font', 'font-base': 'font', typeface: 'font',
 	// extended (converter-equivalence)
 	'bg-mid': 'bgMid',
 	'bg-light': 'bgLight', 'bg-hover': 'bgLight',
@@ -251,6 +262,59 @@ function normalizeFont (raw: string): string {
 	return first.replace(/^['"]/, '').replace(/['"]$/, '').trim()
 }
 
+/** CSS generic font families (and CSS-wide keywords) skipped when scanning `font-family:`. */
+const GENERIC_FONTS = new Set([
+	'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy',
+	'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', 'ui-rounded',
+	'emoji', 'math', 'fangsong', 'inherit', 'initial', 'unset', 'revert', 'revert-layer',
+])
+
+/** Default selector priority list scanned for a top-level `font-family:` declaration. */
+const DEFAULT_FONT_SELECTORS = [':root', 'html', 'body', '.slide', 'section.slide', '.reveal', '*']
+
+/**
+ * Scan top-level CSS rules for a `font-family:` declaration and return the first CONCRETE
+ * (non-generic) family, preferring selectors in the given priority order, then falling back to
+ * declaration order. Regex-based and DOM-free — the full computed cascade is out of scope.
+ * Returns `''` when no rule declares a concrete family.
+ */
+function scanFontFamilyDeclarations (css: string, selectors: string[]): string {
+	if (typeof css !== 'string' || css.length === 0) return ''
+	// Map each top-level selector (lower-cased) to its first `font-family:` value.
+	const found: Record<string, string> = {}
+	const order: string[] = []
+	const ruleRegex = /([^{}]+)\{([^{}]*)\}/g
+	let m: RegExpExecArray | null
+	while ((m = ruleRegex.exec(css)) !== null) {
+		// Match `font-family:` but NOT a custom prop like `--font-family:` (boundary guard).
+		const fm = m[2].match(/(?:^|[^-\w])font-family\s*:\s*([^;}]+)/i)
+		if (!fm) continue
+		const sel = m[1].trim().toLowerCase()
+		if (found[sel] === undefined) { found[sel] = fm[1].trim(); order.push(sel) }
+	}
+	const concrete = (value: string): string => {
+		for (const part of value.split(',')) {
+			const fam = normalizeFont(part)
+			if (fam && !GENERIC_FONTS.has(fam.toLowerCase())) return fam
+		}
+		return ''
+	}
+	// 1) priority selectors, in order
+	for (const sel of selectors) {
+		const key = String(sel).trim().toLowerCase()
+		if (found[key] !== undefined) {
+			const fam = concrete(found[key])
+			if (fam) return fam
+		}
+	}
+	// 2) fallback: any declaring rule, in declaration order
+	for (const sel of order) {
+		const fam = concrete(found[sel])
+		if (fam) return fam
+	}
+	return ''
+}
+
 /**
  * Canonicalise a bare CSS variable name into ordered lookup candidates for {@link VAR_TO_SLOT}.
  * Lowercases, folds en-GB spelling (`colour`→`color`, `grey`→`gray`), and strips a trailing
@@ -318,6 +382,8 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 	const resolveVarRefs = options.resolveVarRefs !== false
 	const parseRgb = options.parseRgb !== false
 	const barGradientVar = options.barGradientVar || '--bar-gradient'
+	const scanFontFamily = options.scanFontFamily !== false
+	const fontFamilySelectors = options.fontFamilySelectors || DEFAULT_FONT_SELECTORS
 
 	const vars: Record<string, string> = (typeof css === 'string' && css.length > 0) ? parseCssVars(css) : {}
 
@@ -334,6 +400,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		const base = presets[fallbackName] || DARK_PRESET
 		theme = { ...DARK_PRESET, ...base } as ThemePalette
 		let matched = 0
+		let fontFromVar = false
 		Object.keys(vars).forEach(name => {
 			let slot: keyof ThemePalette | undefined
 			for (const cand of canonicalVarName(name)) {
@@ -341,10 +408,17 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 			}
 			if (!slot) return
 			matched++
+			if (slot === 'font') fontFromVar = true
 			let value = vars[name]
 			if (resolveVarRefs) value = resolveVar(value, vars)
 			theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value, parseRgb)
 		})
+		// Gap 2: when no explicit `--font*` var set the font, adopt a scanned `font-family:` family.
+		// An explicit `--font*` var ALWAYS wins over a scanned declaration.
+		if (!fontFromVar && scanFontFamily) {
+			const scanned = scanFontFamilyDeclarations(css, fontFamilySelectors)
+			if (scanned) theme.font = normalizeFont(scanned)
+		}
 		presetName = matched > 0 ? 'extracted' : fallbackName
 	}
 

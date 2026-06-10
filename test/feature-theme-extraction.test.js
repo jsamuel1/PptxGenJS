@@ -233,4 +233,58 @@ module.exports = [
 			assertEqual(theme.accent, '7C3AED', 'accent via --purple unchanged')
 		},
 	},
+
+	// --- Gap 2 (docs/feature-theme-extraction-aliases-and-font.md): font-family declaration scan ---
+	{
+		name: 'extractTheme font-scan: body { font-family: "Georgia", serif } adopts Georgia (skips generic)',
+		fn: async () => {
+			const theme = extractThemeFromCSS('body { font-family: "Georgia", serif; }')
+			assertEqual(theme.font, 'Georgia', 'font scanned from body declaration')
+		},
+	},
+	{
+		name: 'extractTheme font-scan: explicit --font var always wins over a scanned font-family rule',
+		fn: async () => {
+			const theme = extractThemeFromCSS(':root{ --font:Inter; } body{ font-family: Georgia; }')
+			assertEqual(theme.font, 'Inter', 'explicit --font wins over body font-family')
+		},
+	},
+	{
+		name: 'extractTheme font-scan: generic-only font-family is ignored — font stays preset',
+		fn: async () => {
+			const theme = extractThemeFromCSS('body { font-family: sans-serif; }')
+			assertEqual(theme.font, 'Inter', 'generic sans-serif skipped, preset Inter retained')
+			assert(theme.font !== 'sans-serif', 'font must not be a CSS generic; got: ' + theme.font)
+		},
+	},
+	{
+		name: 'extractTheme font-scan: scanFontFamily:false disables scanning (font stays preset)',
+		fn: async () => {
+			const theme = extractThemeFromCSS('body { font-family: Georgia; }', { scanFontFamily: false })
+			assertEqual(theme.font, 'Inter', 'scan disabled, preset Inter retained')
+		},
+	},
+	{
+		name: 'extractTheme font-scan: priority selectors win — :root font-family beats body',
+		fn: async () => {
+			const css = 'body { font-family: Georgia; } :root { font-family: Roboto; }'
+			const theme = extractThemeFromCSS(css)
+			assertEqual(theme.font, 'Roboto', ':root selector outranks body regardless of source order')
+		},
+	},
+	{
+		name: 'extractTheme font-scan: --font* aliases (--typeface/--font-sans) map to font slot',
+		fn: async () => {
+			assertEqual(extractThemeFromCSS(':root{ --typeface: Lato; }').font, 'Lato', 'font via --typeface')
+			assertEqual(extractThemeFromCSS(':root{ --font-sans: Poppins; }').font, 'Poppins', 'font via --font-sans')
+		},
+	},
+	{
+		name: 'extractTheme font-scan: custom fontFamilySelectors override default priority list',
+		fn: async () => {
+			const css = 'body { font-family: Georgia; } .deck { font-family: Roboto; }'
+			const theme = extractThemeFromCSS(css, { fontFamilySelectors: ['.deck', 'body'] })
+			assertEqual(theme.font, 'Roboto', '.deck prioritised via custom fontFamilySelectors')
+		},
+	},
 ]
