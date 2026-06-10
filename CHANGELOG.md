@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.6](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.6) - 2026-06-10
+
 ### Added
 
 - Fragment animation timing-tree regression tests (ordered steps, entrance+exit, emphasis mid-chain)
