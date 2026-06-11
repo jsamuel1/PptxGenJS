@@ -118,3 +118,69 @@ export function bgOfCtx (el: HNode, ctx: CssContext): string | undefined {
 export function colorOf (el: HNode, prop: string, ctx: CssContext): string | undefined {
 	return extractHex(cssProp(el, prop, ctx))
 }
+
+/** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. */
+export const declOf = cssProp
+
+/** Explicit grid column count from `grid-template-columns`; undefined when indeterminate. */
+export function gridColumnsOf(node: HNode, ctx: CssContext): number | undefined {
+	const v = cssProp(node, 'grid-template-columns', ctx)
+	if (!v) return undefined
+	// repeat(auto-fit/auto-fill, ...) → undefined (can't determine count)
+	if (/auto-(fit|fill)/i.test(v)) return undefined
+	// repeat(N, ...) → N * tokens inside
+	const rep = v.match(/repeat\(\s*(\d+)\s*,/)
+	if (rep) {
+		const n = parseInt(rep[1], 10)
+		// Count how many track values inside repeat()
+		const inner = v.replace(/^.*repeat\(\s*\d+\s*,\s*/, '').replace(/\).*$/, '')
+		const tracks = inner.trim().split(/\s+/).length
+		return n * tracks
+	}
+	// Count space-separated track values (1fr 200px auto → 3)
+	return v.trim().split(/\s+/).length
+}
+
+/** Flex layout info for `node`; undefined when display is not flex. */
+export function flexInfoOf(node: HNode, ctx: CssContext): { direction: 'row' | 'column', wrap: boolean, grow: number | undefined } | undefined {
+	const display = cssProp(node, 'display', ctx)
+	if (!display || !/flex/i.test(display)) return undefined
+	const dir = cssProp(node, 'flex-direction', ctx)
+	const wrap = cssProp(node, 'flex-wrap', ctx)
+	const flex = cssProp(node, 'flex', ctx)
+	const fg = cssProp(node, 'flex-grow', ctx)
+	let grow: number | undefined
+	if (flex) {
+		const m = flex.match(/^\s*(\d+(?:\.\d+)?)/)
+		if (m) grow = parseFloat(m[1])
+	} else if (fg) {
+		grow = parseFloat(fg)
+	}
+	return {
+		direction: (dir && /column/i.test(dir)) ? 'column' : 'row',
+		wrap: wrap ? /wrap/i.test(wrap) && !/nowrap/i.test(wrap) : false,
+		grow: grow !== undefined && !isNaN(grow) ? grow : undefined,
+	}
+}
+
+/** CSS `column-count` value; undefined when absent or non-numeric. */
+export function columnCountOf(node: HNode, ctx: CssContext): number | undefined {
+	const v = cssProp(node, 'column-count', ctx)
+	if (!v) return undefined
+	const n = parseInt(v, 10)
+	return isNaN(n) ? undefined : n
+}
+
+/** Pixel width/height; undefined when absent or non-px. */
+export function sizeOf(node: HNode, ctx: CssContext): { wPx?: number, hPx?: number } | undefined {
+	const w = cssProp(node, 'width', ctx)
+	const h = cssProp(node, 'height', ctx)
+	const px = (s: string | undefined): number | undefined => {
+		if (!s) return undefined
+		const m = s.match(/^\s*(\d+(?:\.\d+)?)\s*px/i)
+		return m ? parseFloat(m[1]) : undefined
+	}
+	const wPx = px(w), hPx = px(h)
+	if (wPx === undefined && hPx === undefined) return undefined
+	return { ...(wPx !== undefined && { wPx }), ...(hPx !== undefined && { hPx }) }
+}
