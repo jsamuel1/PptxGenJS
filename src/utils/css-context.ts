@@ -74,6 +74,8 @@ export function parseStyleSheets (html: string): CssContext {
 	while ((sm = styleRe.exec(html)) !== null) css += sm[1] + '\n'
 	if (!css) return EMPTY_CSS
 	css = css.replace(/\/\*[\s\S]*?\*\//g, '') // strip comments
+	// Strip @-rule blocks (nested braces)
+	css = css.replace(/@[^{]*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, '')
 	const ruleRe = /([^{}]+)\{([^{}]*)\}/g
 	let rm: RegExpExecArray | null
 	while ((rm = ruleRe.exec(css)) !== null) {
@@ -102,11 +104,16 @@ export function classDecls (el: HNode, ctx: CssContext): Record<string, string> 
 	return out
 }
 
+/** Strip trailing `!important` from a CSS value. */
+function stripImportant(v: string | undefined): string | undefined {
+	return v ? v.replace(/\s*!important\s*$/i, '').trim() || undefined : undefined
+}
+
 /** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
 export function cssProp (el: HNode, prop: string, ctx: CssContext): string | undefined {
 	const inline = resolveVars(el.style[prop], ctx.rootVars)
-	if (inline !== undefined && inline !== '') return inline
-	return resolveVars(classDecls(el, ctx)[prop], ctx.rootVars)
+	if (inline !== undefined && inline !== '') return stripImportant(inline)
+	return stripImportant(resolveVars(classDecls(el, ctx)[prop], ctx.rootVars))
 }
 
 /** Background colour of `el` honouring the cascade (inline > class rule, with `var()` resolved). */
@@ -122,23 +129,49 @@ export function colorOf (el: HNode, prop: string, ctx: CssContext): string | und
 /** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. */
 export const declOf = cssProp
 
+/** Count depth-0 whitespace-separated tokens (parenthesized groups count as one token). */
+function countTokens(s: string): number {
+	let depth = 0, count = 0, inToken = false
+	for (let i = 0; i < s.length; i++) {
+		const ch = s[i]
+		if (ch === '(') { depth++; inToken = true }
+		else if (ch === ')') { depth-- }
+		else if (/\s/.test(ch) && depth === 0) { if (inToken) { count++; inToken = false } }
+		else { inToken = true }
+	}
+	if (inToken) count++
+	return count
+}
+
 /** Explicit grid column count from `grid-template-columns`; undefined when indeterminate. */
 export function gridColumnsOf(node: HNode, ctx: CssContext): number | undefined {
 	const v = cssProp(node, 'grid-template-columns', ctx)
 	if (!v) return undefined
 	// repeat(auto-fit/auto-fill, ...) → undefined (can't determine count)
 	if (/auto-(fit|fill)/i.test(v)) return undefined
-	// repeat(N, ...) → N * tokens inside
-	const rep = v.match(/repeat\(\s*(\d+)\s*,/)
-	if (rep) {
-		const n = parseInt(rep[1], 10)
-		// Count how many track values inside repeat()
-		const inner = v.replace(/^.*repeat\(\s*\d+\s*,\s*/, '').replace(/\).*$/, '')
-		const tracks = inner.trim().split(/\s+/).length
-		return n * tracks
+	// Handle repeat(N, ...) by extracting the inner content and multiplying
+	let total = 0
+	const parts = v.trim()
+	// Split into top-level segments: tokens and repeat(...) calls
+	let depth = 0, seg = '', i = 0
+	while (i < parts.length) {
+		const ch = parts[i]
+		if (ch === '(' ) { depth++; seg += ch }
+		else if (ch === ')') { depth--; seg += ch }
+		else if (/\s/.test(ch) && depth === 0) {
+			if (seg) { total += resolveSegment(seg); seg = '' }
+		}
+		else { seg += ch }
+		i++
 	}
-	// Count space-separated track values (1fr 200px auto → 3)
-	return v.trim().split(/\s+/).length
+	if (seg) total += resolveSegment(seg)
+	return total || undefined
+}
+
+function resolveSegment(seg: string): number {
+	const rep = seg.match(/^repeat\(\s*(\d+)\s*,\s*([\s\S]*)\)$/i)
+	if (rep) return parseInt(rep[1], 10) * countTokens(rep[2])
+	return 1
 }
 
 /** Flex layout info for `node`; undefined when display is not flex. */

@@ -426,3 +426,38 @@ export function tokenizeCode(source: string, lang?: string): Array<{ text: strin
 
 /** Convert source code into `addText`-ready runs with syntax colouring. */
 export function codeRuns(source: string, opts?: CodeRunsOptions): object[]
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// CSS context layout interpreter (docs/feature-css-context-layout.md) — shared CSS property
+// resolution with var() support, class-rule cascade, and layout-aware helpers.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** A simple single-element class rule from a `<style>` block. */
+export interface ClassRule { classes: string[], decls: Record<string, string> }
+
+/** Parsed stylesheet context threaded through colour analysis. Empty ⇒ inline-only (legacy) behaviour. */
+export interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[] }
+
+/** Empty context — yields byte-identical output to inline-only parsing. */
+export const EMPTY_CSS: CssContext
+
+/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
+export function cssProp(el: HNode, prop: string, ctx: CssContext): string | undefined
+
+/** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. Alias of `cssProp`. */
+export const declOf: typeof cssProp
+
+/** Explicit grid column count from `grid-template-columns`; undefined when indeterminate. */
+export function gridColumnsOf(node: HNode, ctx: CssContext): number | undefined
+
+/** Flex layout info for `node`; undefined when display is not flex. */
+export function flexInfoOf(node: HNode, ctx: CssContext): { direction: 'row' | 'column', wrap: boolean, grow: number | undefined } | undefined
+
+/** CSS `column-count` value; undefined when absent or non-numeric. */
+export function columnCountOf(node: HNode, ctx: CssContext): number | undefined
+
+/** Pixel width/height; undefined when absent or non-px. */
+export function sizeOf(node: HNode, ctx: CssContext): { wPx?: number, hPx?: number } | undefined
+
+/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
+export function parseStyleSheets(html: string): CssContext
