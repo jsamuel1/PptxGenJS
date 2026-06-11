@@ -9,6 +9,7 @@
 const { assert } = require('./helpers')
 const {
 	parseHtml, query, queryOne, closest, matches, isAncestorOrSelf, textOf, attr, clone, outerHtml,
+	decodeEntities,
 } = require('../src/bld/utils.cjs.js')
 
 const HTML =
@@ -225,6 +226,52 @@ module.exports = [
 				assert(err instanceof TypeError, 'expected a TypeError for a bad arg type')
 				assert(!/\[object Object\]/.test(err.message), 'must not emit the opaque [object Object] error; got: ' + err.message)
 			}
+		},
+	},
+	// ── decodeEntities ──────────────────────────────────────────────────────────
+	{
+		name: 'decodeEntities: common named entities decode correctly',
+		fn: async () => {
+			assert(decodeEntities('&middot;') === '\u00B7', 'middot')
+			assert(decodeEntities('&mdash;') === '\u2014', 'mdash')
+			assert(decodeEntities('&ndash;') === '\u2013', 'ndash')
+			assert(decodeEntities('&hellip;') === '\u2026', 'hellip')
+			assert(decodeEntities('&rsquo;') === '\u2019', 'rsquo')
+			assert(decodeEntities('&lsquo;') === '\u2018', 'lsquo')
+			assert(decodeEntities('&rdquo;') === '\u201D', 'rdquo')
+			assert(decodeEntities('&ldquo;') === '\u201C', 'ldquo')
+			assert(decodeEntities('&bull;') === '\u2022', 'bull')
+			assert(decodeEntities('&times;') === '\u00D7', 'times')
+			assert(decodeEntities('&copy;') === '\u00A9', 'copy')
+			assert(decodeEntities('&trade;') === '\u2122', 'trade')
+			assert(decodeEntities('&deg;') === '\u00B0', 'deg')
+			assert(decodeEntities('&euro;') === '\u20AC', 'euro')
+			assert(decodeEntities('&rarr;') === '\u2192', 'rarr')
+		},
+	},
+	{
+		name: 'decodeEntities: unknown entities pass through verbatim',
+		fn: async () => {
+			assert(decodeEntities('&notareal;') === '&notareal;', 'unknown entity left intact')
+		},
+	},
+	{
+		name: 'decodeEntities: one-level decode invariant (no double-decode)',
+		fn: async () => {
+			assert(decodeEntities('&amp;middot;') === '&middot;', '&amp;middot; → &middot; (not ·)')
+		},
+	},
+	{
+		name: 'decodeEntities: numeric entities (decimal and hex)',
+		fn: async () => {
+			assert(decodeEntities('&#169;') === '\u00A9', '&#169; → ©')
+			assert(decodeEntities('&#x1F3B5;') === '\uD83C\uDFB5', '&#x1F3B5; → 🎵')
+		},
+	},
+	{
+		name: 'decodeEntities: case sensitivity (named refs are case-sensitive)',
+		fn: async () => {
+			assert(decodeEntities('&Amp;') === '&Amp;', '&Amp; passes through (not same as &amp;)')
 		},
 	},
 ]

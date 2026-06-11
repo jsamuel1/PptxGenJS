@@ -1857,5 +1857,23 @@ module.exports = [
 			// COMPLIANT-outcome assertion: the picture fill is schema-clean.
 			await expectNoSchemaErrors(buf, 'shape-picturefill')
 		}
+	},
+	{
+		name: 'HTML entity decode in text runs (regression: extended named entities must not break OOXML schema)',
+		fn: async () => {
+			// Entity-decoded text containing ×, ·, —, ©, etc. must serialize cleanly as valid OOXML.
+			const { parseHtml, textOf } = require('../src/bld/utils.cjs.js')
+			const decoded = textOf(parseHtml('<p>Q&amp;A &middot; 7&times;</p>'))
+			assert(decoded === 'Q&A \u00B7 7\u00D7', 'entity decode: expected "Q&A · 7×"; got: ' + JSON.stringify(decoded))
+			const { buf, zip } = await build(p => {
+				p.addSlide().addText(decoded, { x: 1, y: 1, w: 8, h: 1 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// The & must be XML-escaped in the output, and · / × must appear as literal UTF-8 (not entity-encoded).
+			assert(xml.includes('Q&amp;A'), 'entity-schema: & must be XML-escaped in output')
+			assert(xml.includes('\u00B7'), 'entity-schema: middot (·) must appear as literal character')
+			assert(xml.includes('\u00D7'), 'entity-schema: times (×) must appear as literal character')
+			await expectNoSchemaErrors(buf, 'entity-decode-text')
+		}
 	}
 ]

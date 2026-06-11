@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Extended HTML named-entity table from 6 → ~250 entries (Latin-1 supplement, general punctuation, symbols, math operators, Greek letters) in `parseHtml`/`textOf`
+- Exported `decodeEntities(s: string): string` from `@jsamuel1/pptxgenjs/utils` for downstream consumers
+
 ## [4.3.11](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.11) - 2026-06-11
 
 ### Fixed
