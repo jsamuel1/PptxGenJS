@@ -601,8 +601,6 @@ export default class PptxGenJS implements IPresentationProps {
 		faces: Array<{ index: number, value: string }>,
 		fontData: string[]
 	): Array<Promise<string>> => {
-		const isNode = typeof process !== 'undefined' && !!process.versions?.node && process.release?.name === 'node'
-
 		const toBase64 = (value: string): string => {
 			// data:font/ttf;base64,XXXX  → take the payload after the comma
 			if (value.startsWith('data:')) {
@@ -615,8 +613,8 @@ export default class PptxGenJS implements IPresentationProps {
 
 		return faces.map(async face => {
 			try {
-				if (isNode && !face.value.startsWith('data:') && /\.(ttf|otf)$/i.test(face.value)) {
-					const { default: fs } = await import('node:fs')
+				if (!face.value.startsWith('data:') && /\.(ttf|otf)$/i.test(face.value)) {
+					const fs = require('fs')
 					fontData[face.index] = Buffer.from(fs.readFileSync(face.value)).toString('base64')
 				} else {
 					fontData[face.index] = toBase64(face.value)
@@ -696,7 +694,9 @@ export default class PptxGenJS implements IPresentationProps {
 			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this.slides, this.embeddedFonts, !!this._handoutMaster))
 			// Write embedded-font binary parts (`font${i+1}.fntdata`) referenced by the font rels above.
 			fontFaces.forEach(face => {
-				zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index] || '', { base64: true })
+				if (fontData[face.index]) {
+					zip.file(`ppt/fonts/font${face.index + 1}.fntdata`, fontData[face.index], { base64: true })
+				}
 			})
 			// Write the shared commentAuthors part when any slide has comments (default-off).
 			if (hasComments) zip.file('ppt/commentAuthors.xml', genXml.makeXmlCommentAuthors(this.slides))
