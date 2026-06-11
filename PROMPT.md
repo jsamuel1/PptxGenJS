@@ -288,6 +288,13 @@ later.
 
 ### Known standalone specs (DX helpers — implement if still `Proposed`)
 
+Specs carry a `> **Priority:**` line where ordering matters: work `high` before
+`medium` before unlabelled. The converter-driven `/utils` specs below are paired with
+work items in `../html-to-pptx/PROMPT.md` — releasing them unblocks that repo.
+
+- **High** — [`docs/feature-html-entity-map-completeness.md`](docs/feature-html-entity-map-completeness.md) — extend the `/utils` html-dom named-entity map + export `decodeEntities` (pairs with a conversion-quality *critical*)
+- **High** — `parseCards` sibling-card adoption — upstream half of [`../html-to-pptx/docs/feature-grid-card-completeness.md`](../html-to-pptx/docs/feature-grid-card-completeness.md) (dropped "Memory" card)
+- **Medium** — [`docs/feature-css-context-layout.md`](docs/feature-css-context-layout.md) — extend cascade-lite `CssContext` from colours to layout properties (`declOf`, grid/flex/column interpreters)
 - [`docs/feature-layout-grid.md`](docs/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
 - [`docs/feature-card-helper.md`](docs/feature-card-helper.md) — `slide.addCard()` structured card
 - [`docs/feature-animation-stagger.md`](docs/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
