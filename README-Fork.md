@@ -279,6 +279,9 @@ slide.addText('', {
 
 | Document | Purpose |
 |----------|---------|
+| `CONTRIBUTING.md` | Contribution conventions — spec lifecycle, public-API definition of done, git discipline |
+| `TESTING.md` | Automated test conventions + manual platform matrix |
+| `RELEASING.md` | Release gates and process |
 | `PROMPT.md` | Full feature spec with OOXML examples, proposed APIs, and priority roadmap |
 | `CHANGELOG.md` | All changes in Keep a Changelog format |
 | `.autoloop/bug-report.md` | Bug fix traceability (commit SHAs, repro steps) |

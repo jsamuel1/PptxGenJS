@@ -407,3 +407,22 @@ export function parseBadges(input: string | HNode, options?: ParseContentOptions
  * in document order wins. NEUTRAL — structural only. `null` when none. Accepts a string OR `HNode`.
  */
 export function parseCallout(input: string | HNode, options?: ParseContentOptions): CalloutData | null
+
+/** Token classification produced by `tokenizeCode`. */
+export type TokenKind = 'keyword' | 'string' | 'comment' | 'number' | 'function' | 'operator' | 'plain'
+
+/** Options for {@link codeRuns}. */
+export interface CodeRunsOptions {
+	lang?: string
+	theme?: Partial<Record<TokenKind, string>>
+	lineNumbers?: boolean
+	highlightLines?: number[]
+	fontFace?: string
+	fontSize?: number
+}
+
+/** Tokenize source code into `{ text, token }` spans for syntax colouring. */
+export function tokenizeCode(source: string, lang?: string): Array<{ text: string, token: TokenKind }>
+
+/** Convert source code into `addText`-ready runs with syntax colouring. */
+export function codeRuns(source: string, opts?: CodeRunsOptions): object[]

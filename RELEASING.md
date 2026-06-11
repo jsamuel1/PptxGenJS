@@ -2,6 +2,28 @@
 
 > This guide documents how to perform a release of this fork (`@jsamuel1/pptxgenjs`).
 > Releases are automated via GitHub Actions — the manual steps below are a fallback.
+> General contribution rules: [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Release gates (before any version bump)
+
+These apply to **every** release, automated or manual, human- or agent-initiated:
+
+1. **Never release in the same session/iteration that implemented the feature.** A
+   release requires a verification pass with fresh eyes (a review, or at minimum a
+   separate iteration that re-checks the gates below). *(Incident: 4.3.13 was cut in
+   the same loop run that implemented the css-context helpers — which were not actually
+   reachable from the package's public surface.)*
+2. **Full suite green**: `npm test` ends `Failed: 0` on both suites — this includes
+   `test/feature-api-parity.test.js` (typed surface ↔ runtime surface).
+3. **Consumer proof for new public API**: after `npm run ship`,
+   `node -e "console.log(typeof require('./dist/utils.cjs.js').newFn)"` prints
+   `function` for each API the release advertises.
+4. **CHANGELOG entries exist** under `## [Unreleased]` for everything the release
+   contains; specs being released as "Implemented" have actually met the definition of
+   done in [CONTRIBUTING.md](./CONTRIBUTING.md#definition-of-done--public-api).
+5. **No git-config mutation**: release tooling must pass any bot identity with
+   `git -c user.name=… -c user.email=…` per invocation, never `git config`. A locally
+   run fallback release commits as **you**, not as a bot.
 
 ## 🤖 Automated Release (preferred)
 

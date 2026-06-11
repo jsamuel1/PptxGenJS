@@ -189,6 +189,16 @@ are demos for browser, node and, react that contain working examples of every av
 - [View questions tagged `PptxGenJS` on StackOverflow](https://stackoverflow.com/questions/tagged/pptxgenjs?sort=votes&pageSize=50). If you can't find your question, [ask it yourself](https://stackoverflow.com/questions/ask?tags=PptxGenJS) - be sure to tag it `pptxgenjs`.
 - Ask your AI pair programmer! All major LLMs have ingested the pptxgenjs library and have the ability to answer functionality questions and provide code.
 
+## 🤝 Contributing
+
+All contributions — human or autonomous agent — follow the same conventions:
+
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — spec lifecycle, definition of done for
+  public APIs, git discipline, documentation rules
+- **[TESTING.md](./TESTING.md)** — automated test conventions + the manual platform matrix
+- **[RELEASING.md](./RELEASING.md)** — release gates and the release process
+- **[PROMPT.md](./PROMPT.md)** — the ordered work plan for agents (defers to the above)
+
 ## 🙏 Contributors
 
 Thank you to everyone for the contributions and suggestions! ❤️

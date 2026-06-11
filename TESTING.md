@@ -1,6 +1,44 @@
 # PptxGenJS Testing Guide
 
-This document outlines how to manually test PptxGenJS across supported platforms and environments prior to release.
+This document covers (1) the automated test conventions every contribution must follow,
+and (2) how to manually test PptxGenJS across supported platforms prior to release.
+General contribution rules live in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Automated test conventions (all contributions)
+
+Commands: `npm test` runs the regression suite (`test/run.js`, discovers
+`test/{bug-NN,feature-*}.test.js`) and the OOXML schema suite (`test/run-schema.js`).
+Both must end `Failed: 0`. `npm run lint` must add no new errors.
+
+The rules below each exist because their absence shipped a bug — see the incident notes
+in [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+1. **Tests import the built public entry only.** `require('../src/bld/utils.cjs.js')` /
+   `require('../src/bld/pptxgen.cjs.js')` — never an internal module bundle. A test that
+   can only reach your code through a private rollup entry is testing code that no
+   consumer can use.
+2. **API parity is enforced.** `test/feature-api-parity.test.js` asserts that the
+   runtime exports of the `/utils` entry and the declarations in `types/utils.d.ts`
+   match exactly, in both directions. If your change makes it fail, fix the surface —
+   don't touch the test.
+3. **Real-world fixtures for parser code.** Anything that parses framework-emitted CSS
+   or HTML needs at least one **byte-exact real emission** as a fixture (e.g. Tailwind
+   `grid-cols-3` emits `grid-template-columns: repeat(3, minmax(0, 1fr))` — with the
+   space). Hand-minimal fixtures systematically dodge the bugs real input hits.
+4. **Negative-space tests for extractors.** Anything that *detects* content (cards,
+   timelines, quotes…) must also test what it must **not** match: footnotes, prose,
+   blockquotes, sibling containers. Over-matching corrupts output as surely as
+   under-matching loses it.
+5. **Spec criteria map to named tests.** Each acceptance criterion in a
+   `docs/feature-*.md` should be recognisable as a named test case, so a reviewer can
+   diff the spec against the suite. Edge cases the spec lists are not optional.
+6. **Adversarial self-check before declaring done.** Run your new code against tricky
+   inputs that are *not* in your own tests (`node -e` against the built entry). Tests
+   written by the code's author validate the author's assumptions by construction.
+
+---
+
+The sections below cover the manual, human-eyes platform matrix.
 
 > ✅ Run these tests to ensure compatibility with major bundlers, runtimes, and front-end frameworks.
 

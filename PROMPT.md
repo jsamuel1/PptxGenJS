@@ -13,6 +13,16 @@
 
 ## Ground rules (apply to every task)
 
+> **Read first, every run:** [CONTRIBUTING.md](./CONTRIBUTING.md) (spec lifecycle,
+> definition of done for public APIs, git staging discipline),
+> [TESTING.md → Automated test conventions](./TESTING.md#automated-test-conventions-all-contributions),
+> and [RELEASING.md → Release gates](./RELEASING.md#release-gates-before-any-version-bump).
+> Those documents are the canonical contribution rules and prevail over this list on
+> conflict; the numbered rules below are the task-execution subset. In particular:
+> stage commits explicitly by path (never `git add -A`/`commit -a`), never cut a
+> release in the same iteration that implemented the feature, and a spec is only
+> "Implemented" once its stated consumer can actually use it.
+
 1. **Local files are the source of truth.** Read `src/*.ts` before changing it.
    Do not copy implementations from upstream or the web.
 2. **Schema-validate everything.** Every emitted change must pass

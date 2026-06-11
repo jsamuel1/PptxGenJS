@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `CONTRIBUTING.md` with conventions for all contributions (spec lifecycle, public-API definition of done, git staging discipline); `TESTING.md` gains automated test conventions and `RELEASING.md` gains release gates
+- API parity test (`test/feature-api-parity.test.js`): the `/utils` runtime exports and `types/utils.d.ts` declarations must match in both directions
+
+### Fixed
+
+- Declared `tokenizeCode`, `codeRuns`, `TokenKind`, and `CodeRunsOptions` in `types/utils.d.ts` — they were exported at runtime but invisible to TypeScript consumers
+
 ## [4.3.13](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.13) - 2026-06-11
 
 ### Added
