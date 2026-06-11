@@ -266,6 +266,12 @@ export function clone(node: HNode): HNode
 /** Serialize a node back to HTML. Uses `raw` verbatim for captured `<svg>` subtrees. */
 export function outerHtml(node: HNode): string
 
+/**
+ * Decode HTML character references (named, decimal, hex) in a string — one level only
+ * (`&amp;lt;` → `&lt;`, never `<`). Unknown entities pass through unchanged.
+ */
+export function decodeEntities(s: string): string
+
 /** How a resolved icon part was produced. */
 export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
 
