@@ -1,6 +1,6 @@
 # Feature: CssContext Layout Properties — extend cascade-lite from colours to layout
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Medium (unblocks deleting a dozen inline-style regexes in the
 > html-to-pptx converter; prerequisite-free but most valuable after that repo's
 > composition refactor lands)

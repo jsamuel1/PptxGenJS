@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CssContext layout helpers: `declOf`, `gridColumnsOf`, `flexInfoOf`, `columnCountOf`, `sizeOf` — resolve layout properties through the cascade-lite context (inline > class-rule > var). `parseCards` now detects grids declared via class rules, not just inline styles.
 - `parseCards` sibling-card adoption: cards immediately following a grid container that are structurally similar to the grid's cards are now included in the result
 - Extended HTML named-entity table from 6 → ~250 entries (Latin-1 supplement, general punctuation, symbols, math operators, Greek letters) in `parseHtml`/`textOf`
 - Exported `decodeEntities(s: string): string` from `@jsamuel1/pptxgenjs/utils` for downstream consumers
