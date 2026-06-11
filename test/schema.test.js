@@ -1875,5 +1875,21 @@ module.exports = [
 			assert(xml.includes('\u00D7'), 'entity-schema: times (×) must appear as literal character')
 			await expectNoSchemaErrors(buf, 'entity-decode-text')
 		}
+	},
+	{
+		name: 'parseCards sibling adoption: adopted card produces valid OOXML',
+		fn: async () => {
+			const { parseCards } = require('../src/bld/utils.cjs.js')
+			const html = '<div style="display:grid"><div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><div>Card1</div></div><div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg><div>Card2</div></div></div><div><svg viewBox="0 0 24 24"><path d="M2 2L22 22"/></svg><div>Adopted</div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 3, 'expected 3 cards (2 + 1 adopted); got ' + cards.length)
+			const { buf } = await build(p => {
+				const slide = p.addSlide()
+				cards.forEach((c, i) => {
+					slide.addCard({ x: i * 3, y: 0.5, w: 2.5, h: 2, title: c.title, icon: c.icon && c.icon.type === 'svg' ? { parts: c.icon.parts } : undefined })
+				})
+			})
+			await expectNoSchemaErrors(buf, 'parseCards-sibling-adoption')
+		}
 	}
 ]

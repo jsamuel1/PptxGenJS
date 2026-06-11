@@ -250,4 +250,60 @@ module.exports = [
 			assert(svg[0].icon.type === 'svg', 'card0 svg wins over font icon; got ' + JSON.stringify(svg[0].icon))
 		},
 	},
+	{
+		name: 'parseCards sibling adoption: grid + 1 straggler → all adopted (6 total)',
+		fn: async () => {
+			const html =
+				'<div style="display:grid">' +
+				'<div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><div>Card1</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg><div>Card2</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><path d="M1 1"/></svg><div>Card3</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><path d="M2 2"/></svg><div>Card4</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><path d="M3 3"/></svg><div>Card5</div></div>' +
+				'</div>' +
+				'<div><svg viewBox="0 0 24 24"><path d="M4 4"/></svg><div>Card6</div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 6, 'expected 6 cards (5 + 1 adopted); got ' + cards.length)
+		},
+	},
+	{
+		name: 'parseCards sibling adoption: stops at non-matching sibling',
+		fn: async () => {
+			const html =
+				'<div style="display:grid">' +
+				'<div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><div>A</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg><div>B</div></div>' +
+				'</div>' +
+				'<div><svg viewBox="0 0 24 24"><path d="M1 1"/></svg><div>C</div></div>' +
+				'<p>Not a card</p>'
+			const cards = parseCards(html)
+			assert(cards.length === 3, 'expected 3 cards (2 + 1 adopted, paragraph stops); got ' + cards.length)
+		},
+	},
+	{
+		name: 'parseCards sibling adoption: never adopts blockquote/quote/callout',
+		fn: async () => {
+			const html =
+				'<div style="display:grid">' +
+				'<div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><div>A</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg><div>B</div></div>' +
+				'</div>' +
+				'<div class="testimonial-card"><svg viewBox="0 0 24 24"><path d="M1 1"/></svg><div>Nope</div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 2, 'expected 2 cards (testimonial not adopted); got ' + cards.length)
+		},
+	},
+	{
+		name: 'parseCards sibling adoption: structurally dissimilar (too many children) not adopted',
+		fn: async () => {
+			const html =
+				'<div style="display:grid">' +
+				'<div><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><div>A</div><div>x</div></div>' +
+				'<div><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg><div>B</div><div>y</div></div>' +
+				'</div>' +
+				'<div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 2, 'expected 2 cards (dissimilar sibling not adopted); got ' + cards.length)
+		},
+	},
 ]

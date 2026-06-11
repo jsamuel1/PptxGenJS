@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `parseCards` sibling-card adoption: cards immediately following a grid container that are structurally similar to the grid's cards are now included in the result
 - Extended HTML named-entity table from 6 → ~250 entries (Latin-1 supplement, general punctuation, symbols, math operators, Greek letters) in `parseHtml`/`textOf`
 - Exported `decodeEntities(s: string): string` from `@jsamuel1/pptxgenjs/utils` for downstream consumers
 

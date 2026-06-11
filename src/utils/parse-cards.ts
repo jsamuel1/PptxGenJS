@@ -329,6 +329,44 @@ function findByTitle (card: HNode, skip: Set<HNode>): HNode | null {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
+// Sibling adoption — structural similarity test
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** Classes that must NEVER be adopted (quote/callout/testimonial/blockquote variants). */
+const NEVER_ADOPT_CLASS = /(^|-)(quote|callout|testimonial|blockquote)\b/
+
+/** Returns true when `sibling` is structurally similar to the already-detected `cards`. */
+function isStructurallySimilar (sibling: HNode, cards: HNode[]): boolean {
+	// Never adopt <blockquote> elements or elements with quote/callout/testimonial classes
+	if (sibling.tag === 'blockquote') return false
+	if (sibling.classes.some(c => NEVER_ADOPT_CLASS.test(c))) return false
+
+	// Count child elements (excluding #text nodes) of the sibling
+	const sibChildCount = sibling.children.filter(c => c.tag !== '#text').length
+
+	// Average child-element count across detected cards
+	const totalChildren = cards.reduce((sum, card) => sum + card.children.filter(c => c.tag !== '#text').length, 0)
+	const avgCardChildCount = totalChildren / cards.length
+
+	// Structural child-count must be within ±1 of the average
+	if (Math.abs(sibChildCount - avgCardChildCount) > 1) return false
+
+	// Icon check: sibling has an icon OR the majority of existing cards have no icon
+	const sibHasIcon = !!findFirst(sibling, e => e.tag === 'svg') ||
+		!!findFirst(sibling, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
+	if (!sibHasIcon) {
+		// Check if majority of cards have no icon — if so, it's fine for sibling to lack one
+		const cardsWithIcon = cards.filter(card =>
+			!!findFirst(card, e => e.tag === 'svg') ||
+			!!findFirst(card, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
+		).length
+		if (cardsWithIcon > cards.length / 2) return false
+	}
+
+	return true
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
 // parseCards — the public entry
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -381,6 +419,25 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 
 	// clamp-don't-crash: a lone card (or none) is not a grid → empty result
 	if (cards.length < 2) return []
+
+	// ── SIBLING ADOPTION ──────────────────────────────────────────────────────────────────
+	// After cards are detected, scan the container's immediate following siblings.
+	// Structurally similar siblings are appended; first non-match terminates.
+	const container = cards[0].parent
+	if (container && container.parent) {
+		const parentChildren = container.parent.children.filter(c => c.tag !== '#text')
+		const containerIdx = parentChildren.indexOf(container)
+		if (containerIdx >= 0) {
+			for (let i = containerIdx + 1; i < parentChildren.length; i++) {
+				const sib = parentChildren[i]
+				if (isStructurallySimilar(sib, cards)) {
+					cards.push(sib)
+				} else {
+					break // first non-match terminates scanning
+				}
+			}
+		}
+	}
 
 	return cards.map(c => analyzeCard(c, opts, ctx, cssCodepoints))
 }
