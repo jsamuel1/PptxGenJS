@@ -72,7 +72,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | Handout master | `p:handoutMasterIdLst` | ✅ Done | branded print layout via `pptx.defineHandoutMaster({ background, headerFooter })` |
 | Custom shows | `p:custShowLst` | ✅ Done | subset slideshows via `pptx.addCustomShow()` |
 | Photo album | `p:photoAlbum` | ✅ Done | `pptx.photoAlbum = { blackWhite?, showCaptions?, layout?, frame? }` → `<p:photoAlbum>` in `presentation.xml` (bw/showCaptions always emitted, layout/frame optional, default-off) |
-| Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ✅ Done | `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` packages `.ttf`/`.otf` faces (default-off) |
+| Embedded fonts | `p:embeddedFontLst` + `/ppt/fonts/*` | ✅ Done | `pptx.embedFont({ family, regular, bold?, italic?, boldItalic? })` packages `.ttf`/`.otf` faces (default-off) + sandbox-safe (uses `require` not dynamic `import()`) |
 | Kinsoku (E-Asian breaks) | `p:kinsoku` | ✅ Done | `pptx.kinsoku = { lang?, invalStChars?, invalEndChars? }` → `<p:kinsoku>` in `presentation.xml` (ja-JP defaults, XML-escaped, default-off) |
 | Password / encryption | `p:modifyVerifier` + package encryption | 🚫 Out of scope (authoring) | **Why:** real protection = encrypting the whole OOXML package into an OLE2/CFB container with ECMA-376 Part 2 *agile encryption* (AES + SHA-512 KDF) — a different output format than the ZIP JSZip emits, requiring heavy crypto deps (breaks the zero-dependency goal). `p:modifyVerifier` alone is only a legacy *modify*-protection hash (no content encryption) and gives a false sense of security, so we won't ship it in isolation. |
 

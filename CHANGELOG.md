@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `embedFont()` now works in Node `vm` sandbox contexts by replacing `await import('node:fs')` with `require('fs')` in `encodeEmbeddedFonts()`. Also skips writing 0-byte `.fntdata` ZIP entries when font files cannot be read.
+
 ## [4.3.8](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.8) - 2026-06-10
 
 - Syntax-Highlighted Code helper: `tokenizeCode()` tokenizer + `codeRuns()` text-run builder (docs/feature-syntax-highlighted-code.md)
