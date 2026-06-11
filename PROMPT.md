@@ -287,6 +287,8 @@ work items in `../html-to-pptx/PROMPT.md` — releasing them unblocks that repo.
 - **High** — [`docs/feature-html-entity-map-completeness.md`](docs/feature-html-entity-map-completeness.md) — extend the `/utils` html-dom named-entity map + export `decodeEntities` (pairs with a conversion-quality *critical*)
 - **High** — `parseCards` sibling-card adoption — upstream half of [`../html-to-pptx/docs/feature-grid-card-completeness.md`](../html-to-pptx/docs/feature-grid-card-completeness.md) (dropped "Memory" card)
 - **Medium** — [`docs/feature-css-context-layout.md`](docs/feature-css-context-layout.md) — extend cascade-lite `CssContext` from colours to layout properties (`declOf`, grid/flex/column interpreters)
+- **High** (after css-context Slice 4 ships) — [`docs/feature-icon-pack-entry.md`](docs/feature-icon-pack-entry.md) — `icons-fa` subpath export + `subsetIconPack()`; absorbs html-to-pptx's downstream-local icon-pack generator
+- **Medium-High** — [`docs/feature-pua-text-filtering.md`](docs/feature-pua-text-filtering.md) — strip PUA glyph codepoints in `textOf` by default; upstream half of the "🎵×" bug class
 - [`docs/feature-layout-grid.md`](docs/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
 - [`docs/feature-card-helper.md`](docs/feature-card-helper.md) — `slide.addCard()` structured card
 - [`docs/feature-animation-stagger.md`](docs/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
