@@ -152,6 +152,32 @@ module.exports = [
 			assertEqual(info.wrap, false)
 		},
 	},
+	{
+		name: 'flexInfoOf: explicit flex-grow wins over flex shorthand',
+		fn: async () => {
+			const node = el('<div style="display:flex; flex: 1; flex-grow: 2"></div>')
+			const info = flexInfoOf(node, EMPTY_CSS)
+			assertEqual(info.grow, 2)
+		},
+	},
+	{
+		name: 'flexInfoOf: flex-flow column wrap parsed',
+		fn: async () => {
+			const node = el('<div style="display:flex; flex-flow: column wrap"></div>')
+			const info = flexInfoOf(node, EMPTY_CSS)
+			assertEqual(info.direction, 'column')
+			assertEqual(info.wrap, true)
+		},
+	},
+	{
+		name: 'flexInfoOf: flex-flow nowrap does not set wrap',
+		fn: async () => {
+			const node = el('<div style="display:flex; flex-flow: row nowrap"></div>')
+			const info = flexInfoOf(node, EMPTY_CSS)
+			assertEqual(info.direction, 'row')
+			assertEqual(info.wrap, false)
+		},
+	},
 
 	// --- columnCountOf ---
 	{
@@ -221,12 +247,12 @@ module.exports = [
 
 	// --- parseCards grid detection via class rule ---
 	{
-		name: 'parseCards detects grid declared via class rule only',
+		name: 'parseCards detects 2×3 grid declared via class rule only',
 		fn: async () => {
 			const { parseCards } = require('../src/bld/utils.cjs.js')
-			const html = '<style>.grid { display: grid; grid-template-columns: 1fr 1fr }</style><div class="grid"><div>A</div><div>B</div></div>'
+			const html = '<style>.grid { display: grid; grid-template-columns: 1fr 1fr 1fr }</style><div class="grid"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>'
 			const cards = parseCards(html)
-			assert(cards.length === 2, `expected 2 cards, got ${cards.length}`)
+			assert(cards.length === 6, `expected 6 cards, got ${cards.length}`)
 		},
 	},
 ]

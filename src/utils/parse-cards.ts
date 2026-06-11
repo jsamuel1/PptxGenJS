@@ -342,15 +342,15 @@ function hasIcon (node: HNode): boolean {
 }
 
 /** Returns true when `sibling` is structurally similar to the already-detected `cards`. */
-function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp): boolean {
+function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp, ctx: CssContext): boolean {
 	// Never adopt <blockquote> elements or elements with quote/callout/testimonial classes
 	if (sibling.tag === 'blockquote') return false
 	if (sibling.classes.some(c => NEVER_ADOPT_CLASS.test(c))) return false
 
 	// Never adopt a sibling that is itself a card CONTAINER (a second grid/flex row): its
 	// CHILDREN are cards, not the element itself — adopting it would swallow them as one card.
-	const disp = sibling.style.display
-	if (classMatch(sibling, contPat) || disp === 'grid' || disp === 'flex' || sibling.style['grid-template-columns'] !== undefined) return false
+	const disp = cssProp(sibling, 'display', ctx)
+	if (classMatch(sibling, contPat) || disp === 'grid' || disp === 'flex' || cssProp(sibling, 'grid-template-columns', ctx) !== undefined) return false
 
 	// Count child elements (excluding #text nodes) of the sibling
 	const sibChildCount = sibling.children.filter(c => c.tag !== '#text').length
@@ -448,7 +448,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 				// A sibling that contains an already-detected card (e.g. row 2 of a two-row
 				// class-matched grid) is part of the card region — skip it, never adopt it.
 				if (cards.some(c => isAncestorOrSelf(sib, c))) continue
-				if (isStructurallySimilar(sib, cards, contPat)) {
+				if (isStructurallySimilar(sib, cards, contPat, ctx)) {
 					cards.push(sib)
 				} else {
 					break // first non-match terminates scanning

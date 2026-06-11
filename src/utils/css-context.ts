@@ -178,16 +178,25 @@ function resolveSegment(seg: string): number {
 export function flexInfoOf(node: HNode, ctx: CssContext): { direction: 'row' | 'column', wrap: boolean, grow: number | undefined } | undefined {
 	const display = cssProp(node, 'display', ctx)
 	if (!display || !/flex/i.test(display)) return undefined
-	const dir = cssProp(node, 'flex-direction', ctx)
-	const wrap = cssProp(node, 'flex-wrap', ctx)
-	const flex = cssProp(node, 'flex', ctx)
+	// Explicit longhand wins over shorthand
 	const fg = cssProp(node, 'flex-grow', ctx)
+	const flex = cssProp(node, 'flex', ctx)
 	let grow: number | undefined
-	if (flex) {
+	if (fg) {
+		grow = parseFloat(fg)
+	} else if (flex) {
 		const m = flex.match(/^\s*(\d+(?:\.\d+)?)/)
 		if (m) grow = parseFloat(m[1])
-	} else if (fg) {
-		grow = parseFloat(fg)
+	}
+	// flex-direction / flex-wrap: check longhands first, then flex-flow shorthand
+	let dir = cssProp(node, 'flex-direction', ctx)
+	let wrap = cssProp(node, 'flex-wrap', ctx)
+	if (!dir || !wrap) {
+		const flow = cssProp(node, 'flex-flow', ctx)
+		if (flow) {
+			if (!dir && /column/i.test(flow)) dir = 'column'
+			if (!wrap && /wrap/i.test(flow) && !/nowrap/i.test(flow)) wrap = 'wrap'
+		}
 	}
 	return {
 		direction: (dir && /column/i.test(dir)) ? 'column' : 'row',
