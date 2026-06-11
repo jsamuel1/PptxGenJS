@@ -1,6 +1,7 @@
 # Feature: CssContext Layout Properties — extend cascade-lite from colours to layout
 
-> **Status:** Implemented
+> **Status:** Reopened — review fixes required (see "Review findings" below; was
+> prematurely marked Implemented in 3e23398a / released 4.3.13 without the public export)
 > **Priority:** Medium (unblocks deleting a dozen inline-style regexes in the
 > html-to-pptx converter; prerequisite-free but most valuable after that repo's
 > composition refactor lands)
@@ -78,3 +79,36 @@ inline > class — no specificity ranking, no descendant/combinator selectors, n
   grid/flex guards, `detectIconRows`, `renderAppMockup`'s sidebar/main split, and
   `avatarOf` all migrate to these helpers and drop their inline-only regexes (tracked in
   that repo's PROMPT.md under the composition/adapters work).
+
+## Review findings (2026-06-12 — must close before re-marking Implemented)
+
+Independent review of `24120c7c` (Slice 1) and `23ec8f2f` (Slice 2). Bugs were verified
+by executing the built helpers, not by reading the diff. Items 1–4 block release of a
+usable API; release 4.3.13 shipped with item 1 unresolved.
+
+1. **CRITICAL — not exported.** None of `declOf`/`gridColumnsOf`/`flexInfoOf`/
+   `columnCountOf`/`sizeOf` (nor `parseStyleSheets`/`cssProp`/`CssContext`/`EMPTY_CSS`)
+   are re-exported from `src/utils.ts` or declared in `types/utils.d.ts`, so the
+   published `@jsamuel1/pptxgenjs/utils` surface cannot reach them. The test-only rollup
+   entry bundling `src/bld/css-context.js` is a workaround — delete it once exported and
+   point the test at `src/bld/utils.cjs.js`.
+2. **MAJOR — `gridColumnsOf` miscounts functional tracks.** Whitespace-splitting counts
+   `minmax(0, 1fr)` as 2 tracks: `repeat(3, minmax(0, 1fr))` → 6 (Tailwind `grid-cols-3`
+   emits exactly this; true 3); `200px repeat(2, 1fr)` → 2 (standalone tracks dropped;
+   true 3); `calc(100% - 20px) 1fr` → 4 (true 2). Fix: paren-aware depth-0 tokenizer so
+   each `minmax()`/`fit-content()`/`calc()` is one track. The converter's existing
+   regexes get the Tailwind case right — migrating onto the helper before this fix is a
+   regression.
+3. **MAJOR — `!important` never stripped.** Leaks into `declOf` values and is counted as
+   a grid track; `display: grid !important` defeats `findContainer`'s strict
+   `disp === 'grid'` equality. Strip in `parseStyle`/`cssProp`; loosen the equality.
+4. **MAJOR — `@media` contents applied unconditionally.** The flat rule regex in
+   `parseStyleSheets` captures rules inside `@media` blocks; last-declared-wins lets a
+   mobile breakpoint (`grid-template-columns: 1fr`) override the desktop value. Skip
+   `@…{…}` blocks. Out of scope must mean ignored, not honoured.
+5. **MINOR — `flexInfoOf`:** `flex: auto` shadows an explicit `flex-grow: 2` (fall
+   through when the shorthand has no leading number); no `flex-flow` shorthand support.
+6. **MINOR — tests/consistency:** the class-rule-grid fixture is 1×2, weaker than the
+   spec's 2×3; `isStructurallySimilar`'s container-rejection check reads raw
+   `sibling.style.display` and misses class-rule-declared sibling containers — a path
+   Slice 2 made reachable.
