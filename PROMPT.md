@@ -61,45 +61,27 @@
 
 ## Release procedure (cut a version)
 
-A release is **fully automated** via the GitHub Actions workflows — do not
-publish from a local machine. The flow:
+A release is **fully automated** via the GitHub Actions workflows — do not publish
+from a local machine. Follow the
+[CLI procedure in RELEASING.md](./RELEASING.md#cli-procedure-agents-use-this--run-every-step-in-order)
+**exactly and to completion** — every step, in order:
 
-1. Ensure `master` is green: `npm test` ends `Failed: 0` and CI (`ci.yml`) is
-   passing on the latest commit. **Never release a red build.**
-2. **Roll over the CHANGELOG and confirm docs.** Before bumping:
-   - In `CHANGELOG.md`, convert the `## [Unreleased]` section into a dated,
-     versioned release heading — `## [X.Y.Z] - YYYY-MM-DD` — keeping its
-     `Added`/`Changed`/`Fixed` entries, and start a fresh empty
-     `## [Unreleased]` above it. (Pick `X.Y.Z` to match the bump you will run:
-     patch vs minor.)
-   - Confirm `docs/FEATURE-MATRIX.md` and the relevant `website/docs/*.md`
-     reflect everything in this release (they should already be current per
-     ground rule 8 — this is a final check).
-   - Commit this as `docs(changelog): release X.Y.Z` and push. The release
-     notes for the version come straight from this CHANGELOG section.
-3. Trigger the version bump + tag + publish chain:
-   ```bash
-   gh workflow run version-bump.yml --ref master -f bump=patch -R jsamuel1/PptxGenJS
-   ```
-   Use `bump=patch` for bug-fix releases, `bump=minor` for new features.
-   The chosen bump **must** match the version you wrote into the CHANGELOG.
-   This workflow bumps `package.json` + the `VERSION` constant in
-   `src/pptxgen.ts`, commits `chore(release): X.Y.Z`, pushes the `vX.Y.Z`
-   tag, and then **auto-dispatches `publish.yml`** for that tag (no manual
-   step, no PAT needed).
-4. Watch both runs to success:
-   ```bash
-   gh run watch <version-bump-run-id> -R jsamuel1/PptxGenJS --exit-status
-   gh run watch <publish-run-id>      -R jsamuel1/PptxGenJS --exit-status
-   ```
-   `publish.yml` re-runs the full build + test suite, then publishes to npm
-   via trusted publishing (OIDC, with provenance).
-5. Verify the release is live:
-   ```bash
-   npm view @jsamuel1/pptxgenjs version   # should equal the new X.Y.Z
-   ```
-6. `git fetch` and fast-forward local `master` to the release commit the
-   workflow pushed.
+1. All [release gates](./RELEASING.md#release-gates-before-any-version-bump) pass
+   (suite green incl. API parity; not the same iteration that implemented the feature).
+2. **`git push origin master`** — anything unpushed is not in the release.
+3. Dispatch **Version Bump and Tag**
+   (`gh workflow run version-bump.yml -f bump=patch|minor`) — it bumps, rolls the
+   CHANGELOG automatically (`update-changelog.mjs`; do **not** roll it by hand), tags
+   `vX.Y.Z`, and auto-dispatches **Publish to npm**.
+4. **Watch BOTH runs to success** (`gh run watch <id> --exit-status` for the
+   version-bump run, then the publish run). The release is not done when the bump
+   finishes — npm publish + GitHub Release happen in the second run.
+5. **Pull the tagged version back before finalising anything**:
+   `git pull --tags origin master`, then verify
+   `git describe --tags --exact-match HEAD`, local `package.json` version, and
+   `npm view @jsamuel1/pptxgenjs version` all agree. Only then update spec statuses,
+   bump downstream consumers, or report the release done. If any step fails, stop and
+   report the intermediate state — never re-dispatch blindly (it double-bumps).
 
 > **When to release** is called out explicitly in the phase checkpoints below
 > (a **patch** after Phase 0, a **minor** after each feature set). Always

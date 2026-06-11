@@ -39,7 +39,7 @@ Releases run through two GitHub Actions workflows:
 
 ### Steps
 
-1. Land all changes on `main` with their notes recorded under `## [Unreleased]`
+1. Land all changes on `master` with their notes recorded under `## [Unreleased]`
    in `CHANGELOG.md` (Added / Changed / Fixed / etc.).
 2. Open the **Actions** tab → **Version Bump and Tag** → **Run workflow**.
 3. Choose the `bump` type (`patch`, `minor`, `major`, or `prerelease`). For a
@@ -48,6 +48,47 @@ Releases run through two GitHub Actions workflows:
    commit/tag/push, and it dispatches `Publish to npm`.
 5. Watch **Publish to npm** complete: it builds, runs the test suite, publishes to
    npm, and opens the GitHub Release.
+
+### CLI procedure (agents use this — run every step, in order)
+
+A release is **not finished** until the final pull-back-and-verify step passes. Do not
+mark any spec Implemented-and-released, bump downstream dependencies, or end the
+iteration between dispatching the workflow and completing step 5.
+
+```bash
+# 0. Gates (see "Release gates" above) all pass; working tree clean.
+
+# 1. Push local commits — the workflow runs against origin/master, so anything
+#    unpushed is NOT in the release.
+git push origin master
+
+# 2. Dispatch the version-bump workflow (choose bump: patch | minor | major).
+gh workflow run version-bump.yml -f bump=patch
+
+# 3. Watch it to completion (it commits the bump, tags vX.Y.Z, and dispatches publish).
+sleep 10   # give the run a moment to register
+gh run list --workflow=version-bump.yml --limit 1   # note the run id
+gh run watch <run-id> --exit-status                 # non-zero exit ⇒ STOP, diagnose
+
+# 4. Watch the chained "Publish to npm" run to completion as well — the release is
+#    not done when the bump finishes; npm publish + GitHub Release happen here.
+gh run list --workflow=publish.yml --limit 1
+gh run watch <publish-run-id> --exit-status         # non-zero exit ⇒ STOP, diagnose
+
+# 5. Pull the release back and verify BEFORE finalising anything locally.
+git pull --tags origin master
+# Verify: local HEAD is the release commit, and the tag + npm agree on the version:
+git describe --tags --exact-match HEAD              # must print vX.Y.Z
+node -p "require('./package.json').version"         # must print X.Y.Z
+npm view @jsamuel1/pptxgenjs version                # must print X.Y.Z (npm propagation
+                                                    # can lag ~a minute; retry, don't skip)
+```
+
+Only after step 5 passes: update spec statuses/CHANGELOG-dependent notes, notify or
+bump downstream consumers (`../html-to-pptx` pins `@jsamuel1/pptxgenjs`), and report the
+release done. If any step fails, the release is in an intermediate state — say so
+explicitly rather than retrying the dispatch blindly (a second dispatch creates a
+second version bump).
 
 > **CHANGELOG:** You do **not** edit version/date headings by hand. Just keep entries
 > under `## [Unreleased]`; `tools/build/update-changelog.mjs` (invoked by the version
