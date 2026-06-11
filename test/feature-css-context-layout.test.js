@@ -218,4 +218,15 @@ module.exports = [
 			assertEqual(s.hPx, 50.25)
 		},
 	},
+
+	// --- parseCards grid detection via class rule ---
+	{
+		name: 'parseCards detects grid declared via class rule only',
+		fn: async () => {
+			const { parseCards } = require('../src/bld/utils.cjs.js')
+			const html = '<style>.grid { display: grid; grid-template-columns: 1fr 1fr }</style><div class="grid"><div>A</div><div>B</div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 2, `expected 2 cards, got ${cards.length}`)
+		},
+	},
 ]

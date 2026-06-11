@@ -335,11 +335,22 @@ function findByTitle (card: HNode, skip: Set<HNode>): HNode | null {
 /** Classes that must NEVER be adopted (quote/callout/testimonial/blockquote variants). */
 const NEVER_ADOPT_CLASS = /(^|-)(quote|callout|testimonial|blockquote)\b/
 
+/** True when the subtree contains an inline `<svg>` or an icon-font `<i>`/`<span>`. */
+function hasIcon (node: HNode): boolean {
+	return !!findFirst(node, e => e.tag === 'svg') ||
+		!!findFirst(node, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
+}
+
 /** Returns true when `sibling` is structurally similar to the already-detected `cards`. */
-function isStructurallySimilar (sibling: HNode, cards: HNode[]): boolean {
+function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp): boolean {
 	// Never adopt <blockquote> elements or elements with quote/callout/testimonial classes
 	if (sibling.tag === 'blockquote') return false
 	if (sibling.classes.some(c => NEVER_ADOPT_CLASS.test(c))) return false
+
+	// Never adopt a sibling that is itself a card CONTAINER (a second grid/flex row): its
+	// CHILDREN are cards, not the element itself — adopting it would swallow them as one card.
+	const disp = sibling.style.display
+	if (classMatch(sibling, contPat) || disp === 'grid' || disp === 'flex' || sibling.style['grid-template-columns'] !== undefined) return false
 
 	// Count child elements (excluding #text nodes) of the sibling
 	const sibChildCount = sibling.children.filter(c => c.tag !== '#text').length
@@ -352,15 +363,19 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[]): boolean {
 	if (Math.abs(sibChildCount - avgCardChildCount) > 1) return false
 
 	// Icon check: sibling has an icon OR the majority of existing cards have no icon
-	const sibHasIcon = !!findFirst(sibling, e => e.tag === 'svg') ||
-		!!findFirst(sibling, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
-	if (!sibHasIcon) {
-		// Check if majority of cards have no icon — if so, it's fine for sibling to lack one
-		const cardsWithIcon = cards.filter(card =>
-			!!findFirst(card, e => e.tag === 'svg') ||
-			!!findFirst(card, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
-		).length
+	if (!hasIcon(sibling)) {
+		const cardsWithIcon = cards.filter(hasIcon).length
 		if (cardsWithIcon > cards.length / 2) return false
+	}
+
+	// Title-likeness: a card leads with short heading-like text. A titled element (TITLE_PAT
+	// class or <h1>–<h6>) qualifies; otherwise the first text block must be ≤60 chars. Prose
+	// siblings (footnotes, disclaimers, captioned quotes) fail this and are not adopted.
+	const titleish = findFirst(sibling, e => (classMatch(e, TITLE_PAT) || /^h[1-6]$/.test(e.tag)) && textOf(e).trim().length > 0)
+	if (!titleish) {
+		const firstTextEl = findFirst(sibling, e => e.children.some(c => c.tag === '#text' && (c.text || '').trim().length > 0))
+		const t = firstTextEl ? textOf(firstTextEl).trim() : ''
+		if (t.length === 0 || t.length > 60) return false
 	}
 
 	return true
@@ -371,14 +386,14 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[]): boolean {
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
 /** Locate a grid/flex container whose repeated children are the cards. */
-function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp): HNode | null {
+function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp, ctx: CssContext): HNode | null {
 	for (const e of allEls) {
 		if (isExcluded(e, exclPat)) continue
 		const childEls = e.children.filter(c => c.tag !== '#text')
 		if (childEls.length < 2) continue
 		if (classMatch(e, contPat)) return e
-		const disp = e.style.display
-		if ((disp === 'grid' || e.style['grid-template-columns'] !== undefined) && childEls.length >= 2) return e
+		const disp = cssProp(e, 'display', ctx)
+		if ((disp === 'grid' || cssProp(e, 'grid-template-columns', ctx) !== undefined) && childEls.length >= 2) return e
 		if (disp === 'flex' && childEls.length >= 3) return e
 	}
 	return null
@@ -413,7 +428,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 		cards = outer
 	} else {
 		// 2) else a grid/flex container's repeated children are the cards
-		const cont = findContainer(allEls, contPat, exclPat)
+		const cont = findContainer(allEls, contPat, exclPat, ctx)
 		if (cont) cards = cont.children.filter(c => c.tag !== '#text')
 	}
 
@@ -430,7 +445,10 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 		if (containerIdx >= 0) {
 			for (let i = containerIdx + 1; i < parentChildren.length; i++) {
 				const sib = parentChildren[i]
-				if (isStructurallySimilar(sib, cards)) {
+				// A sibling that contains an already-detected card (e.g. row 2 of a two-row
+				// class-matched grid) is part of the card region — skip it, never adopt it.
+				if (cards.some(c => isAncestorOrSelf(sib, c))) continue
+				if (isStructurallySimilar(sib, cards, contPat)) {
 					cards.push(sib)
 				} else {
 					break // first non-match terminates scanning
