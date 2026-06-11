@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.13](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.13) - 2026-06-11
+
 ### Added
 
 - CssContext layout helpers: `declOf`, `gridColumnsOf`, `flexInfoOf`, `columnCountOf`, `sizeOf` — resolve layout properties through the cascade-lite context (inline > class-rule > var). `parseCards` now detects grids declared via class rules, not just inline styles.
