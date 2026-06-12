@@ -72,6 +72,21 @@ the reopened css-context Slice 4 findings are closed and released.
 
 ## Review findings (2026-06-12) — fix before flipping status / releasing 4.3.15
 
+> **Closure status (2026-06-13, verified by execution at 4.3.17) — findings 1–3 are
+> CLOSED, do not re-plan them:**
+> 1 (fake ranking) fixed in `cdcfcf6c` — curated common-icon list; verified: an 8 KB
+> default subset is `fa-user, far-user, fa-check, fa-home…`;
+> 2 (export shape) fixed in `8403d310` — verified `require('…/icons-fa')['fa-anchor']`
+> resolves;
+> 3 (style-blind lookup) fixed in `bbfdd6d4` — style-prefixed keys consulted in
+> resolve-icon-fonts.ts.
+> **Still open:** 4 (README CC BY attribution — absent at 4.3.17; the CHANGELOG halves
+> were rolled into the 4.3.16/4.3.17 release sections), 5 (parity/coverage for the
+> icons-fa entry's typings ↔ runtime), 6 (subsetIconPack O(n²) + artifact churn — low).
+> Scope note: html-to-pptx no longer consumes this entry (fetch-not-bundle direction —
+> see its feature-runtime-icon-font-cache.md); the remainder is standalone-library
+> hygiene, weigh effort accordingly.
+
 Independent review of the implementation (commits 1f9cc68b, a60fadd8, 8c24a74e,
 3a60bae7; all claims below verified by execution). AC2 (main bundles byte-identical)
 and AC7 wiring default-off are **met**; the items below are the fix contract:
