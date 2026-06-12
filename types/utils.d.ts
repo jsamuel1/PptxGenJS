@@ -273,7 +273,7 @@ export function outerHtml(node: HNode): string
 export function decodeEntities(s: string): string
 
 /** How a resolved icon part was produced. */
-export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
+export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom' | 'pack'
 
 /** A resolved `SvgPart` plus the resolution-source tag. */
 export interface ResolvedSvgPart extends SvgPart {
@@ -290,6 +290,8 @@ export interface IconResolveOptions {
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
 	customResolver?: (className: string, fontFamily: string) => Array<Partial<ResolvedSvgPart> & { d: string; viewBox: { w: number; h: number } }> | null
+	/** Injected icon pack; keys are `fa-<glyphName>` entries with path data. */
+	pack?: Record<string, { w: number; h: number; d: string }>
 	/** Directory to cache CDN-fetched glyphs (a repeat resolve is a cache hit, no network). */
 	cacheDir?: string
 	/** Fill handed to `parseSvg` for the resolved glyph (6-hex, no `#`). @default '000000' */

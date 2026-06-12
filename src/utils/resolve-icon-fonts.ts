@@ -20,7 +20,7 @@ import { BUNDLED_ICONS } from './bundled-icons'
 import { classTokens, detectIcon, extractCssCodepoints, type IconDescriptor } from './icon-classify'
 
 /** How a resolved part was produced. */
-export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
+export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom' | 'pack'
 
 /** A resolved `SvgPart` plus the resolution-source tag. */
 export interface ResolvedSvgPart extends SvgPart {
@@ -37,6 +37,8 @@ export interface IconResolveOptions {
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
 	customResolver?: (className: string, fontFamily: string) => Array<Partial<ResolvedSvgPart> & { d: string; viewBox: { w: number; h: number } }> | null
+	/** Injected icon pack; keys are `fa-<glyphName>` entries with path data. */
+	pack?: Record<string, { w: number; h: number; d: string }>
 	/** Directory to cache CDN-fetched glyphs (a repeat resolve is a cache hit, no network). */
 	cacheDir?: string
 	/** Fill handed to `parseSvg` for the resolved glyph (6-hex, no `#`). @default '000000' */
@@ -140,14 +142,24 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
 		if (r && r.length) return r.map(p => ({ ...p, source: (p.source as IconSource) || 'custom' })) as ResolvedSvgPart[]
 	}
 
-	// 2) bundled offline fallback — tried before the network so common icons resolve with no fetch.
+	// 2) pack — caller-injected icon pack; checked before bundled so packs can override defaults.
+	if (opts.pack) {
+		const packKey = desc.fontFamily === 'fa' ? `fa-${desc.glyphName}` : `${desc.fontFamily}-${desc.glyphName}`
+		const entry = opts.pack[packKey]
+		if (entry) {
+			const part: ResolvedSvgPart = { d: entry.d, viewBox: { w: entry.w, h: entry.h }, fill: defaultFill, mode: 'fill', source: 'pack' }
+			return [part]
+		}
+	}
+
+	// 3) bundled offline fallback — tried before the network so common icons resolve with no fetch.
 	const bundledSvg = lookupBundled(desc)
 	if (bundledSvg) {
 		const parts = parseSvg(bundledSvg, { defaultFill }) as ResolvedSvgPart[]
 		if (parts.length) return tagSource(parts, 'bundled')
 	}
 
-	// 3) CDN fetch (best-effort) — only for KNOWN registries NOT covered by the bundled set.
+	// 4) CDN fetch (best-effort) — only for KNOWN registries NOT covered by the bundled set.
 	if (opts.useCdn !== false) {
 		const url = cdnUrl(desc, classTokens(desc.className))
 		if (url) {
