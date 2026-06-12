@@ -13,6 +13,11 @@
 
 ## Ground rules (apply to every task)
 
+> **Intent anchor:** the project's standing Goals live in [README-Fork.md](./README-Fork.md#goals);
+> AGENTS.md binds every role to them and the critic reviews for *intent deviations*
+> (re-skins, fabricated data, silent narrowing), not just correctness. Kick loops off
+> with `--profile repo:intent` to arm the critic's intent checklist.
+>
 > **Read first, every run:** [CONTRIBUTING.md](./CONTRIBUTING.md) (spec lifecycle,
 > definition of done for public APIs, git staging discipline),
 > [TESTING.md → Automated test conventions](./TESTING.md#automated-test-conventions-all-contributions),

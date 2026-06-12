@@ -316,3 +316,24 @@ Upstream version at fork point: **v4.0.1** (2025-06-25).
 ## License
 
 Same as upstream: [MIT](LICENSE)
+
+## Goals
+
+Standing intentions for this fork; contributions are judged against these, not just
+against tests (the autoloop critic reviews for deviations explicitly):
+
+1. **Schema-valid AND viewer-verified.** Emitted OOXML passes the schema suite, and
+   rendering claims are proven in real PowerPoint (see TESTING.md rule 7).
+2. **Default-off invariant.** A presentation that doesn't use a feature emits
+   byte-identical XML to before the feature existed.
+3. **The public surface is the feature.** A capability exists only when it is
+   exported from the public entry, declared in typings, tested through the built
+   entry, and documented. Internal-only code is not "done".
+4. **Never fabricate missing inputs.** If required data (popularity metadata,
+   licence info, a limit) doesn't exist, stop and record that — a silently invented
+   proxy is worse than an honest gap.
+5. **Structure-driven, not class-name-driven.** Content extractors (`parseCards`,
+   `parseTimeline`, …) detect by structure so they generalise across frameworks;
+   downstream consumers (html-to-pptx) should shrink as this library grows.
+6. **Copy fidelity is sacred.** Never strip unknown parts/relationships when
+   round-tripping; "unsupported to author" never means "safe to drop".
