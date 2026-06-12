@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `textOf` strips Private Use Area (PUA) codepoints by default; pass `{ keepPUA: true }` to preserve old behaviour
 - CssContext layout helpers exported from `@jsamuel1/pptxgenjs/utils`: `declOf`, `gridColumnsOf`, `flexInfoOf`, `columnCountOf`, `sizeOf`, plus `parseStyleSheets`, `cssProp`, and `EMPTY_CSS` — previously implemented but unreachable from the public surface
 - `CONTRIBUTING.md` with conventions for all contributions (spec lifecycle, public-API definition of done, git staging discipline); `TESTING.md` gains automated test conventions and `RELEASING.md` gains release gates
 - API parity test (`test/feature-api-parity.test.js`): the `/utils` runtime exports and `types/utils.d.ts` declarations must match in both directions

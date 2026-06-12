@@ -255,7 +255,7 @@ export function matches(node: HNode, selector: string | HNode): boolean
 export function isAncestorOrSelf(a: HNode, b: HNode | null): boolean
 
 /** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
-export function textOf(node: HNode): string
+export function textOf(node: HNode, opts?: { keepPUA?: boolean }): string
 
 /** Get an attribute value (case-insensitive name), or `undefined` when absent. */
 export function attr(node: HNode, name: string): string | undefined

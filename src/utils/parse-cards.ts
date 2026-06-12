@@ -229,7 +229,7 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 		if (faEl) {
 			iconEl = faEl
 			skip.add(faEl)
-			const desc = detectIcon(faEl.classes.join(' '), textOf(faEl))
+			const desc = detectIcon(faEl.classes.join(' '), textOf(faEl, { keepPUA: true }))
 			// `faEl` matched `isFaClass`, so `detectIcon` always returns a descriptor; guard anyway.
 			const className = desc ? desc.className : faEl.classes.join(' ')
 			const fontFamily = desc ? desc.fontFamily : 'fa'

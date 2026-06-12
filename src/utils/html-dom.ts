@@ -284,13 +284,25 @@ export function elements (node: HNode, out: HNode[] = []): HNode[] {
 	return out
 }
 
-/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
-export function textOf (node: HNode): string {
+/** Internal recursive text gatherer (no filtering). */
+function _textOf (node: HNode): string {
 	if (node.tag === '#text') return node.text || ''
 	if (node.tag === 'svg') return ''
 	let s = ''
-	for (const c of node.children) s += textOf(c)
+	for (const c of node.children) s += _textOf(c)
 	return s
+}
+
+/** Regex matching all Private Use Area codepoints (BMP + supplementary planes 15/16). */
+const PUA_RE = /[\uE000-\uF8FF]|[\uDB80-\uDBFF][\uDC00-\uDFFF]/g
+
+/** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
+export function textOf (node: HNode, opts?: { keepPUA?: boolean }): string {
+	const raw = _textOf(node)
+	if (opts?.keepPUA) return raw
+	const stripped = raw.replace(PUA_RE, '')
+	if (stripped.length === raw.length) return raw // no-op fast path
+	return stripped.replace(/\s{2,}/g, ' ').trim()
 }
 
 /** True when any class token of `el` matches `pat`. */

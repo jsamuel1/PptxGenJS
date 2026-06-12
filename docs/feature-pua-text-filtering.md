@@ -1,6 +1,6 @@
 # Feature: PUA-range filtering in text extraction
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Medium-High (upstream half of html-to-pptx's
 > `feature-text-normalisation-pipeline.md` Layer 2 — the remaining half of the "🎵×"
 > glyph-corruption bug class)
