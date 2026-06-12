@@ -24,6 +24,11 @@
 			"types": "./types/utils.d.ts",
 			"import": "./dist/utils.es.js",
 			"require": "./dist/utils.cjs.js"
+		},
+		"./icons-fa": {
+			"types": "./types/icons-fa.d.ts",
+			"import": "./dist/icons-fa.es.js",
+			"require": "./dist/icons-fa.cjs.js"
 		}
 	},
 	"main": "dist/pptxgen.cjs.js",
