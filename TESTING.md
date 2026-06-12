@@ -10,6 +10,20 @@ Commands: `npm test` runs the regression suite (`test/run.js`, discovers
 `test/{bug-NN,feature-*}.test.js`) and the OOXML schema suite (`test/run-schema.js`).
 Both must end `Failed: 0`. `npm run lint` must add no new errors.
 
+**The success gate is the exit code, not the output.** A test run passes if and only
+if the command exits 0 — verify with `npm test; echo "exit=$?"`. Never judge a run by
+counting `ok` lines, tailing the log, or reading a sub-runner's summary: a crashed
+runner can stream hundreds of `ok` lines and end on a passing-looking `node:test`
+summary while having skipped half the suite. (Incident: two `describe/it`-style test
+files crashed `test/run.js` mid-suite; both builder and reviewer read the `ok` stream,
+concluded "all tests pass", and committed — silently skipping ~180 tests and the
+entire schema suite.)
+
+**Test files export an array.** Every `test/{bug-NN,feature-*}.test.js` must
+`module.exports` an array of `{ name: string, fn: async function }` cases — this repo's
+runner does not understand `node:test` / mocha `describe/it` files. The runner rejects
+wrong-shaped files as named failures.
+
 The rules below each exist because their absence shipped a bug — see the incident notes
 in [CONTRIBUTING.md](./CONTRIBUTING.md).
 

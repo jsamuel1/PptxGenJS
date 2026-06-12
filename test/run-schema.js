@@ -25,6 +25,10 @@ async function loadAndRun () {
 		process.exit(2)
 	}
 	const cases = require(file)
+	if (!Array.isArray(cases) || cases.some(c => !c || typeof c.name !== 'string' || typeof c.fn !== 'function')) {
+		console.error('schema.test.js must `module.exports` an array of { name, fn } cases (got ' + (Array.isArray(cases) ? 'array with invalid entries' : typeof cases) + ')')
+		process.exit(1)
+	}
 	for (const c of cases) {
 		try {
 			await c.fn()
@@ -44,4 +48,7 @@ async function loadAndRun () {
 	await loadAndRun()
 	console.log('\nPassed: ' + successes.length + '  Failed: ' + failures.length)
 	if (failures.length > 0) process.exit(1)
-})()
+})().catch(e => {
+	console.error('Test runner crashed: ' + (e.stack || e))
+	process.exit(1)
+})

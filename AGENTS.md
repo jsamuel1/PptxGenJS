@@ -16,6 +16,12 @@ You are working in the PptxGenJS fork. Before any work, internalise:
 3. **[PROMPT.md](./PROMPT.md)** — the ordered work queue; `autoloop task list` is
    the shared steering channel — check it every iteration and mark items complete.
 
+**Verification gate (all roles):** a test run passes if and only if the command
+exits 0 — run `npm test; echo "exit=$?"` and check the echoed code. Streamed `ok`
+lines, log tails, and sub-runner summaries are not verification; a crashed runner
+can look green in all three while skipping half the suite (this shipped: see
+TESTING.md). No commit and no `review.passed` on a non-zero exit.
+
 **For reviewer/critic roles specifically:** your job includes *intent* review, not
 only correctness. Read the active `docs/feature-*.md` spec including any
 `## Review findings` section (fix contracts; work stacking on a spec with open
