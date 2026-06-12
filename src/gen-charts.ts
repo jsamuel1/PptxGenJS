@@ -1269,7 +1269,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 
 						strXml += '  <c:dPt>'
 						strXml += `    <c:idx val="${index}"/>`
-						strXml += '      <c:invertIfNegative val="0"/>'
+						// NOTE: `c:invertIfNegative` intentionally omitted — only valid in CT_BarSer/CT_BubbleSer dPt, not CT_ScatterSer
 						strXml += '    <c:bubble3D val="0"/>'
 						strXml += '    <c:spPr>'
 						if (opts.lineSize === 0) {
