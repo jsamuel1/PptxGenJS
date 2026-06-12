@@ -79,7 +79,17 @@ inline > class — no specificity ranking, no descendant/combinator selectors, n
   `avatarOf` all migrate to these helpers and drop their inline-only regexes (tracked in
   that repo's PROMPT.md under the composition/adapters work).
 
-## Review findings (2026-06-12 — must close before re-marking Implemented)
+## Review findings (2026-06-12 — CLOSED)
+
+> **Closure (2026-06-12):** all six findings fixed across `89d2b121` (items 1–4) and
+> `2487f211` (items 5–6); independently verified by executing every original failing
+> input against the built public entry. Regression tests for the finding-2/3/4 inputs
+> live in `test/feature-css-context-layout.test.js` (review-findings guard section).
+>
+> **Known limitation (accepted):** the `@media` strip handles one nesting level; a
+> doubly-nested @-block (e.g. `@media` inside `@supports`) leaks its trailing inner
+> rule into `classRules`. Top-level rules after it parse correctly. Fix requires
+> depth-aware brace counting; revisit if real decks hit it.
 
 Independent review of `24120c7c` (Slice 1) and `23ec8f2f` (Slice 2). Bugs were verified
 by executing the built helpers, not by reading the diff. Items 1–4 block release of a

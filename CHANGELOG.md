@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CssContext layout helpers exported from `@jsamuel1/pptxgenjs/utils`: `declOf`, `gridColumnsOf`, `flexInfoOf`, `columnCountOf`, `sizeOf`, plus `parseStyleSheets`, `cssProp`, and `EMPTY_CSS` — previously implemented but unreachable from the public surface
 - `CONTRIBUTING.md` with conventions for all contributions (spec lifecycle, public-API definition of done, git staging discipline); `TESTING.md` gains automated test conventions and `RELEASING.md` gains release gates
 - API parity test (`test/feature-api-parity.test.js`): the `/utils` runtime exports and `types/utils.d.ts` declarations must match in both directions
 
 ### Fixed
 
+- `gridColumnsOf` track counting: paren-aware tokenizer so `repeat(3, minmax(0, 1fr))` = 3 (was 6 — the exact string Tailwind `grid-cols-3` emits), standalone tracks mixed with `repeat()` are counted (`200px repeat(2, 1fr)` = 3), and `calc(...)` counts as one track
+- `!important` is stripped from cascade-resolved values, and `display: grid !important` no longer defeats grid container detection in `parseCards`
+- `@media` block contents are no longer applied unconditionally as base class rules (known limitation: doubly-nested @-blocks, e.g. `@media` inside `@supports`, still leak their trailing rule — documented in the spec)
+- `flexInfoOf`: explicit `flex-grow` longhand wins over the `flex` shorthand; `flex-flow` shorthand parsed
 - Declared `tokenizeCode`, `codeRuns`, `TokenKind`, and `CodeRunsOptions` in `types/utils.d.ts` — they were exported at runtime but invisible to TypeScript consumers
 
 ## [4.3.13](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.13) - 2026-06-11

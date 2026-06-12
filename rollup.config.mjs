@@ -92,16 +92,6 @@ export default [
 		],
 	},
 
-	// 1c) src/bld/css-context.js — direct access to css-context for unit tests
-	{
-		input: 'src/utils/css-context.ts',
-		external: externalLib,
-		plugins: basePlugins(),
-		output: [
-			{ file: './src/bld/css-context.js', format: 'cjs' },
-		],
-	},
-
 	// The dist/* artifacts are only built for publishing (`npm run ship`).
 	...(isShip
 		? [

@@ -4,8 +4,9 @@
 // Tests the layout-aware CSS property extraction helpers added to src/utils/css-context.ts.
 
 const { assert, assertEqual } = require('./helpers')
-const { declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleSheets, EMPTY_CSS } = require('../src/bld/css-context.js')
-const { parseHtml } = require('../src/bld/utils.cjs.js')
+// Import through the BUILT PUBLIC ENTRY — never an internal bundle (TESTING.md rule 1;
+// the original export-gap incident was hidden by a test-only css-context bundle).
+const { declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleSheets, EMPTY_CSS, parseHtml } = require('../src/bld/utils.cjs.js')
 
 /** Helper: parse HTML, return first element matching tag (depth-first). */
 function el(html) {
@@ -253,6 +254,56 @@ module.exports = [
 			const html = '<style>.grid { display: grid; grid-template-columns: 1fr 1fr 1fr }</style><div class="grid"><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div></div>'
 			const cards = parseCards(html)
 			assert(cards.length === 6, `expected 6 cards, got ${cards.length}`)
+		},
+	},
+
+	// --- Review-findings regression guards (docs/feature-css-context-layout.md §Review findings) ---
+	// These are the exact inputs that failed before 89d2b121; they must stay in the suite.
+	{
+		name: 'gridColumnsOf: repeat(N, minmax(...)) counts functional value as ONE track (Tailwind grid-cols-3)',
+		fn: async () => {
+			const node = el('<div style="grid-template-columns: repeat(3, minmax(0, 1fr))"></div>')
+			assertEqual(gridColumnsOf(node, EMPTY_CSS), 3)
+		},
+	},
+	{
+		name: 'gridColumnsOf: standalone tracks mixed with repeat() are all counted',
+		fn: async () => {
+			const node = el('<div style="grid-template-columns: 200px repeat(2, 1fr)"></div>')
+			assertEqual(gridColumnsOf(node, EMPTY_CSS), 3)
+		},
+	},
+	{
+		name: 'gridColumnsOf: calc() counts as one track',
+		fn: async () => {
+			const node = el('<div style="grid-template-columns: calc(100% - 20px) 1fr"></div>')
+			assertEqual(gridColumnsOf(node, EMPTY_CSS), 2)
+		},
+	},
+	{
+		name: '!important is stripped from declOf values (class rule)',
+		fn: async () => {
+			const ctx = parseStyleSheets('<style>.x { grid-template-columns: 1fr 1fr !important }</style>')
+			const node = el('<div class="x"></div>')
+			assertEqual(declOf(node, 'grid-template-columns', ctx), '1fr 1fr')
+			assertEqual(gridColumnsOf(node, ctx), 2)
+		},
+	},
+	{
+		name: 'display: grid !important still detected as a card container',
+		fn: async () => {
+			const { parseCards } = require('../src/bld/utils.cjs.js')
+			const html = '<div style="display: grid !important"><div><svg viewBox="0 0 24 24"><path d="M1 1"/></svg><div>A</div></div><div><svg viewBox="0 0 24 24"><path d="M2 2"/></svg><div>B</div></div><div><svg viewBox="0 0 24 24"><path d="M3 3"/></svg><div>C</div></div></div>'
+			const cards = parseCards(html)
+			assert(cards.length === 3, `expected 3 cards, got ${cards.length}`)
+		},
+	},
+	{
+		name: '@media rule contents do not override base class rules',
+		fn: async () => {
+			const ctx = parseStyleSheets('<style>.x { grid-template-columns: repeat(3, minmax(0, 1fr)) } @media (max-width: 600px) { .x { grid-template-columns: 1fr } }</style>')
+			const node = el('<div class="x"></div>')
+			assertEqual(gridColumnsOf(node, ctx), 3)
 		},
 	},
 ]
