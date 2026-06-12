@@ -22,6 +22,15 @@
 > stage commits explicitly by path (never `git add -A`/`commit -a`), never cut a
 > release in the same iteration that implemented the feature, and a spec is only
 > "Implemented" once its stated consumer can actually use it.
+>
+> **Check the shared task queue, every run AND every iteration:** run
+> `autoloop task list` at the start of the run and re-check it at each iteration
+> boundary. Open tasks are steering from reviewers and other sessions — they are part
+> of your work queue, often carrying corrections to work you believe is done; review
+> tasks (named "REVIEW FIXES"/"FOLLOW-UP") take priority over new feature slices.
+> Mark each one done with `autoloop task complete <id>` in the same iteration you
+> close it — the task list is shared state across sessions, and leaving it stale
+> sends the next agent chasing finished work.
 
 1. **Local files are the source of truth.** Read `src/*.ts` before changing it.
    Do not copy implementations from upstream or the web.
