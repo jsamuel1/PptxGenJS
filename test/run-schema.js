@@ -48,6 +48,7 @@ async function loadAndRun () {
 	await loadAndRun()
 	console.log('\nPassed: ' + successes.length + '  Failed: ' + failures.length)
 	if (failures.length > 0) process.exit(1)
+	process.exit(0)
 })().catch(e => {
 	console.error('Test runner crashed: ' + (e.stack || e))
 	process.exit(1)

@@ -53,6 +53,7 @@ async function loadAndRun() {
 		failures.forEach(f => console.log(f.name + ' -- ' + (f.error.stack || f.error.message)))
 		process.exit(1)
 	}
+	process.exit(0)
 })().catch(e => {
 	console.error('Test runner crashed: ' + (e.stack || e))
 	process.exit(1)
