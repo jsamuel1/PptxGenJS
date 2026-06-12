@@ -1,6 +1,11 @@
 # Feature: `icons-fa` subpath export — shared Font Awesome icon pack
 
-> **Status:** Proposed
+> **Status:** Superseded — REMOVAL accepted, do not implement or polish.
+> Decision: [ADR 0008](../architecture/decisions/0008-remove-icons-fa-pack.md)
+> (2026-06-13, breaking changes approved). The downstream consumer adopted
+> fetch-not-bundle; the entry ships in 4.3.15–4.3.x and is to be DELETED in the
+> next major release (entry, generator, subsetIconPack, resolveIconFonts pack
+> layer, fontawesome devDependency). Open findings 4–6 below are closed as moot.
 > **Priority:** High (dedupes a 400 KB generated pack + generator script currently
 > maintained downstream in html-to-pptx; benefits every consumer of `parseCards`
 > `iconResolver` and `resolveIconFonts`)
