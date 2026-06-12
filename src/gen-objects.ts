@@ -1071,7 +1071,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 }
 
 /**
- * Adds a structured "card" to a slide definition (docs/feature-card-helper.md).
+ * Adds a structured "card" to a slide definition (docs/features/feature-card-helper.md).
  * Builds a single shape group (`<p:grpSp>`) containing a rounded-rect background and,
  * as applicable, an icon container + icon (SVG path or emoji/text), a title, a description,
  * and a top-right badge — all positioned with group-relative coordinates. When `animation`
@@ -1249,7 +1249,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 }
 
 /**
- * Avatar/initials helper (docs/feature-avatar-badge.md). Draws a filled `ellipse`
+ * Avatar/initials helper (docs/features/feature-avatar-badge.md). Draws a filled `ellipse`
  * (diameter `size`) then centred initials — a pure composition of existing primitives,
  * no new OOXML. Works against a slide OR a group's child target (same intake fns).
  * @param {PresSlide} target slide (or group child-target proxy) the avatar should be added to
@@ -1287,7 +1287,7 @@ export function addAvatarDefinition(target: PresSlide, opts: AvatarProps): void 
 }
 
 /**
- * Badge/pill helper (docs/feature-avatar-badge.md). Draws a `roundRect` with a full corner
+ * Badge/pill helper (docs/features/feature-avatar-badge.md). Draws a `roundRect` with a full corner
  * radius (pill) or an `ellipse` (count bubble) sized to the text, then a centred label.
  * Pure composition of existing primitives, no new OOXML. Clamps degenerate sizes (never throws).
  * @param {PresSlide} target slide (or group child-target proxy) the badge should be added to
@@ -1336,7 +1336,7 @@ export function addBadgeDefinition(target: PresSlide, opts: BadgeProps): void {
 }
 
 /**
- * Separator line helper (docs/feature-enhancements-converter-gaps.md §4.1). Draws a thin
+ * Separator line helper (docs/features/feature-enhancements-converter-gaps.md §4.1). Draws a thin
  * horizontal (or vertical) rule as a single `rect` shape with colour/thickness/opacity — a
  * pure composition of the existing shape primitive, no new OOXML. Clamps degenerate
  * thickness/opacity to defaults (never throws). Works against a slide OR a group child target.

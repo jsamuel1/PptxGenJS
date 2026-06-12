@@ -179,7 +179,7 @@ assert(threw)
 ## Impact on the `html-to-pptx` converter
 
 This is the dependency that the converter's full cheerio removal waits on (tracked in
-that repo's `docs/feature-parsecards-icon-resolver-adoption.md` → "Out of scope /
+that repo's `docs/features/feature-parsecards-icon-resolver-adoption.md` → "Out of scope /
 future"). Once shipped, the converter replaces `const $ = cheerio.load(rawHtml)` and
 its ~280 cheerio call-sites with `parseHtml` + `query`/`closest`/`matches`/`textOf`,
 and drops `cheerio/slim` from `package.json` and the esbuild bundle (shrinking it and

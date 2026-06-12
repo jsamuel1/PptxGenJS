@@ -1,7 +1,7 @@
 'use strict'
 
 // Real-render verification via Microsoft PowerPoint (macOS).
-// Spec: docs/feature-powerpoint-render-verification.md
+// Spec: docs/features/feature-powerpoint-render-verification.md
 //
 // Generates a showcase deck (one slide per major feature) with the freshly
 // built library, opens it in installed Microsoft PowerPoint via AppleScript,

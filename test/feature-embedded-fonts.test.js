@@ -1,6 +1,6 @@
 'use strict'
 
-// Embedded fonts (docs/feature-embedded-fonts.md) — pptx.embedFont(...) packages
+// Embedded fonts (docs/features/feature-embedded-fonts.md) — pptx.embedFont(...) packages
 // /ppt/fonts/fontN.fntdata + rels + Content_Types, emits <p:embeddedFontLst> in
 // canonical CT_Presentation order (after <p:notesSz>, before <p:custShowLst>), and
 // sets embedTrueTypeFonts="1". Asserts emitted OOXML, rId consistency, part content,

@@ -1,7 +1,7 @@
 'use strict'
 
 // Feature: HTML content extractors — parseTable + parseColumns (Slice 2a)
-// (docs/feature-html-content-extractors.md).
+// (docs/features/feature-html-content-extractors.md).
 //
 // NEUTRAL, ADDITIVE structural recognisers — they represent the HTML, they do NOT classify it into
 // an "archetype". Each answers "is THIS structure present, and what is its data?" and returns data

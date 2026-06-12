@@ -23,7 +23,7 @@ addCallout(...); y += ...
 This is error-prone (manual gap bookkeeping, overflow past the slide edge, no way to distribute or
 centre leftover space) and it is exactly the math that becomes load-bearing once a converter stops
 choosing ONE archetype per slide and instead **composes** the structures it found (see the
-`html-to-pptx` converter's `docs/feature-format-coupling-inventory.md` §C — the move away from a
+`html-to-pptx` converter's `docs/features/feature-format-coupling-inventory.md` §C — the move away from a
 single-archetype `classify` toward rendering every recognised block).
 
 This belongs upstream as a **generic, content-agnostic layout primitive**, the vertical companion
@@ -194,7 +194,7 @@ assert(threw)
 
 ## Impact on the `html-to-pptx` converter
 
-Enables the §C direction in `docs/feature-format-coupling-inventory.md`: replace the
+Enables the §C direction in `docs/features/feature-format-coupling-inventory.md`: replace the
 single-archetype `classify` + per-archetype `render*` y-cursor code with "recognise every structure
 (`parseTable`/`parseTimeline`/`parseQuote`/`parseBadges`/`parseCallout`/`parseCards`) → `layoutStack`
 the present ones → render each in its box." The converter keeps its styling/theme/animation and its

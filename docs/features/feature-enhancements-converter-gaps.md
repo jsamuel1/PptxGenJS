@@ -198,7 +198,7 @@ When `accentBar` is absent (current behaviour preserved):
 > extended palette (`bgMid`/`bgLight`/`bgDeep`/`coral`/`gray100/300/500`), supports `forcePreset`, and
 > attaches `presetName`/`vars` metadata. The new options (`forcePreset`, `derivedColors`,
 > `resolveVarRefs`, `parseRgb`, `barGradientVar`) and palette fields are additive and default-on.
-> See `docs/feature-theme-extraction.md` for the full reference.
+> See `docs/features/feature-theme-extraction.md` for the full reference.
 
 ### 3.1 Current Gap
 
@@ -405,7 +405,7 @@ slide.addCard({ ..., animation: { type: 'fadeIn', group: 3, stagger: 100 } })
 > OOXML and no new dependency. `opacity` (0–1) maps to the rect fill transparency
 > (`transparency = round((1 - opacity) × 100)`), `thickness` is the rule's short dimension (inches),
 > and `orientation` (`'horizontal'` default | `'vertical'`) decides whether `w` or `h` spans. Degenerate
-> `thickness`/`opacity` clamp to defaults (never throws). See `docs/feature-card-helper.md` siblings
+> `thickness`/`opacity` clamp to defaults (never throws). See `docs/features/feature-card-helper.md` siblings
 > (`addAvatar`/`addBadge`) for the same composition pattern.
 
 Currently the converter draws thin rectangles for horizontal separators. A dedicated helper could standardise this:

@@ -309,7 +309,7 @@ export interface IconResolveOptions {
 export function resolveIconFonts(html: string, options?: IconResolveOptions): Promise<Map<string, ResolvedSvgPart[]>>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
-// HTML content extractors (docs/feature-html-content-extractors.md) — NEUTRAL, additive structural
+// HTML content extractors (docs/features/feature-html-content-extractors.md) — NEUTRAL, additive structural
 // recognisers. No `Archetype`/`classifySlide` API by design: each answers "is THIS structure
 // present, and what is its data?" and returns data or `null`. All take an HTML string OR an `HNode`.
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -430,7 +430,7 @@ export function tokenizeCode(source: string, lang?: string): Array<{ text: strin
 export function codeRuns(source: string, opts?: CodeRunsOptions): object[]
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
-// CSS context layout interpreter (docs/feature-css-context-layout.md) — shared CSS property
+// CSS context layout interpreter (docs/features/feature-css-context-layout.md) — shared CSS property
 // resolution with var() support, class-rule cascade, and layout-aware helpers.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 

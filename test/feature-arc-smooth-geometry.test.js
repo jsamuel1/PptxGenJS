@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * feature-arc-smooth-geometry.test.js — docs/feature-arc-smooth-geometry.md
+ * feature-arc-smooth-geometry.test.js — docs/features/feature-arc-smooth-geometry.md
  *
  * Verifies the custGeom path parser (`svgPathToOoxml` in src/gen-utils.ts) handles the
  * full SVG command set: elliptical arcs (`A`/`a`) and smooth curves (`S`/`s`, `T`/`t`).

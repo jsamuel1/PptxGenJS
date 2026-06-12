@@ -257,7 +257,7 @@ module.exports = [
 		},
 	},
 
-	// --- Review-findings regression guards (docs/feature-css-context-layout.md §Review findings) ---
+	// --- Review-findings regression guards (docs/features/feature-css-context-layout.md §Review findings) ---
 	// These are the exact inputs that failed before 89d2b121; they must stay in the suite.
 	{
 		name: 'gridColumnsOf: repeat(N, minmax(...)) counts functional value as ONE track (Tailwind grid-cols-3)',

@@ -4,7 +4,7 @@
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (animation timing tree)
 > **Found by:** the `html-to-pptx` converter mapping reveal `.fragment` incremental reveals.
->   Consumer-side mapping/plan: `html-to-pptx/docs/feature-fragments.md`.
+>   Consumer-side mapping/plan: `html-to-pptx/docs/features/feature-fragments.md`.
 
 ## Problem
 

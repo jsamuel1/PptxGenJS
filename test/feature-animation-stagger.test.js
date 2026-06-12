@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: Animation Stagger / Auto-Grouping (docs/feature-animation-stagger.md).
+// Feature: Animation Stagger / Auto-Grouping (docs/features/feature-animation-stagger.md).
 // `animation.group` is sugar over `trigger`: same group => withPrevious members of one
 // build step; a different group => a new afterPrevious step. `animation.stagger` applies a
 // cumulative per-item delay (N * stagger) within a group. Resolution happens in

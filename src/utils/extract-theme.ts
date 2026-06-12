@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — Theme Extraction utility (docs/feature-theme-extraction.md)
+ * PptxGenJS — Theme Extraction utility (docs/features/feature-theme-extraction.md)
  *
  * Parses CSS `:root { --var: value; }` custom properties and maps known variable-name
  * patterns to a theme palette (background/accent/text/font + an extended colour set).
@@ -7,7 +7,7 @@
  * in Node.js. This is an OPTIONAL utility (imported from `@jsamuel1/pptxgenjs/utils`), not
  * part of the main `PptxGenJS` class, keeping the core library focused on OOXML generation.
  *
- * v2 (converter-equivalence, docs/feature-enhancements-converter-gaps.md §3): adds
+ * v2 (converter-equivalence, docs/features/feature-enhancements-converter-gaps.md §3): adds
  * `rgb()`/`rgba()` parsing, `var()` resolution, derived colours (`cardLine`/`cardFill`/
  * `barStops`), an extended palette (`bgMid`/`bgLight`/`bgDeep`/`coral`/`gray100/300/500`),
  * a `forcePreset` override, and `presetName`/`vars` metadata. All additions are ADDITIVE and
@@ -85,7 +85,7 @@ export interface ExtractThemeOptions {
 	fontFamilySelectors?: string[]
 }
 
-/** Built-in dark preset (matches docs/feature-theme-extraction.md). */
+/** Built-in dark preset (matches docs/features/feature-theme-extraction.md). */
 const DARK_PRESET: ThemePalette = {
 	bg: '121218',
 	bgSecondary: '1A1A24',

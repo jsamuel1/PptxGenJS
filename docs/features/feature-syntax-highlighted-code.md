@@ -4,7 +4,7 @@
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (a code render helper) + `/utils` (tokenizer)
 > **Found by:** the `html-to-pptx` converter rendering the reveal.js demo "Pretty Code" /
->   "With Animations" slides. Consumer-side detection/plan: `html-to-pptx/docs/feature-code-blocks.md`.
+>   "With Animations" slides. Consumer-side detection/plan: `html-to-pptx/docs/features/feature-code-blocks.md`.
 
 ## Problem
 

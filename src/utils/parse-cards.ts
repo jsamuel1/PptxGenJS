@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — Generic Card-Structure parser (docs/feature-parse-card-structure.md)
+ * PptxGenJS — Generic Card-Structure parser (docs/features/feature-parse-card-structure.md)
  *
  * `parseCards()` turns an HTML card-grid (the kind every HTML-to-deck converter has to detect by
  * hand) into a list of `CardData` objects that spread directly into `slide.addCard()` v2. Detection
@@ -28,11 +28,11 @@ import type { SvgPart } from './parse-svg'
 import { detectIcon, extractCssCodepoints } from './icon-classify'
 import type { GradientFillProps } from '../core-interfaces'
 // Shared, dependency-free HTML tree-builder + helpers (promoted out of this file — see
-// docs/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
+// docs/features/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
 import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf } from './html-dom'
 import type { HNode } from './html-dom'
 // Shared, dependency-free CSS colour-resolution context (promoted out of this file — see
-// docs/feature-html-content-extractors.md). `parseCards` behaviour is unchanged: it uses the
+// docs/features/feature-html-content-extractors.md). `parseCards` behaviour is unchanged: it uses the
 // identical colour logic, now shared with the HTML content extractors.
 import { extractHex, parseStyleSheets, cssProp, bgOfCtx, colorOf } from './css-context'
 import type { HexColor, CssContext } from './css-context'

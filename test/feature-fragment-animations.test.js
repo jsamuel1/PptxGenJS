@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: Fragment animation timing-tree guarantees (docs/feature-fragment-animations.md).
+// Feature: Fragment animation timing-tree guarantees (docs/features/feature-fragment-animations.md).
 // Pins output behaviour: N ordered afterPrevious steps produce N sequential timing nodes
 // with unique cTn ids; entrance+exit coexist; emphasis mid-chain doesn't break ordering.
 

@@ -1,6 +1,6 @@
 'use strict'
 
-// Tests for the proposed dynamic icon-font resolver (see docs/feature-icon-font-resolver.md).
+// Tests for the proposed dynamic icon-font resolver (see docs/features/feature-icon-font-resolver.md).
 // resolveIconFonts(html, opts) -> Promise<Map<string, SvgPart[]>>. Keys are the icon element's
 // class string (Material/ligature entries keyed `family|glyph`); each SvgPart carries a
 // `source` tag ('css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom').
@@ -14,7 +14,7 @@ const { assert } = require('./helpers')
 
 const IMPLEMENTED = typeof resolveIconFonts === 'function'
 function requireImpl() {
-	if (!IMPLEMENTED) throw new Error('resolveIconFonts not implemented yet (proposed feature — see docs/feature-icon-font-resolver.md)')
+	if (!IMPLEMENTED) throw new Error('resolveIconFonts not implemented yet (proposed feature — see docs/features/feature-icon-font-resolver.md)')
 }
 
 // A resolved value should be a non-empty SvgPart[] whose first part has a normalised path.

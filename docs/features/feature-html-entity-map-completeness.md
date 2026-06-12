@@ -58,5 +58,5 @@ export function decodeEntities(s: string): string
 
 ## Consumers
 
-- html-to-pptx converter (`docs/feature-text-entity-decoding.md` in that repo) — bumps
+- html-to-pptx converter (`docs/features/feature-text-entity-decoding.md` in that repo) — bumps
   this library and deletes its local entity handling.

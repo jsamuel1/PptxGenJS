@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — bundled icon fallback map (docs/feature-icon-font-resolver.md, step 5).
+ * PptxGenJS — bundled icon fallback map (docs/features/feature-icon-font-resolver.md, step 5).
  *
  * A small built-in set of the most common icons so `resolveIconFonts()` still returns useful
  * vector data OFFLINE — with no stylesheets, font files, or network. Each entry is a raw SVG

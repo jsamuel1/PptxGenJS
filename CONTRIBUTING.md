@@ -12,7 +12,7 @@ Several rules below cite an incident. They are not hypothetical — each one shi
 
 - Local `src/*.ts` is the source of truth. Read it before changing it; do not copy
   implementations from upstream or the web.
-- `docs/feature-*.md` specs are contracts: API, root cause, touch points, acceptance
+- `docs/features/feature-*.md` specs are contracts: API, root cause, touch points, acceptance
   criteria. Read the spec before the source.
 
 ## Spec lifecycle

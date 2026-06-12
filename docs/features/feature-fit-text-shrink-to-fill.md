@@ -4,7 +4,7 @@
 > **Created:** 2026-06-10
 > **Target:** `@jsamuel1/pptxgenjs` core (autofit)
 > **Found by:** the `html-to-pptx` converter rendering the reveal.js demo "FIT TEXT" slide
->   (reveal `r-fit-text`). Consumer-side detection/plan: `html-to-pptx/docs/feature-fit-text.md`.
+>   (reveal `r-fit-text`). Consumer-side detection/plan: `html-to-pptx/docs/features/feature-fit-text.md`.
 
 ## Problem
 

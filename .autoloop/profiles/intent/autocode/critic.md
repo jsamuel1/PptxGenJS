@@ -9,7 +9,7 @@ increment honours the project's INTENT:
   runner streams `ok` lines and ends on a passing-looking `node:test` summary while
   skipping the rest of the suite. (Incident: a `describe/it`-format test file crashed
   `test/run.js` mid-suite; builder AND critic both counted `ok` lines and approved.)
-- Read `README-Fork.md → Goals` and the active `docs/feature-*.md` spec, including any
+- Read `README-Fork.md → Goals` and the active `docs/features/feature-*.md` spec, including any
   `## Review findings` section (an open findings section is a fix contract — work
   that stacks on it without closing it is an automatic `review.rejected`).
 - **Re-skin check:** does the change actually alter behaviour per the spec, or does

@@ -23,7 +23,7 @@ can look green in all three while skipping half the suite (this shipped: see
 TESTING.md). No commit and no `review.passed` on a non-zero exit.
 
 **For reviewer/critic roles specifically:** your job includes *intent* review, not
-only correctness. Read the active `docs/feature-*.md` spec including any
+only correctness. Read the active `docs/features/feature-*.md` spec including any
 `## Review findings` section (fix contracts; work stacking on a spec with open
 findings is rejectable on that ground alone). When an increment passes tests but
 deviates from a Goal or the spec's stated purpose — or invents data the spec says

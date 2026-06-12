@@ -1,7 +1,7 @@
 'use strict'
 
 // SLICE-10 — parseCards() structure-driven HTML card-grid parser
-// (docs/feature-parse-card-structure.md, RI-12). Tests run against the BUILT bundle
+// (docs/features/feature-parse-card-structure.md, RI-12). Tests run against the BUILT bundle
 // (src/bld/utils.cjs.js) so they exercise shipped output; the end-to-end maps a parsed
 // {type:'svg'} CardData into addCard on src/bld/pptxgen.cjs.js and validates the OOXML.
 

@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: Theme extraction from CSS (docs/feature-theme-extraction.md).
+// Feature: Theme extraction from CSS (docs/features/feature-theme-extraction.md).
 // extractThemeFromCSS() parses :root custom properties, maps known variable-name patterns
 // to theme slots (bg/accent/text/font + extended palette), and falls back to a preset for
 // any slot not present in the CSS. Pure regex parsing — no DOM. Exported from the optional
@@ -101,7 +101,7 @@ module.exports = [
 		},
 	},
 
-	// --- v2 converter-equivalence (docs/feature-enhancements-converter-gaps.md §3) ---
+	// --- v2 converter-equivalence (docs/features/feature-enhancements-converter-gaps.md §3) ---
 	// This util emits NO OOXML and produces a palette object — there is no addShape round-trip.
 	// The equivalent rigour is: (1) assert the spec's documented FORMULAS produce the expected
 	// EXACT hex (a wrong mix-weight or var-resolution regression changes the hex and fails here),
@@ -187,7 +187,7 @@ module.exports = [
 		},
 	},
 
-	// --- Gap 1 (docs/feature-theme-extraction-aliases-and-font.md): colour-name aliases + canonicaliser ---
+	// --- Gap 1 (docs/features/feature-theme-extraction-aliases-and-font.md): colour-name aliases + canonicaliser ---
 	{
 		name: 'extractTheme aliases: --brand maps to accent, --text-colour (en-GB + -colour suffix) maps to text',
 		fn: async () => {
@@ -234,7 +234,7 @@ module.exports = [
 		},
 	},
 
-	// --- Gap 2 (docs/feature-theme-extraction-aliases-and-font.md): font-family declaration scan ---
+	// --- Gap 2 (docs/features/feature-theme-extraction-aliases-and-font.md): font-family declaration scan ---
 	{
 		name: 'extractTheme font-scan: body { font-family: "Georgia", serif } adopts Georgia (skips generic)',
 		fn: async () => {

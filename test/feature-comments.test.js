@@ -1,6 +1,6 @@
 'use strict'
 
-// Slide comments (docs/feature-comments.md) — slide.addComment(...) packages a shared
+// Slide comments (docs/features/feature-comments.md) — slide.addComment(...) packages a shared
 // ppt/commentAuthors.xml + per-slide ppt/comments/comment{N}.xml, the slide→comments and
 // presentation→commentAuthors rels, and both Content_Types overrides. Default-off otherwise.
 // Asserts emitted OOXML, author dedup/ids, per-author idx, rId wiring, and the regression-catch.

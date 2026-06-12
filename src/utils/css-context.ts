@@ -1,6 +1,6 @@
 /**
  * PptxGenJS — shared, dependency-free CSS colour-resolution context
- * (docs/feature-html-content-extractors.md).
+ * (docs/features/feature-html-content-extractors.md).
  *
  * This module promotes the "cascade-lite" colour-resolution context that already backs
  * `parseCards()` out of `parse-cards.ts` into a shared surface, so `parseCards` and the new

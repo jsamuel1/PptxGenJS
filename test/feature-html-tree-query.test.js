@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: parseHtml() + a bounded selector engine (docs/feature-html-tree-query.md).
+// Feature: parseHtml() + a bounded selector engine (docs/features/feature-html-tree-query.md).
 // Promotes the private, dependency-free HTML tree-builder behind parseCards()/parseSvg() into a
 // shared, exported surface and layers a BOUNDED CSS-selector engine on top. Parsing is tolerant
 // (never throws on bad HTML); querying is strict (any selector outside the documented grammar
@@ -180,7 +180,7 @@ module.exports = [
 	{
 		name: 'node-arg: query/matches/closest accept an HNode (cheerio containment parity)',
 		fn: async () => {
-			// docs/feature-html-query-node-containment.md
+			// docs/features/feature-html-query-node-containment.md
 			const root = parseHtml('<div class="a"><section><span id="x">hi</span></section></div>')
 			const a = queryOne(root, '.a')
 			const sec = queryOne(root, 'section')

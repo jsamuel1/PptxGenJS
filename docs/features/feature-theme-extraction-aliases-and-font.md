@@ -8,7 +8,7 @@
 > **Priority:** Medium — closes two extraction gaps that currently force the `html-to-pptx`
 >   converter to re-implement alias mapping and font discovery on top of `extractThemeFromCSS`.
 > **Target:** `@jsamuel1/pptxgenjs/utils` — extends `src/utils/extract-theme.ts`
->   (`extractThemeFromCSS`), docs `docs/feature-theme-extraction.md`, tests
+>   (`extractThemeFromCSS`), docs `docs/features/feature-theme-extraction.md`, tests
 >   `test/feature-theme-extraction.test.js`.
 > **Depends on:** `extract-theme.ts` v2 (`feature-theme-extraction.md`, v4.2.0).
 > **Principle:** The converter should be a *thin orchestration layer*. Theme extraction is a

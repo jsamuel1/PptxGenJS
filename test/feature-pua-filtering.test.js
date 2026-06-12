@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: PUA-range filtering in textOf (docs/feature-pua-text-filtering.md).
+// Feature: PUA-range filtering in textOf (docs/features/feature-pua-text-filtering.md).
 
 const { assert } = require('./helpers')
 const { parseHtml, textOf } = require('../src/bld/utils.cjs.js')

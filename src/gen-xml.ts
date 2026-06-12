@@ -2460,7 +2460,7 @@ function genXmlTiming (slide: PresSlide): string {
 	const wrapNodeTypeMap: Record<string, string> = { afterPrevious: 'afterEffect', withPrevious: 'withEffect', onClick: 'clickEffect' }
 
 	// --- Pre-process group/stagger sugar into trigger/delay -------------------
-	// `group` is syntactic sugar over `trigger` (spec: docs/feature-animation-stagger.md).
+	// `group` is syntactic sugar over `trigger` (spec: docs/features/feature-animation-stagger.md).
 	// Walking the animated objects in order: the first object of each consecutive `group`
 	// run becomes the group leader (-> afterPrevious, starting a new build step); the rest
 	// of the run join it (-> withPrevious). When `stagger` is set, the Nth item within the

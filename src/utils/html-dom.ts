@@ -1,6 +1,6 @@
 /**
  * PptxGenJS — shared, dependency-free HTML tree-builder + a bounded selector engine
- * (docs/feature-html-tree-query.md).
+ * (docs/features/feature-html-tree-query.md).
  *
  * This module promotes the private, stack-based HTML tree-builder that already backs
  * `parseCards()` / `parseSvg()` / `extractThemeFromCSS()` into a shared, exported surface, and

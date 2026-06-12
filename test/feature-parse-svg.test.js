@@ -1,6 +1,6 @@
 'use strict'
 
-// SLICE-8 — parseSvg() SVG-normalisation utility (docs/feature-svg-normalisation.md, RI-11).
+// SLICE-8 — parseSvg() SVG-normalisation utility (docs/features/feature-svg-normalisation.md, RI-11).
 // Tests run against the BUILT bundle (src/bld/utils.cjs.js) so they exercise shipped output.
 
 const JSZip = require('jszip')

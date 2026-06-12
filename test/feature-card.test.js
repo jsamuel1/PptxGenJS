@@ -1,6 +1,6 @@
 'use strict'
 
-// Feature: addCard() — structured card rendering (docs/feature-card-helper.md).
+// Feature: addCard() — structured card rendering (docs/features/feature-card-helper.md).
 // A card is emitted as a single <p:grpSp> group containing a rounded-rect background and,
 // as applicable, an icon container + icon (SVG custGeom or emoji text), a title, a
 // description, and a top-right badge. Card-level `animation` attaches to the group object.

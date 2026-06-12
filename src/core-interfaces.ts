@@ -1160,7 +1160,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
  * shape group (`<p:grpSp>`) via `slide.addCard(...)`. Reduces the 5–8 manual
  * `addShape`/`addText` calls a card normally needs to one declarative call.
  * @since v4.1.0
- * @see docs/feature-card-helper.md
+ * @see docs/features/feature-card-helper.md
  */
 export interface CardFontProps {
 	/** Font face. */
@@ -1311,7 +1311,7 @@ export interface BadgeProps extends PositionProps, ObjectNameProps {
  * Separator line helper (`slide.addSeparator(...)`).
  * Draws a thin horizontal (or vertical) rule as a single `rect` shape with
  * colour/thickness/opacity — a pure composition of the existing shape primitive,
- * no new OOXML (docs/feature-enhancements-converter-gaps.md §4.1).
+ * no new OOXML (docs/features/feature-enhancements-converter-gaps.md §4.1).
  * @since v4.1.7
  */
 export interface SeparatorProps extends PositionProps, ObjectNameProps {

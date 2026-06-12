@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — HTML content extractors (docs/feature-html-content-extractors.md).
+ * PptxGenJS — HTML content extractors (docs/features/feature-html-content-extractors.md).
  *
  * Neutral, structural recognisers that turn a common HTML structure into faithful data — the
  * `parseCards()` profile extended to the other structures every HTML→PPTX converter re-implements.

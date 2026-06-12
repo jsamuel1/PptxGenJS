@@ -44,7 +44,7 @@ in [CONTRIBUTING.md](./CONTRIBUTING.md).
    blockquotes, sibling containers. Over-matching corrupts output as surely as
    under-matching loses it.
 5. **Spec criteria map to named tests.** Each acceptance criterion in a
-   `docs/feature-*.md` should be recognisable as a named test case, so a reviewer can
+   `docs/features/feature-*.md` should be recognisable as a named test case, so a reviewer can
    diff the spec against the suite. Edge cases the spec lists are not optional.
 6. **Adversarial self-check before declaring done.** Run your new code against tricky
    inputs that are *not* in your own tests (`node -e` against the built entry). Tests
@@ -52,7 +52,7 @@ in [CONTRIBUTING.md](./CONTRIBUTING.md).
 7. **Real-render claims need real PowerPoint.** Schema validity is necessary, not
    sufficient — files that validate can still hit PowerPoint's repair dialog. The
    PowerPoint render tier (`npm run test:ppt`, `test/release/powerpoint.test.js`,
-   spec: `docs/feature-powerpoint-render-verification.md`; also runs inside
+   spec: `docs/features/feature-powerpoint-render-verification.md`; also runs inside
    `npm run release-test`) drives installed Microsoft PowerPoint on macOS via
    AppleScript against an 8-slide showcase deck: open (repair prompt = AppleEvent
    timeout = failure), live slide count vs authored, PDF export, then per-slide PNG

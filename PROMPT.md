@@ -192,14 +192,14 @@ These are listed `⚠️ Partial` in the matrix — already half-built, lowest r
 highest reuse. The animation timing engine already emits real
 `<p:seq nodeType="mainSeq">` build steps, so animation work reuses it.
 
-Each feature has a detailed spec in `docs/feature-*.md` — **read the spec
+Each feature has a detailed spec in `docs/features/feature-*.md` — **read the spec
 before implementing** (API, emitted OOXML, touch points, edge cases, tests):
 
-- 1.1 — [`docs/feature-pattern-fill.md`](docs/feature-pattern-fill.md) — `a:pattFill`
-- 1.2 — [`docs/feature-picture-fill.md`](docs/feature-picture-fill.md) — `a:blipFill`
-- 1.3 — [`docs/feature-emphasis-animations.md`](docs/feature-emphasis-animations.md) — `p:animClr`/`p:animScale`/`p:animRot`
-- 1.4 — [`docs/feature-exit-animations.md`](docs/feature-exit-animations.md)
-- 1.5 — [`docs/feature-header-footer.md`](docs/feature-header-footer.md) — `p:hf`
+- 1.1 — [`docs/features/feature-pattern-fill.md`](docs/features/feature-pattern-fill.md) — `a:pattFill`
+- 1.2 — [`docs/features/feature-picture-fill.md`](docs/features/feature-picture-fill.md) — `a:blipFill`
+- 1.3 — [`docs/features/feature-emphasis-animations.md`](docs/features/feature-emphasis-animations.md) — `p:animClr`/`p:animScale`/`p:animRot`
+- 1.4 — [`docs/features/feature-exit-animations.md`](docs/features/feature-exit-animations.md)
+- 1.5 — [`docs/features/feature-header-footer.md`](docs/features/feature-header-footer.md) — `p:hf`
 
 ### Phase 1 exit criteria
 - All sub-features schema-validated with fixtures; full verify gate clean;
@@ -215,9 +215,9 @@ before implementing** (API, emitted OOXML, touch points, edge cases, tests):
 
 ## Phase 2 — Further shape effects
 
-- 2.1 — [`docs/feature-reflection-effect.md`](docs/feature-reflection-effect.md) — `a:reflection`
-- 2.2 — [`docs/feature-soft-edge-effect.md`](docs/feature-soft-edge-effect.md) — `a:softEdge`
-- 2.3 — [`docs/feature-shape-3d.md`](docs/feature-shape-3d.md) — `a:sp3d`/`a:scene3d`
+- 2.1 — [`docs/features/feature-reflection-effect.md`](docs/features/feature-reflection-effect.md) — `a:reflection`
+- 2.2 — [`docs/features/feature-soft-edge-effect.md`](docs/features/feature-soft-edge-effect.md) — `a:softEdge`
+- 2.3 — [`docs/features/feature-shape-3d.md`](docs/features/feature-shape-3d.md) — `a:sp3d`/`a:scene3d`
 
 All three extend the shared `<a:effectLst>` / `<p:spPr>` emit; mind the
 canonical `CT_EffectList` child order when combining with shadow/glow.
@@ -232,8 +232,8 @@ canonical `CT_EffectList` child order when combining with shadow/glow.
 
 ## Phase 3 — Timing depth & links
 
-- 3.1 — [`docs/feature-motion-paths.md`](docs/feature-motion-paths.md) — `p:animMotion`
-- 3.2 & 3.3 — [`docs/feature-hyperlink-actions.md`](docs/feature-hyperlink-actions.md) — `a:hlinkHover` + action jumps
+- 3.1 — [`docs/features/feature-motion-paths.md`](docs/features/feature-motion-paths.md) — `p:animMotion`
+- 3.2 & 3.3 — [`docs/features/feature-hyperlink-actions.md`](docs/features/feature-hyperlink-actions.md) — `a:hlinkHover` + action jumps
 
 ### Phase 3 exit criteria
 - Fixtures + verify gate clean; docs + CHANGELOG + matrix updated; specs
@@ -247,15 +247,15 @@ canonical `CT_EffectList` child order when combining with shadow/glow.
 
 In rough priority order; each is self-contained and has its own spec:
 
-- 4.1 — [`docs/feature-comments.md`](docs/feature-comments.md) — `p:cm`/`cmAuthorLst`
-- 4.2 — [`docs/feature-embedded-fonts.md`](docs/feature-embedded-fonts.md) — `p:embeddedFontLst` (high value)
-- 4.3 — [`docs/feature-custom-shows.md`](docs/feature-custom-shows.md) — `p:custShowLst`
-- 4.4 — [`docs/feature-photo-album.md`](docs/feature-photo-album.md) — `p:photoAlbum`
-- 4.5 — [`docs/feature-handout-master.md`](docs/feature-handout-master.md) — `p:handoutMasterIdLst`
-- 4.6 — [`docs/feature-kinsoku.md`](docs/feature-kinsoku.md) — `p:kinsoku`
-- 4.7 — [`docs/feature-smartart.md`](docs/feature-smartart.md) — `dgm:*`/`dsp:*` (large; minimal subset first)
-- 4.8 — [`docs/feature-structured-notes.md`](docs/feature-structured-notes.md) — talking-points notes
-- 4.9 — [`docs/feature-ink.md`](docs/feature-ink.md) — `p:contentPart` + InkML (niche)
+- 4.1 — [`docs/features/feature-comments.md`](docs/features/feature-comments.md) — `p:cm`/`cmAuthorLst`
+- 4.2 — [`docs/features/feature-embedded-fonts.md`](docs/features/feature-embedded-fonts.md) — `p:embeddedFontLst` (high value)
+- 4.3 — [`docs/features/feature-custom-shows.md`](docs/features/feature-custom-shows.md) — `p:custShowLst`
+- 4.4 — [`docs/features/feature-photo-album.md`](docs/features/feature-photo-album.md) — `p:photoAlbum`
+- 4.5 — [`docs/features/feature-handout-master.md`](docs/features/feature-handout-master.md) — `p:handoutMasterIdLst`
+- 4.6 — [`docs/features/feature-kinsoku.md`](docs/features/feature-kinsoku.md) — `p:kinsoku`
+- 4.7 — [`docs/features/feature-smartart.md`](docs/features/feature-smartart.md) — `dgm:*`/`dsp:*` (large; minimal subset first)
+- 4.8 — [`docs/features/feature-structured-notes.md`](docs/features/feature-structured-notes.md) — talking-points notes
+- 4.9 — [`docs/features/feature-ink.md`](docs/features/feature-ink.md) — `p:contentPart` + InkML (niche)
 
 ### Phase 4 exit criteria
 - Each feature (or coherent subset) schema-validated with fixtures; verify gate
@@ -267,17 +267,17 @@ In rough priority order; each is self-contained and has its own spec:
 
 ---
 
-## Phase 5 — Standalone feature specs (`docs/feature-*.md`)
+## Phase 5 — Standalone feature specs (`docs/features/feature-*.md`)
 
-**Discover and implement every `docs/feature-*.md` spec that is not yet done.**
+**Discover and implement every `docs/features/feature-*.md` spec that is not yet done.**
 This directory is the backlog of feature specs — including developer-experience
 helpers not tied to a single OOXML element. The Phase 1–4 specs above are also
-`docs/feature-*.md` files; this phase covers **the rest** plus any specs added
+`docs/features/feature-*.md` files; this phase covers **the rest** plus any specs added
 later.
 
 ### Procedure for each spec
 
-1. **Scan** `docs/feature-*.md` (excluding `FEATURE-MATRIX.md`). For each,
+1. **Scan** `docs/features/feature-*.md` (excluding `FEATURE-MATRIX.md`). For each,
    check its `> **Status:**` line.
 2. **Skip** specs marked `Implemented` / `Done`. Implement those marked
    `Proposed` (or with no status).
@@ -300,18 +300,18 @@ Specs carry a `> **Priority:**` line where ordering matters: work `high` before
 `medium` before unlabelled. The converter-driven `/utils` specs below are paired with
 work items in `../html-to-pptx/PROMPT.md` — releasing them unblocks that repo.
 
-- **High** — [`docs/feature-html-entity-map-completeness.md`](docs/feature-html-entity-map-completeness.md) — extend the `/utils` html-dom named-entity map + export `decodeEntities` (pairs with a conversion-quality *critical*)
-- **High** — `parseCards` sibling-card adoption — upstream half of [`../html-to-pptx/docs/feature-grid-card-completeness.md`](../html-to-pptx/docs/feature-grid-card-completeness.md) (dropped "Memory" card)
-- **Medium** — [`docs/feature-css-context-layout.md`](docs/feature-css-context-layout.md) — extend cascade-lite `CssContext` from colours to layout properties (`declOf`, grid/flex/column interpreters)
-- **High** (after css-context Slice 4 ships) — [`docs/feature-icon-pack-entry.md`](docs/feature-icon-pack-entry.md) — `icons-fa` subpath export + `subsetIconPack()`; absorbs html-to-pptx's downstream-local icon-pack generator
-- **Medium-High** — [`docs/feature-pua-text-filtering.md`](docs/feature-pua-text-filtering.md) — strip PUA glyph codepoints in `textOf` by default; upstream half of the "🎵×" bug class
-- [`docs/feature-layout-grid.md`](docs/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
-- [`docs/feature-card-helper.md`](docs/feature-card-helper.md) — `slide.addCard()` structured card
-- [`docs/feature-animation-stagger.md`](docs/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
-- [`docs/feature-theme-extraction.md`](docs/feature-theme-extraction.md) — HTML/CSS theme extraction utility (review its "should this be in PptxGenJS?" question first)
+- **High** — [`docs/features/feature-html-entity-map-completeness.md`](docs/features/feature-html-entity-map-completeness.md) — extend the `/utils` html-dom named-entity map + export `decodeEntities` (pairs with a conversion-quality *critical*)
+- **High** — `parseCards` sibling-card adoption — upstream half of [`../html-to-pptx/docs/features/feature-grid-card-completeness.md`](../html-to-pptx/docs/features/feature-grid-card-completeness.md) (dropped "Memory" card)
+- **Medium** — [`docs/features/feature-css-context-layout.md`](docs/features/feature-css-context-layout.md) — extend cascade-lite `CssContext` from colours to layout properties (`declOf`, grid/flex/column interpreters)
+- **High** (after css-context Slice 4 ships) — [`docs/features/feature-icon-pack-entry.md`](docs/features/feature-icon-pack-entry.md) — `icons-fa` subpath export + `subsetIconPack()`; absorbs html-to-pptx's downstream-local icon-pack generator
+- **Medium-High** — [`docs/features/feature-pua-text-filtering.md`](docs/features/feature-pua-text-filtering.md) — strip PUA glyph codepoints in `textOf` by default; upstream half of the "🎵×" bug class
+- [`docs/features/feature-layout-grid.md`](docs/features/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
+- [`docs/features/feature-card-helper.md`](docs/features/feature-card-helper.md) — `slide.addCard()` structured card
+- [`docs/features/feature-animation-stagger.md`](docs/features/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
+- [`docs/features/feature-theme-extraction.md`](docs/features/feature-theme-extraction.md) — HTML/CSS theme extraction utility (review its "should this be in PptxGenJS?" question first)
 
 ### Phase 5 exit criteria
-- No `docs/feature-*.md` remains `Proposed` (each is either `Implemented` or has
+- No `docs/features/feature-*.md` remains `Proposed` (each is either `Implemented` or has
   a documented decision not to build it, e.g. theme-extraction may land as an
   optional util or be declined — record the decision in the spec).
 - Each implemented spec: tests + verify gate clean; docs + CHANGELOG updated;

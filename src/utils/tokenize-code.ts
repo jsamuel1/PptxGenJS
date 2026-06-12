@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — Syntax-Highlighted Code utility (docs/feature-syntax-highlighted-code.md)
+ * PptxGenJS — Syntax-Highlighted Code utility (docs/features/feature-syntax-highlighted-code.md)
  *
  * Dependency-free regex tokenizer + text-run builder for rendering source code on slides.
  * Import from `@jsamuel1/pptxgenjs/utils`.

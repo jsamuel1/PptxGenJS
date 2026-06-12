@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — Dynamic Icon-Font Resolver (docs/feature-icon-font-resolver.md).
+ * PptxGenJS — Dynamic Icon-Font Resolver (docs/features/feature-icon-font-resolver.md).
  *
  * `resolveIconFonts(html, opts)` scans an HTML string for icon-font elements (Font Awesome,
  * Material Icons, Bootstrap Icons, Phosphor, Ionicons, or a custom font) and resolves each to

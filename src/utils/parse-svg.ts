@@ -1,5 +1,5 @@
 /**
- * PptxGenJS — SVG Normalisation utility (docs/feature-svg-normalisation.md)
+ * PptxGenJS — SVG Normalisation utility (docs/features/feature-svg-normalisation.md)
  *
  * Parses a raw SVG string into a list of `SvgPart`s whose `d` is a normalised, absolute
  * path containing ONLY the commands PptxGenJS' custom-geometry engine understands
