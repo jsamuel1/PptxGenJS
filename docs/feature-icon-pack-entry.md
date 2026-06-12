@@ -69,3 +69,42 @@ the main bundles:
 The converter keeps its local pack until this ships in a release; its loop has a task
 to migrate and delete the local generator once available. Do not implement this before
 the reopened css-context Slice 4 findings are closed and released.
+
+## Review findings (2026-06-12) — fix before flipping status / releasing 4.3.15
+
+Independent review of the implementation (commits 1f9cc68b, a60fadd8, 8c24a74e,
+3a60bae7; all claims below verified by execution). AC2 (main bundles byte-identical)
+and AC7 wiring default-off are **met**; the items below are the fix contract:
+
+1. **HIGH — fake popularity ranking (AC4/AC6 violated).** `loadPopularity()` in
+   `scripts/generate-fa-pack.js` assigns reverse YAML-position — i.e.
+   reverse-alphabetical — as "popularity" (FA's `metadata/icons.yml` has no popularity
+   field). Executed: an 8 KB default subset is `fa-0…fa-9, fa-42-group, fa-500px,
+   fa-a, …` — zero common icons; `fa-user` ranks 2077/2956. This re-creates the
+   rejected-heuristic problem alphabetically and makes a default 400 KB downstream
+   subset DROP `fa-user`/`fa-check`. Fix: a real ranking source (FA vote/usage data
+   committed alongside, or a curated common-icon list), or fail loudly when no rank is
+   supplied — never fabricate. Add a regression test: `fa-user` and `fa-check` survive
+   a 400 KB default subset.
+2. **MEDIUM — export shape misses AC1's literal contract.**
+   `require('@jsamuel1/pptxgenjs/icons-fa')['fa-anchor']` is `undefined`; only
+   `.FA_ICONS['fa-anchor']` works (the barrel drops the generated default export).
+   Either flatten/re-export default, or amend AC1 — then add a smoke test importing
+   the built `src/bld/icons-fa.cjs.js` (currently NO test imports the entry).
+3. **MEDIUM — pack lookup ignores style classes.** `resolve-icon-fonts.ts` builds
+   `fa-${glyphName}` for every FA style, so the pack's `far-*`/`fab-*` keys are never
+   consulted — `<i class="far fa-user">` silently resolves to the Solid path. Make the
+   lookup style-aware (`far`/`fab` tokens → `far-`/`fab-` keys, `fa-` fallback).
+4. **MEDIUM — no CHANGELOG entries** for any of the four commits (`[Unreleased]` is
+   empty); **README CC BY 4.0 attribution missing** (AC5 second half — header has it,
+   README does not).
+5. **LOW-MEDIUM — parity/coverage gap (AC3).** The API parity test reads only
+   `types/utils.d.ts`; extend it (or add a sibling check) to the icons-fa entry's
+   typings ↔ runtime.
+6. **LOW — artifact churn**: 3a60bae7 committed `demos/browser/js/pptxgen.bundle.js`
+   banner churn unrelated to its change. **LOW — `subsetIconPack` is O(n²)**
+   (re-serializes the growing result per candidate); rewrite with a running byte count.
+
+Status stays **Proposed** until 1–5 are closed; AC6 (downstream proof) follows the
+4.3.15 release and the converter migration. Test/lint baseline at review time:
+463 + 74 passing, Failed: 0.
