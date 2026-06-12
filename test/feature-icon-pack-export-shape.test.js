@@ -1,25 +1,34 @@
 'use strict'
-const { describe, it } = require('node:test')
-const assert = require('node:assert/strict')
 
-describe('icons-fa CJS export shape', () => {
-	const icons = require('../src/bld/icons-fa.cjs.js')
+// Feature: icons-fa CJS export shape — the pack is a flat name->glyph map,
+// not nested under a named key.
 
-	it('icons["fa-anchor"] has w, h, d', () => {
-		assert.equal(typeof icons['fa-anchor'], 'object')
-		assert.ok('w' in icons['fa-anchor'])
-		assert.ok('h' in icons['fa-anchor'])
-		assert.ok('d' in icons['fa-anchor'])
-	})
+const { assert } = require('./helpers')
+const icons = require('../src/bld/icons-fa.cjs.js')
 
-	it('icons["fa-user"] has w, h, d', () => {
-		assert.equal(typeof icons['fa-user'], 'object')
-		assert.ok('w' in icons['fa-user'])
-		assert.ok('h' in icons['fa-user'])
-		assert.ok('d' in icons['fa-user'])
-	})
-
-	it('icons are NOT nested under a named key', () => {
-		assert.equal(icons['FA_ICONS'], undefined)
-	})
-})
+module.exports = [
+	{
+		name: 'icon-pack-export-shape: icons["fa-anchor"] has w, h, d',
+		fn: async () => {
+			assert(typeof icons['fa-anchor'] === 'object', 'fa-anchor must be an object')
+			assert('w' in icons['fa-anchor'], 'fa-anchor must have w')
+			assert('h' in icons['fa-anchor'], 'fa-anchor must have h')
+			assert('d' in icons['fa-anchor'], 'fa-anchor must have d')
+		},
+	},
+	{
+		name: 'icon-pack-export-shape: icons["fa-user"] has w, h, d',
+		fn: async () => {
+			assert(typeof icons['fa-user'] === 'object', 'fa-user must be an object')
+			assert('w' in icons['fa-user'], 'fa-user must have w')
+			assert('h' in icons['fa-user'], 'fa-user must have h')
+			assert('d' in icons['fa-user'], 'fa-user must have d')
+		},
+	},
+	{
+		name: 'icon-pack-export-shape: icons are NOT nested under a named key',
+		fn: async () => {
+			assert(icons['FA_ICONS'] === undefined, 'pack must not be nested under FA_ICONS')
+		},
+	},
+]

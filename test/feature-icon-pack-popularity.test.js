@@ -4,7 +4,7 @@
 
 const { assert } = require('./helpers')
 const { subsetIconPack } = require('../src/bld/utils.cjs.js')
-const { FA_ICONS } = require('../src/bld/icons-fa.cjs.js')
+const FA_ICONS = require('../src/bld/icons-fa.cjs.js')
 
 module.exports = [
 	{
