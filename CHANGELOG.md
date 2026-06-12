@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.16](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.16) - 2026-06-12
+
 ### Fixed
 
 - Chart schema: removed invalid `<c:invertIfNegative>` emission from scatter chart `<c:dPt>` elements — only bar/bar3D series permit this element per OOXML CT_BarSer
