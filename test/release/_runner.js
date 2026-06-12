@@ -155,6 +155,7 @@ const failures = []
 const successes = []
 const knownFails = [] // cases that failed but were marked `knownFailure`
 const unexpectedPasses = [] // cases marked `knownFailure` that passed
+const skippedCases = [] // cases that threw an error with `.skip === true` (gated tiers, e.g. powerpoint-render)
 
 async function loadAndRun () {
 	const dir = __dirname
@@ -196,7 +197,13 @@ async function loadAndRun () {
 						console.log('  ok ' + c.name)
 					}
 				} catch (e) {
-					if (c.knownFailure) {
+					if (e && e.skip === true) {
+						// Environment-gated tier (e.g. powerpoint-render on CI / without
+						// PowerPoint). Loud per-case line + counted in the summary —
+						// never a bare PASS over a skipped tier.
+						skippedCases.push({ name: c.name, reason: e.message })
+						console.log('  SKIP ' + c.name + ' — ' + e.message)
+					} else if (c.knownFailure) {
 						knownFails.push({ name: c.name, reason: c.knownFailure, error: e })
 						console.log('  KNOWN-FAIL ' + c.name + ' (' + c.knownFailure + ')')
 					} else {
@@ -245,9 +252,13 @@ async function loadAndRun () {
 	console.log(
 		'\nPassed: ' + successes.length +
 		'  Failed: ' + failures.length +
+		'  Skipped: ' + skippedCases.length +
 		'  Known-Fail: ' + knownFails.length +
 		'  Unexpected-Pass: ' + unexpectedPasses.length
 	)
+	if (skippedCases.length > 0) {
+		console.log('(' + skippedCases.length + ' case(s) skipped: ' + skippedCases.map(s => s.name).join('; ') + ')')
+	}
 	if (knownFails.length > 0) {
 		console.log('\nKnown failures (deferred bugs, not counted as failures):')
 		knownFails.forEach(k => console.log('  - ' + k.name + ' :: ' + k.reason))

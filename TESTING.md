@@ -51,13 +51,18 @@ in [CONTRIBUTING.md](./CONTRIBUTING.md).
    written by the code's author validate the author's assumptions by construction.
 7. **Real-render claims need real PowerPoint.** Schema validity is necessary, not
    sufficient — files that validate can still hit PowerPoint's repair dialog. The
-   PowerPoint render tier (`npm run test:ppt`, see
-   `docs/feature-powerpoint-render-verification.md`) drives installed Microsoft
-   PowerPoint on macOS via AppleScript: open (repair prompt = failure), slide count,
-   PNG export. Loud SKIP on CI (`CI`/`GITHUB_ACTIONS`; GitHub-hosted runners have no
-   Office — a self-hosted Mac runner opts in via `RUNNER_HAS_POWERPOINT=1`) and on
-   Macs without PowerPoint (`REQUIRE_POWERPOINT=1` escalates to failure). A skipped
-   tier must appear in the summary — never read as a bare PASS.
+   PowerPoint render tier (`npm run test:ppt`, `test/release/powerpoint.test.js`,
+   spec: `docs/feature-powerpoint-render-verification.md`; also runs inside
+   `npm run release-test`) drives installed Microsoft PowerPoint on macOS via
+   AppleScript against an 8-slide showcase deck: open (repair prompt = AppleEvent
+   timeout = failure), live slide count vs authored, PDF export, then per-slide PNG
+   rasterisation (stock PDFKit via `test/release/_pdf2png.jxa.js` — PowerPoint 26.x's
+   AppleScript `save as PNG` is a silent no-op, so PDF is the export format) with
+   each PNG asserted non-trivial (>10 KB). Loud SKIP on CI (`CI`/`GITHUB_ACTIONS`;
+   GitHub-hosted runners have no Office — a self-hosted Mac runner opts in via
+   `RUNNER_HAS_POWERPOINT=1`) and on Macs without PowerPoint (`REQUIRE_POWERPOINT=1`
+   escalates to failure). A skipped tier must appear in the summary — never read as
+   a bare PASS.
 
 ---
 

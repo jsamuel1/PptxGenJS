@@ -1,6 +1,16 @@
 # Feature: Real-render verification via Microsoft PowerPoint (macOS)
 
-> **Status:** Proposed
+> **Status:** Implemented (2026-06-12) — `test/release/powerpoint.test.js` +
+> `test/release/_pdf2png.jxa.js`, wired as `npm run test:ppt` and into
+> `npm run release-test`. **Implementation deviation:** PowerPoint 26.x's
+> AppleScript `save … as save as PNG` is a silent no-op (returns success, writes
+> nothing — verified against /tmp, $HOME and the app's sandbox container), while
+> `save as PDF` works. The tier therefore exports PDF and rasterises one PNG per
+> page with stock PDFKit (JXA), preserving the per-slide count + non-trivial-size
+> assertions. Acceptance criteria validated on PowerPoint 26.5 / macOS 26.5:
+> green run (8-slide showcase), CI=1 loud-skip exit 0, and a corrupted
+> `ppt/presentation.xml` copy blocking on the repair path (-1712 with the process
+> running → diagnostic failure).
 > **Priority:** High (testing infrastructure — schema validation proves the OOXML is
 > well-formed; only PowerPoint's own engine proves the artifacts open and render)
 

@@ -15,6 +15,10 @@ These apply to **every** release, automated or manual, human- or agent-initiated
    reachable from the package's public surface.)*
 2. **Full suite green**: `npm test` ends `Failed: 0` on both suites — this includes
    `test/feature-api-parity.test.js` (typed surface ↔ runtime surface).
+   When releasing from a Mac with PowerPoint installed, `npm run test:ppt` must also
+   pass (real-render tier: the deck opens in actual PowerPoint without a repair
+   prompt — see TESTING.md convention 7). On CI it skips loudly; the skip must be
+   visible in the run output, not silently absent.
 3. **Consumer proof for new public API**: after `npm run ship`,
    `node -e "console.log(typeof require('./dist/utils.cjs.js').newFn)"` prints
    `function` for each API the release advertises.

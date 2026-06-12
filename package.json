@@ -50,7 +50,8 @@
 		"test": "node test/run.js && node test/run-schema.js",
 		"schema-test": "node test/run-schema.js",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
-		"release-test": "npm test && node test/release/_runner.js"
+		"release-test": "npm test && node test/release/_runner.js",
+		"test:ppt": "npm run build && node test/release/powerpoint.test.js"
 	},
 	"browser": {
 		"express": false,
