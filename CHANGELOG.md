@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation restructure: feature specs moved to `docs/features/`; new
+  `docs/architecture/overview.md` (system overview) and
+  `docs/architecture/decisions/` (lightweight ADR register seeded with the seven
+  standing decisions). Guidance files (README-Fork, CONTRIBUTING, AGENTS, PROMPT)
+  carry the documentation-maintenance rules; stale facts corrected (PROMPT Phase 0
+  marked completed, README-Fork roadmap pointed at the live backlog). No code or
+  published-artifact changes.
+
 ## [4.3.16](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.16) - 2026-06-12
 
 ### Fixed

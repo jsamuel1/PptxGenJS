@@ -279,27 +279,26 @@ slide.addText('', {
 
 | Document | Purpose |
 |----------|---------|
-| `CONTRIBUTING.md` | Contribution conventions — spec lifecycle, public-API definition of done, git discipline |
+| `CONTRIBUTING.md` | Contribution conventions — spec lifecycle, public-API definition of done, git discipline, documentation layers |
 | `TESTING.md` | Automated test conventions + manual platform matrix |
 | `RELEASING.md` | Release gates and process |
-| `PROMPT.md` | Full feature spec with OOXML examples, proposed APIs, and priority roadmap |
+| `PROMPT.md` | The ordered work plan (phases, release checkpoints) |
+| `docs/architecture/overview.md` | System overview — entries, module map, build/release, verification |
+| `docs/architecture/decisions/` | Architecture decision register (lightweight ADRs) |
+| `docs/features/` | Feature specs — one contract per feature, with status |
+| `docs/FEATURE-MATRIX.md` | OOXML format-coverage reference |
 | `CHANGELOG.md` | All changes in Keep a Changelog format |
 | `.autoloop/bug-report.md` | Bug fix traceability (commit SHAs, repro steps) |
 | `README.md` | Original upstream readme (unchanged) |
 
 ---
 
-## Roadmap (proposed, not yet implemented)
+## Roadmap
 
-See `PROMPT.md` for full specs. Priority order:
-
-1. `flyIn` animation (directional translate — OOXML spec ready)
-2. Auto-fit text shrink on overflow (`<a:normAutofit>`)
-3. Multi-column text (`numCol` attribute — very low effort)
-4. Shape grouping (`<p:grpSp>` with relative child coordinates)
-5. Callout/badge sugar (convenience wrapper for `roundRect` + centered text)
-6. Shadow & glow effects (`<a:effectLst>`)
-7. SVG-to-shape conversion (custom geometry paths — v2)
+The ordered backlog lives in `PROMPT.md` (phases with release checkpoints);
+per-feature contracts and statuses in `docs/features/`; format-surface status in
+`docs/FEATURE-MATRIX.md`. (The early-fork roadmap that used to sit here —
+animations, multi-column text, grouping, effects, SVG-to-shape — has shipped.)
 
 ---
 

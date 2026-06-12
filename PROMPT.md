@@ -105,15 +105,17 @@ from a local machine. Follow the
 
 ---
 
-## Phase 0 — Make the test suite green (BLOCKING)
+## Phase 0 — Make the test suite green (BLOCKING) — ✅ COMPLETED
 
-`npm test` currently ends `Passed: 34  Failed: 8` on the schema suite, which
-means CI is red and `publish.yml` (which runs `npm test`) is blocked. These 8
-failures were added by the "Added tests" work and expose **real chart/gradient
-emission bugs**. Fix the code; do not weaken the tests.
+**Done.** The five root causes below were fixed and released (see the
+`invertIfNegative`/`varyColors`/scatter/clamping entries in `CHANGELOG.md`);
+CI has been green through the subsequent 4.3.x releases. The detail is kept
+for the regression record — if any of these resurface, the analysis below is
+the map. The standing rules it produced are ground rules 2 and 4
+(schema-validate everything; clamp, don't crash) and
+[ADR-0005](docs/architecture/decisions/0005-schema-validate-clamp.md).
 
-Run `node test/run-schema.js` to reproduce. The failures group into 5 root
-causes:
+The original failures grouped into 5 root causes:
 
 ### 0.1 — `<c:invertIfNegative>` emitted for non-bar chart types
 - **Symptom:** `area`, `radar`, `line`, `combo` fixtures fail:
@@ -332,6 +334,12 @@ preserve them verbatim.
 
 ## Reference
 
+- **Architecture:** [`docs/architecture/overview.md`](docs/architecture/overview.md)
+  (entries, module map, build/release, verification); decisions in
+  [`docs/architecture/decisions/`](docs/architecture/decisions/README.md) — read the
+  ADRs before proposing a direction change, and record one when you make one.
+- **Feature specs:** [`docs/features/`](docs/features/) (one contract per feature;
+  the `> **Status:**` line in each spec is authoritative).
 - **Format coverage map:** [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md)
 - **Changelog:** `CHANGELOG.md` (Keep a Changelog; add to `## [Unreleased]`).
 - **User-facing docs:** `website/docs/*.md` (Docusaurus) — `api-shapes.md`,

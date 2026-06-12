@@ -12,8 +12,15 @@ You are working in the PptxGenJS fork. Before any work, internalise:
 2. **[CONTRIBUTING.md](./CONTRIBUTING.md)** / **[TESTING.md](./TESTING.md)** /
    **[RELEASING.md](./RELEASING.md)** — canonical conventions: spec lifecycle,
    definition of done for public APIs, explicit-path staging, release gates and the
-   push→dispatch→watch-both→pull-back procedure.
-3. **[PROMPT.md](./PROMPT.md)** — the ordered work queue; `autoloop task list` is
+   push→dispatch→watch-both→pull-back procedure, documentation layers.
+3. **[docs/architecture/](./docs/architecture/overview.md)** — the system picture
+   and the **decision register**
+   ([decisions/](./docs/architecture/decisions/README.md)). ADRs record directions
+   already chosen *and rejected* — re-proposing a superseded direction without new
+   evidence is an intent deviation. If your change alters the public surface, a
+   seam, or chooses a new direction, update the overview / add an ADR in the same
+   commit (rules in CONTRIBUTING.md → Documentation).
+4. **[PROMPT.md](./PROMPT.md)** — the ordered work queue; `autoloop task list` is
    the shared steering channel — check it every iteration and mark items complete.
 
 **Verification gate (all roles):** a test run passes if and only if the command

@@ -76,8 +76,22 @@ investigating tests that had been green for days.)*
 Every behaviour change updates, in the same commit (not as an afterthought):
 
 - `CHANGELOG.md` under `## [Unreleased]` (Keep-a-Changelog subsections).
+- The relevant `docs/features/feature-*.md` spec's Status.
 - `docs/FEATURE-MATRIX.md` row status, where applicable.
 - `website/docs/*.md` user-facing API docs, where a relevant page exists.
+
+Two further layers, also same-commit (see "Keep facts fresh"):
+
+- **[`docs/architecture/overview.md`](./docs/architecture/overview.md)** — the system
+  picture. A change that alters the public surface, the module map, or the
+  build/release shape described there updates it.
+- **[`docs/architecture/decisions/`](./docs/architecture/decisions/README.md)** — the
+  ADR register. A change that *chooses a direction* (a seam, a public-surface
+  posture, an invariant, a strategy reversal — anything with real alternatives that
+  constrains future work) records a short ADR; a change that reverses one updates
+  the old ADR's Status to `Superseded by NNNN`. Feature specs do not need ADRs; the
+  decisions specs *rest on* do. Read the register before proposing a direction
+  change.
 
 ## Verify before commit
 
