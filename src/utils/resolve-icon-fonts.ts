@@ -144,8 +144,16 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
 
 	// 2) pack — caller-injected icon pack; checked before bundled so packs can override defaults.
 	if (opts.pack) {
-		const packKey = desc.fontFamily === 'fa' ? `fa-${desc.glyphName}` : `${desc.fontFamily}-${desc.glyphName}`
-		const entry = opts.pack[packKey]
+		let entry: { w: number; h: number; d: string } | undefined
+		if (desc.fontFamily === 'fa') {
+			// Try style-prefixed key first (e.g. far-user, fab-github) before generic fa-name
+			const tokens = classTokens(desc.className)
+			const style = tokens.find(t => /^(fas|far|fab|fal|fad|fat)$/.test(t))
+			if (style) entry = opts.pack[`${style}-${desc.glyphName}`]
+			if (!entry) entry = opts.pack[`fa-${desc.glyphName}`]
+		} else {
+			entry = opts.pack[`${desc.fontFamily}-${desc.glyphName}`]
+		}
 		if (entry) {
 			const part: ResolvedSvgPart = { d: entry.d, viewBox: { w: entry.w, h: entry.h }, fill: defaultFill, mode: 'fill', source: 'pack' }
 			return [part]
