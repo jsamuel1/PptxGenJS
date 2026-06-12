@@ -35,6 +35,15 @@ in [CONTRIBUTING.md](./CONTRIBUTING.md).
 6. **Adversarial self-check before declaring done.** Run your new code against tricky
    inputs that are *not* in your own tests (`node -e` against the built entry). Tests
    written by the code's author validate the author's assumptions by construction.
+7. **Real-render claims need real PowerPoint.** Schema validity is necessary, not
+   sufficient — files that validate can still hit PowerPoint's repair dialog. The
+   PowerPoint render tier (`npm run test:ppt`, see
+   `docs/feature-powerpoint-render-verification.md`) drives installed Microsoft
+   PowerPoint on macOS via AppleScript: open (repair prompt = failure), slide count,
+   PNG export. Loud SKIP on CI (`CI`/`GITHUB_ACTIONS`; GitHub-hosted runners have no
+   Office — a self-hosted Mac runner opts in via `RUNNER_HAS_POWERPOINT=1`) and on
+   Macs without PowerPoint (`REQUIRE_POWERPOINT=1` escalates to failure). A skipped
+   tier must appear in the summary — never read as a bare PASS.
 
 ---
 
