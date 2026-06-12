@@ -3,4 +3,5 @@
  *
  * Re-exports the generated icon data for tree-shaking-friendly consumption.
  */
-export { FA_ICONS } from './icons-fa.generated'
+import { FA_ICONS } from './icons-fa.generated'
+export default FA_ICONS

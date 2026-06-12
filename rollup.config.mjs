@@ -98,8 +98,8 @@ export default [
 		external: externalLib,
 		plugins: basePlugins(),
 		output: [
-			{ file: './src/bld/icons-fa.cjs.js', format: 'cjs' },
-			{ file: './src/bld/icons-fa.es.js', format: 'es' },
+			{ file: './src/bld/icons-fa.cjs.js', format: 'cjs', exports: 'default' },
+			{ file: './src/bld/icons-fa.es.js', format: 'es', footer: 'export { default as FA_ICONS };' },
 		],
 	},
 
@@ -144,8 +144,8 @@ export default [
 				external: externalLib,
 				plugins: basePlugins(),
 				output: [
-					{ file: './dist/icons-fa.cjs.js', format: 'cjs', banner },
-					{ file: './dist/icons-fa.es.js', format: 'es', banner },
+					{ file: './dist/icons-fa.cjs.js', format: 'cjs', banner, exports: 'default' },
+					{ file: './dist/icons-fa.es.js', format: 'es', banner, footer: 'export { default as FA_ICONS };' },
 				],
 			},
 
