@@ -30,16 +30,48 @@ function readStyle(styleName) {
   return entries;
 }
 
+// --- Curated top-200 common icons (rank 200 down to 1; all others get 0) ---
+const TOP_ICONS = [
+  'user', 'check', 'home', 'search', 'star', 'heart', 'plus', 'minus', 'times',
+  'arrow-right', 'arrow-left', 'arrow-up', 'arrow-down',
+  'chevron-right', 'chevron-left', 'chevron-up', 'chevron-down',
+  'envelope', 'phone', 'lock', 'unlock', 'cog', 'gear', 'trash', 'edit', 'eye',
+  'download', 'upload', 'calendar', 'clock', 'bell', 'comment', 'share', 'link',
+  'external-link-alt', 'bars', 'spinner', 'circle', 'square', 'play', 'pause', 'stop',
+  'shopping-cart', 'credit-card', 'map-marker-alt', 'globe', 'book', 'file', 'folder',
+  'image', 'camera', 'video', 'music', 'microphone', 'headphones', 'wifi', 'bluetooth',
+  'battery-full', 'code', 'terminal', 'database', 'server', 'cloud', 'sun', 'moon',
+  'bolt', 'fire', 'snowflake', 'leaf', 'tree', 'bug', 'robot',
+  'github', 'twitter', 'facebook', 'linkedin', 'youtube', 'instagram', 'google',
+  'apple', 'windows', 'android', 'python', 'java', 'js', 'react', 'angular', 'vue',
+  'docker', 'aws', 'npm', 'git', 'html5', 'css3', 'wordpress', 'slack', 'discord',
+  'reddit', 'tiktok', 'spotify', 'amazon', 'microsoft', 'pinterest', 'whatsapp',
+  'telegram', 'signal', 'stripe', 'paypal', 'bitcoin', 'ethereum',
+  'anchor', 'address-book', 'clipboard', 'thumbs-up', 'thumbs-down',
+  'exclamation-triangle', 'info-circle', 'question-circle', 'check-circle',
+  'times-circle', 'ban', 'shield-alt', 'key', 'sign-in-alt', 'sign-out-alt',
+  'user-plus', 'users', 'id-badge', 'building', 'hospital', 'university',
+  'graduation-cap', 'briefcase', 'money-bill', 'chart-line', 'chart-bar', 'chart-pie',
+  'table', 'list', 'th', 'filter', 'sort', 'undo', 'redo', 'save', 'print', 'copy',
+  'paste', 'cut', 'align-left', 'align-center', 'align-right', 'bold', 'italic',
+  'underline', 'heading', 'paragraph', 'quote-left', 'palette', 'paint-brush', 'pen',
+  'pencil-alt', 'eraser', 'ruler', 'drafting-compass', 'layer-group', 'object-group',
+  'expand', 'compress', 'arrows-alt', 'sync', 'refresh', 'power-off', 'plug',
+  'desktop', 'laptop', 'mobile-alt', 'tablet-alt', 'keyboard', 'mouse', 'hdd',
+  'memory', 'microchip', 'sitemap', 'project-diagram', 'network-wired',
+  'broadcast-tower', 'satellite', 'rocket', 'plane', 'car', 'truck', 'bicycle',
+  'walking', 'running', 'wheelchair', 'hand-paper', 'handshake', 'flag', 'trophy',
+  'medal', 'crown', 'gem', 'ring', 'gift', 'box', 'archive', 'tag', 'tags',
+  'bookmark', 'paperclip', 'thumbtack', 'map', 'location-arrow', 'compass', 'route',
+  'road', 'directions', 'parking', 'gas-pump', 'car-battery', 'oil-can', 'tools',
+  'wrench', 'hammer', 'screwdriver', 'tape', 'toolbox',
+];
+
 // --- Load metadata ---
 function loadPopularity() {
-  const iconsPath = path.join(FA_ROOT, 'metadata/icons.yml');
-  const icons = yaml.load(fs.readFileSync(iconsPath, 'utf8'));
   const pop = {};
-  let idx = 0;
-  for (const [name, meta] of Object.entries(icons)) {
-    // No explicit popularity field exists; use reverse position (earlier = higher)
-    pop[name] = Object.keys(icons).length - idx;
-    idx++;
+  for (let i = 0; i < TOP_ICONS.length; i++) {
+    pop[TOP_ICONS[i]] = TOP_ICONS.length - i;
   }
   return pop;
 }

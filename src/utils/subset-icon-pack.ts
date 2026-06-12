@@ -62,12 +62,30 @@ export function subsetIconPack(
 	// Sort: rank descending, then name ascending for determinism
 	candidates.sort((a, b) => b.rank - a.rank || a.name.localeCompare(b.name))
 
-	// Greedily add until budget exceeded
+	// Greedily add until budget exceeded (O(n) via running byte count)
+	// JSON shape: {"key":{"w":N,"h":N,"d":"..."},...}
+	// Overhead: 2 bytes for `{}`. Each entry: `"key":{"w":N,"h":N,"d":"str"}` + comma.
+	// The first entry has no leading comma; subsequent entries add 1 byte for `,`.
+	const entryBytes = (k: string, w: number, h: number, d: string): number =>
+		JSON.stringify(k).length + 1 + // "key":
+		`{"w":${w},"h":${h},"d":${JSON.stringify(d)}}`.length
+
+	let runningBytes = 2 // `{}`
+	let entryCount = 0
+	for (const name of Object.keys(result)) {
+		const { w, h, d } = result[name]
+		if (entryCount > 0) runningBytes += 1 // comma
+		runningBytes += entryBytes(name, w, h, d)
+		entryCount++
+	}
+
 	for (const { name } of candidates) {
 		const { w, h, d } = pack[name]
-		const trial = { ...result, [name]: { w, h, d } }
-		if (JSON.stringify(trial).length > budget) break
+		const added = (entryCount > 0 ? 1 : 0) + entryBytes(name, w, h, d)
+		if (runningBytes + added > budget) break
 		result[name] = { w, h, d }
+		runningBytes += added
+		entryCount++
 	}
 
 	return result
