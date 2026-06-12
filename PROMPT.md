@@ -15,8 +15,10 @@
 
 > **Intent anchor:** the project's standing Goals live in [README-Fork.md](./README-Fork.md#goals);
 > AGENTS.md binds every role to them and the critic reviews for *intent deviations*
-> (re-skins, fabricated data, silent narrowing), not just correctness. Kick loops off
-> with `--profile repo:intent` to arm the critic's intent checklist.
+> (re-skins, fabricated data, silent narrowing), not just correctness. The critic's intent checklist
+> is armed by default (`profiles.default = "user:intent"` in the global autoloop
+> config; fragments at `~/.config/autoloops/profiles/intent/`). `--profile
+> repo:intent` additionally layers this repo's incident-specific fragment.
 >
 > **Read first, every run:** [CONTRIBUTING.md](./CONTRIBUTING.md) (spec lifecycle,
 > definition of done for public APIs, git staging discipline),
