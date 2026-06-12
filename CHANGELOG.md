@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.14](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.14) - 2026-06-12
+
 ### Added
 
 - `textOf` strips Private Use Area (PUA) codepoints by default; pass `{ keepPUA: true }` to preserve old behaviour
