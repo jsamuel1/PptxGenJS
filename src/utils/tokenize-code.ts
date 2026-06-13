@@ -36,6 +36,73 @@ const JS_KEYWORDS = new Set([
 	'typeof', 'undefined', 'var', 'void', 'while', 'with', 'yield',
 ])
 
+const PYTHON_KEYWORDS = new Set([
+	'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del',
+	'elif', 'else', 'except', 'False', 'finally', 'for', 'from', 'global', 'if', 'import',
+	'in', 'is', 'lambda', 'None', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return',
+	'True', 'try', 'while', 'with', 'yield',
+])
+
+const RUST_KEYWORDS = new Set([
+	'as', 'async', 'await', 'break', 'const', 'continue', 'crate', 'dyn', 'else', 'enum',
+	'extern', 'false', 'fn', 'for', 'if', 'impl', 'in', 'let', 'loop', 'match', 'mod',
+	'move', 'mut', 'pub', 'ref', 'return', 'self', 'Self', 'static', 'struct', 'super',
+	'trait', 'true', 'type', 'unsafe', 'use', 'where', 'while',
+])
+
+const GO_KEYWORDS = new Set([
+	'break', 'case', 'chan', 'const', 'continue', 'default', 'defer', 'else', 'fallthrough',
+	'for', 'func', 'go', 'goto', 'if', 'import', 'interface', 'map', 'package', 'range',
+	'return', 'select', 'struct', 'switch', 'type', 'var',
+])
+
+const JAVA_KEYWORDS = new Set([
+	'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class',
+	'const', 'continue', 'default', 'do', 'double', 'else', 'enum', 'extends', 'false',
+	'final', 'finally', 'float', 'for', 'if', 'implements', 'import', 'instanceof', 'int',
+	'interface', 'long', 'native', 'new', 'null', 'package', 'private', 'protected', 'public',
+	'return', 'short', 'static', 'strictfp', 'super', 'switch', 'synchronized', 'this',
+	'throw', 'throws', 'transient', 'true', 'try', 'void', 'volatile', 'while',
+])
+
+const CSS_KEYWORDS = new Set([
+	'inherit', 'initial', 'unset', 'revert', 'important', 'none', 'auto', 'block', 'flex',
+	'grid', 'inline', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'hidden',
+	'visible', 'solid', 'dashed', 'dotted', 'transparent', 'currentColor',
+])
+
+const SQL_KEYWORDS = new Set([
+	'select', 'from', 'where', 'insert', 'into', 'update', 'delete', 'create', 'drop',
+	'alter', 'table', 'index', 'view', 'join', 'inner', 'outer', 'left', 'right', 'on',
+	'and', 'or', 'not', 'in', 'is', 'null', 'as', 'order', 'by', 'group', 'having',
+	'limit', 'offset', 'union', 'all', 'distinct', 'set', 'values', 'primary', 'key',
+	'foreign', 'references', 'constraint', 'default', 'true', 'false', 'exists', 'between',
+	'like', 'case', 'when', 'then', 'else', 'end', 'count', 'sum', 'avg', 'min', 'max',
+])
+
+const BASH_KEYWORDS = new Set([
+	'if', 'then', 'else', 'elif', 'fi', 'for', 'while', 'do', 'done', 'case', 'esac',
+	'in', 'function', 'return', 'local', 'export', 'readonly', 'declare', 'unset', 'shift',
+	'exit', 'break', 'continue', 'true', 'false', 'source',
+])
+
+const LANG_MAP: Record<string, Set<string>> = {
+	javascript: JS_KEYWORDS, js: JS_KEYWORDS, typescript: JS_KEYWORDS, ts: JS_KEYWORDS, jsx: JS_KEYWORDS, tsx: JS_KEYWORDS,
+	python: PYTHON_KEYWORDS, py: PYTHON_KEYWORDS,
+	rust: RUST_KEYWORDS, rs: RUST_KEYWORDS,
+	go: GO_KEYWORDS, golang: GO_KEYWORDS,
+	java: JAVA_KEYWORDS, kotlin: JAVA_KEYWORDS, kt: JAVA_KEYWORDS,
+	css: CSS_KEYWORDS, scss: CSS_KEYWORDS, less: CSS_KEYWORDS,
+	sql: SQL_KEYWORDS, mysql: SQL_KEYWORDS, postgres: SQL_KEYWORDS, postgresql: SQL_KEYWORDS,
+	bash: BASH_KEYWORDS, shell: BASH_KEYWORDS, sh: BASH_KEYWORDS, zsh: BASH_KEYWORDS,
+}
+
+/** Resolve the keyword set for a language identifier. Defaults to JS. */
+function keywordsFor(lang?: string): Set<string> {
+	if (!lang) return JS_KEYWORDS
+	return LANG_MAP[lang.toLowerCase()] ?? JS_KEYWORDS
+}
+
 // Pattern order matters: earlier patterns take priority
 // Groups: 1=comment, 2=string, 3=number, 4=ident, 5=operator, 6=ws, 7=nl
 const TOKEN_REGEX = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|([a-zA-Z_$][a-zA-Z0-9_$]*)|([+\-*/%=<>!&|^~?:;,.{}[\]()]+)|([ \t]+)|(\n)/g
@@ -46,6 +113,7 @@ const TOKEN_REGEX = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]
 export function tokenizeCode(source: string, lang?: string): Array<{ text: string; token: TokenKind }> {
 	if (!source) return []
 
+	const keywords = keywordsFor(lang)
 	const tokens: Array<{ text: string; token: TokenKind }> = []
 	let match: RegExpExecArray | null
 	TOKEN_REGEX.lastIndex = 0
@@ -60,9 +128,9 @@ export function tokenizeCode(source: string, lang?: string): Array<{ text: strin
 			tokens.push({ text, token: 'number' })
 		} else if (match[4]) {
 			const after = source.slice(TOKEN_REGEX.lastIndex)
-			if (/^\s*\(/.test(after) && !JS_KEYWORDS.has(text)) {
+			if (/^\s*\(/.test(after) && !keywords.has(text)) {
 				tokens.push({ text, token: 'function' })
-			} else if (JS_KEYWORDS.has(text)) {
+			} else if (keywords.has(text)) {
 				tokens.push({ text, token: 'keyword' })
 			} else {
 				tokens.push({ text, token: 'plain' })

@@ -59,4 +59,47 @@ module.exports = [
 			assert(runs.length === 0, 'expected empty array from codeRuns')
 		},
 	},
+	{
+		name: 'tokenizeCode: Python lang detects def/lambda as keywords, not JS-only keywords',
+		fn: async () => {
+			const { tokenizeCode } = require('../src/bld/utils.cjs.js')
+			const tokens = tokenizeCode('def greet(name):\n  return f"hello {name}"', 'python')
+			const defTk = tokens.find(t => t.text === 'def')
+			assert(defTk && defTk.token === 'keyword', 'expected "def" as keyword in Python')
+			const returnTk = tokens.find(t => t.text === 'return')
+			assert(returnTk && returnTk.token === 'keyword', 'expected "return" as keyword in Python')
+			// "greet" should be function (followed by "(")
+			const greetTk = tokens.find(t => t.text === 'greet')
+			assert(greetTk && greetTk.token === 'function', 'expected "greet" as function in Python')
+			// "const" is NOT a Python keyword — should be plain
+			const constTokens = tokenizeCode('const x = 1', 'python')
+			const constTk = constTokens.find(t => t.text === 'const')
+			assert(constTk && constTk.token === 'plain', 'expected "const" as plain in Python (not a Python keyword)')
+		},
+	},
+	{
+		name: 'tokenizeCode: Rust lang detects fn/mut/impl as keywords',
+		fn: async () => {
+			const { tokenizeCode } = require('../src/bld/utils.cjs.js')
+			const tokens = tokenizeCode('fn main() {\n  let mut x = 5;\n}', 'rust')
+			const fnTk = tokens.find(t => t.text === 'fn')
+			assert(fnTk && fnTk.token === 'keyword', 'expected "fn" as keyword in Rust')
+			const letTk = tokens.find(t => t.text === 'let')
+			assert(letTk && letTk.token === 'keyword', 'expected "let" as keyword in Rust')
+			const mutTk = tokens.find(t => t.text === 'mut')
+			assert(mutTk && mutTk.token === 'keyword', 'expected "mut" as keyword in Rust')
+			// "main" should be function (followed by "(")
+			const mainTk = tokens.find(t => t.text === 'main')
+			assert(mainTk && mainTk.token === 'function', 'expected "main" as function in Rust')
+		},
+	},
+	{
+		name: 'tokenizeCode: unknown lang falls back to JS keywords',
+		fn: async () => {
+			const { tokenizeCode } = require('../src/bld/utils.cjs.js')
+			const tokens = tokenizeCode('const x = 1', 'unknown-lang-xyz')
+			const constTk = tokens.find(t => t.text === 'const')
+			assert(constTk && constTk.token === 'keyword', 'expected "const" as keyword with unknown lang (JS fallback)')
+		},
+	},
 ]
