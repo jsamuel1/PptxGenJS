@@ -18,6 +18,10 @@
 import { parseSvg, type SvgPart } from './parse-svg'
 import { BUNDLED_ICONS } from './bundled-icons'
 import { classTokens, detectIcon, extractCssCodepoints, type IconDescriptor } from './icon-classify'
+import { faCdnUrl, biCdnUrl, ionCdnUrl, type FaStyle } from './icon-fonts.constants'
+
+// Re-exported so existing consumers (e.g. `@jsamuel1/pptxgenjs/utils`) keep importing it from here.
+export { CDN_VERSIONS } from './icon-fonts.constants'
 
 /** How a resolved part was produced. */
 export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom' | 'pack'
@@ -80,23 +84,16 @@ function lookupBundled (desc: IconDescriptor): string | null {
 	return null
 }
 
-/** Pinned CDN versions for reproducible builds. */
-export const CDN_VERSIONS = {
-	fa: '6.7.2',
-	bi: '1.11.3',
-	ion: '7.4.0',
-} as const
-
 /** Known-font CDN URL for a descriptor, or null when the font is not in the registry. */
 function cdnUrl (desc: IconDescriptor, classTokensArr: string[]): string | null {
 	if (desc.fontFamily === 'fa' && desc.glyphName) {
-		let style = 'solid'
+		let style: FaStyle = 'solid'
 		if (classTokensArr.some(t => t === 'fab' || t === 'fa-brands')) style = 'brands'
 		else if (classTokensArr.some(t => t === 'far' || t === 'fa-regular')) style = 'regular'
-		return `https://raw.githubusercontent.com/FortAwesome/Font-Awesome/${CDN_VERSIONS.fa}/svgs/${style}/${desc.glyphName}.svg`
+		return faCdnUrl(style, desc.glyphName)
 	}
-	if (desc.fontFamily === 'bi' && desc.glyphName) return `https://cdn.jsdelivr.net/npm/bootstrap-icons@${CDN_VERSIONS.bi}/icons/${desc.glyphName}.svg`
-	if (desc.fontFamily === 'ion' && desc.glyphName) return `https://unpkg.com/ionicons@${CDN_VERSIONS.ion}/dist/svg/${desc.glyphName}.svg`
+	if (desc.fontFamily === 'bi' && desc.glyphName) return biCdnUrl(desc.glyphName)
+	if (desc.fontFamily === 'ion' && desc.glyphName) return ionCdnUrl(desc.glyphName)
 	return null
 }
 

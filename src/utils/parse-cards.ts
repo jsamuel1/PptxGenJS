@@ -26,6 +26,7 @@
 import { parseSvg } from './parse-svg'
 import type { SvgPart } from './parse-svg'
 import { detectIcon, extractCssCodepoints } from './icon-classify'
+import { ICON_FAMILIES, MATERIAL_FONT_FACE_FAMILIES, ICON_FONT_FACES } from './icon-fonts.constants'
 import type { GradientFillProps } from '../core-interfaces'
 // Shared, dependency-free HTML tree-builder + helpers (promoted out of this file — see
 // docs/features/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
@@ -149,10 +150,6 @@ function findFirst (root: HNode, pred: (e: HNode) => boolean, skip?: Set<HNode>)
 	return null
 }
 
-/** Is this class token a Font-Awesome marker (`fa`, `fas`, `far`, `fab`, … or `fa-*`)? */
-/** Known icon-font family prefixes that `detectIcon` resolves from class tokens. */
-const ICON_FAMILIES = new Set(['fa', 'bi', 'ph', 'ion', 'icon', 'material-icons', 'material-symbols', 'material-icons-outlined', 'material-symbols-outlined'])
-
 /** Returns true when an `<i>`/`<span>` element carries any recognised icon-font classes. */
 function isIconEl (el: HNode): boolean {
 	if (el.tag !== 'i' && el.tag !== 'span') return false
@@ -169,15 +166,15 @@ function isIconEl (el: HNode): boolean {
  */
 function fontFaceFor (family: string, classes: string[]): string {
 	if (family === 'fa') {
-		if (classes.some(c => c === 'fab' || c === 'fa-brands')) return 'Font Awesome 6 Brands'
-		if (classes.some(c => c === 'far' || c === 'fa-regular')) return 'Font Awesome 6 Free Regular'
-		return 'Font Awesome 6 Free Solid'
+		if (classes.some(c => c === 'fab' || c === 'fa-brands')) return ICON_FONT_FACES.faBrands
+		if (classes.some(c => c === 'far' || c === 'fa-regular')) return ICON_FONT_FACES.faRegular
+		return ICON_FONT_FACES.faSolid
 	}
-	if (family === 'bi') return 'Bootstrap Icons'
-	if (family === 'ph') return 'Phosphor'
-	if (family === 'ion') return 'Ionicons'
-	if (family === 'material-icons' || family === 'material-symbols-outlined' || family === 'material-icons-outlined') return 'Material Icons'
-	return family || 'Font Awesome 6 Free'
+	if (family === 'bi') return ICON_FONT_FACES.bi
+	if (family === 'ph') return ICON_FONT_FACES.ph
+	if (family === 'ion') return ICON_FONT_FACES.ion
+	if (MATERIAL_FONT_FACE_FAMILIES.has(family)) return ICON_FONT_FACES.material
+	return family || ICON_FONT_FACES.faDefault
 }
 
 /** First class of `classes` that has a `::before` codepoint in `cssCodepoints`, as a glyph char. */

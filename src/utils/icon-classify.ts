@@ -8,13 +8,7 @@
  * one classifier and cannot drift in how they recognise Font Awesome / Bootstrap / Phosphor /
  * Ionicons / Material families. Behaviour is byte-identical to the original private helpers.
  */
-
-/** Font-Awesome class tokens that are STYLE/utility modifiers, not glyph names. */
-const FA_MODIFIERS = new Set([
-	'solid', 'regular', 'brands', 'light', 'thin', 'duotone', 'sharp', 'fw', 'lg', 'sm', 'xs',
-	'spin', 'pulse', 'border', 'inverse', 'stack', 'stack-1x', 'stack-2x', 'li', 'rotate-90',
-	'rotate-180', 'rotate-270', 'flip-horizontal', 'flip-vertical', '2x', '3x', '4x', '5x',
-])
+import { FA_MODIFIERS } from './icon-fonts.constants'
 
 /** Classified icon-font element. */
 export interface IconDescriptor {
