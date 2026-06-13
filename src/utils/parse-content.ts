@@ -213,11 +213,11 @@ function stripPrefix (full: string, marker: string): string {
 	return full.replace(marker, '').trim()
 }
 
-/** Strip surrounding straight/curly/guillemet quote glyphs from `s`. */
+/** Strip surrounding straight/curly/guillemet/CJK quote glyphs from `s`. */
 function stripQuoteGlyphs (s: string): string {
 	return s
-		.replace(/^[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB]+/, '')
-		.replace(/[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB]+$/, '')
+		.replace(/^[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D\u300E\u300F]+/, '')
+		.replace(/[\s"'\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D\u300E\u300F]+$/, '')
 		.trim()
 }
 
@@ -284,11 +284,17 @@ export function parseTimeline (input: string | HNode, opts: ParseContentOptions 
 export function parseQuote (input: string | HNode, opts: ParseContentOptions = {}): QuoteData | null {
 	const root = toRoot(input)
 	const exclPat = opts.excludeWithin
-	const candidates = [...query(root, 'blockquote'), ...query(root, '.quote-text')]
+	const candidates = [...query(root, 'blockquote'), ...query(root, '.quote-text'), ...query(root, 'q')]
 	const quoteEl = candidates.find(el => !exclPat || !isExcluded(el, exclPat)) || null
 	if (!quoteEl) return null
-	const attrEl = queryOne(quoteEl, 'cite') || queryOne(quoteEl, '.quote-attr')
+
+	// Attribution: cite > .quote-attr > footer (inside quote) > figcaption (sibling in <figure>)
+	let attrEl = queryOne(quoteEl, 'cite') || queryOne(quoteEl, '.quote-attr') || queryOne(quoteEl, 'footer')
+	if (!attrEl && quoteEl.parent && quoteEl.parent.tag === 'figure') {
+		attrEl = queryOne(quoteEl.parent, 'figcaption') || null
+	}
 	const attribution = attrEl ? textOf(attrEl).trim() : undefined
+
 	let text = textOf(quoteEl).trim()
 	if (attribution) text = text.replace(attribution, '').trim()
 	text = stripQuoteGlyphs(text)

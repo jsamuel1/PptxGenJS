@@ -8,7 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const JSZip = require('jszip')
-const { parseCards, parseBadges } = require('../src/bld/utils.cjs.js')
+const { parseCards, parseBadges, parseQuote } = require('../src/bld/utils.cjs.js')
 const PptxGenJS = require('../src/bld/pptxgen.cjs.js')
 const { assert } = require('./helpers')
 const { isInstalled, validateBuf } = require('./validator')
@@ -444,6 +444,49 @@ module.exports = [
 			assert(badges[0] === 'New', 'badge0 New; got ' + badges[0])
 			assert(badges[1] === 'Sale', 'badge1 Sale; got ' + badges[1])
 			assert(badges[2] === 'Hot', 'badge2 Hot; got ' + badges[2])
+		},
+	},
+	{
+		name: 'parseQuote: WHATWG figure > blockquote + figcaption attribution',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/quote-whatwg.html'), 'utf8')
+			const figure = html.match(/<div id="figure-quote">[\s\S]*?<\/div>\s*\n/)[0]
+			const q = parseQuote(figure)
+			assert(q !== null, 'parseQuote returned null for figure pattern')
+			assert(q.attribution === 'William Gibson', 'attribution; got ' + q.attribution)
+			assert(q.text.includes('future is already here'), 'text; got ' + q.text)
+		},
+	},
+	{
+		name: 'parseQuote: footer attribution inside blockquote',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/quote-whatwg.html'), 'utf8')
+			const footer = html.match(/<div id="footer-quote">[\s\S]*?<\/div>\s*\n/)[0]
+			const q = parseQuote(footer)
+			assert(q !== null, 'parseQuote returned null for footer pattern')
+			assert(q.attribution === 'Arthur C. Clarke', 'attribution; got ' + q.attribution)
+			assert(q.text.includes('sufficiently advanced technology'), 'text; got ' + q.text)
+		},
+	},
+	{
+		name: 'parseQuote: inline <q> element supported',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/quote-whatwg.html'), 'utf8')
+			const qEl = html.match(/<div id="q-element">[\s\S]*?<\/div>\s*\n/)[0]
+			const q = parseQuote(qEl)
+			assert(q !== null, 'parseQuote returned null for <q> element')
+			assert(q.text.includes('To be or not to be'), 'text; got ' + q.text)
+		},
+	},
+	{
+		name: 'parseQuote: CJK quote glyphs stripped',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/quote-whatwg.html'), 'utf8')
+			const cjk = html.match(/<div id="cjk-quote">[\s\S]*?<\/div>\s*$/m)[0]
+			const q = parseQuote(cjk)
+			assert(q !== null, 'parseQuote returned null for CJK quote')
+			assert(!q.text.includes('\u300C') && !q.text.includes('\u300D'), 'CJK glyphs not stripped; got ' + q.text)
+			assert(q.text === '未来はすでにここにある', 'text; got ' + q.text)
 		},
 	},
 ]
