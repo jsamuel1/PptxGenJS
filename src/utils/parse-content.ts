@@ -21,7 +21,7 @@
  */
 import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf } from './html-dom'
 import type { HNode } from './html-dom'
-import { parseStyleSheets, colorOf, cssProp, EMPTY_CSS } from './css-context'
+import { parseStyleSheets, colorOf, cssProp, flexInfoOf, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
 
 /** A single parsed table cell, shaped to map onto `slide.addTable()` rows. */
@@ -167,6 +167,11 @@ export function parseColumns (input: string | HNode, opts: ParseContentOptions =
 		}
 		// (b) CSS column-count / columns shorthand ≥ 2 → each top-level block child is a column
 		if (columnCountOf(el, ctx) >= 2) {
+			return childEls.map(c => ({ text: textOf(c).trim() }))
+		}
+		// (c) flex row layout with ≥ 2 children → each child is a column
+		const fi = flexInfoOf(el, ctx)
+		if (fi && fi.direction === 'row') {
 			return childEls.map(c => ({ text: textOf(c).trim() }))
 		}
 	}

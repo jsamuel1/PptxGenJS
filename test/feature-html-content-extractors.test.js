@@ -142,6 +142,18 @@ module.exports = [
 			assert(c2 !== null && c2.length === 2, 'column children should still yield 2 columns; got: ' + JSON.stringify(c2))
 		},
 	},
+	{
+		name: 'parseColumns: flex row layout detected as columns (Slice 6)',
+		fn: async () => {
+			const fs = require('fs')
+			const html = fs.readFileSync('test/fixtures/foreign/columns-flex.html', 'utf8')
+			const cols = parseColumns(html)
+			assert(cols !== null, 'flex row with 2 children should yield columns; got null')
+			assert(cols.length === 2, 'expected 2 columns; got: ' + cols.length)
+			assert(/Left column/.test(cols[0].text), 'col 0 text; got: ' + cols[0].text)
+			assert(/Right column/.test(cols[1].text), 'col 1 text; got: ' + cols[1].text)
+		},
+	},
 	// ── Slice 2b: parseTimeline / parseQuote / parseBadges / parseCallout ──────────────────
 	{
 		name: 'parseTimeline: explicit .timeline-item + .time marker (spec fixture)',
