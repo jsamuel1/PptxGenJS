@@ -49,3 +49,15 @@ to write entities in script strings (they aren't — plain JS). Most likely no
 downstream change is needed, but its CONFIG guard test (`&amp;middot;` stays
 `&middot;`) will surface the flip immediately. Release in a minor version with a
 CHANGELOG `### Changed` entry naming `textOf` + script/style.
+
+### Resolved — 2026-06-13
+
+Shipped (status Implemented). The predicted polarity flip happened exactly as
+described: `textOf(script)` now returns raw `&middot;`, so html-to-pptx's CONFIG
+guard test went red. The downstream half is complete — html-to-pptx re-added the
+decode, choosing to normalise CONFIG display fields (author/footers/copyright) once
+at its `extractConfig` boundary (strip-tags-then-`decodeEntities`) so every consumer
+gets clean text. Deck authors do in practice write HTML entities in CONFIG strings
+(the reference deck uses `&middot;`), so the decode is wanted — it belongs to the
+converter's CONFIG-format convention, not to `textOf`. No further library change
+needed; this consumer coordination is closed.
