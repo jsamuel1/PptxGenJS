@@ -149,6 +149,21 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 
 ---
 
+## 7. HTML content extraction (`@jsamuel1/pptxgenjs/utils`)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| `parseCards` — grid/flex/list card detection | ✅ Done | Bootstrap, Tailwind, MUI; custom selectors via pattern options |
+| `parseBadges` — badge/pill/chip extraction | ✅ Done | Anchored class matching; unified vocabulary across parsers |
+| `parseQuote` — blockquote/figure/q attribution | ✅ Done | WHATWG `figure>blockquote+figcaption`, `<footer>`, `<q>`, CJK glyphs |
+| `parseTimeline` — chronological row extraction | ✅ Done | `<time datetime>` support; locale-independent; dedup-safe |
+| `parseTable` — HTML table → slide table | ✅ Done | `colspan`/`rowspan` spanning |
+| `parseColumns` — multi-column detection | ✅ Done | CSS Grid, `column-count`, and Flexbox paths |
+| `tokenizeCode` — syntax highlighting tokenizer | ✅ Done | Explicit `lang` param; class-based fallback |
+| Icon font resolver — CDN font loading | ✅ Done | FA/Bootstrap Icons/Ionicons; pinned CDN versions; default-off (`useCdn`) |
+
+---
+
 ## Roadmap ordering
 
 The work order (driven from this matrix) lives in [`PROMPT.md` → Implementation Roadmap](../PROMPT.md#implementation-roadmap). Summary:

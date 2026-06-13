@@ -1,6 +1,6 @@
 # Feature: Extractor correctness on foreign frameworks
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** High — silently-wrong output on Bootstrap/Tailwind/MUI, the top
 > real-world inputs. Source: overfitting audit 2026-06-13, all items
 > execution-verified (harness preserved at test/fixtures/foreign/_roast-harness.js).

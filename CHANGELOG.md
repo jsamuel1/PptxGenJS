@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Foreign-framework test fixtures under `test/fixtures/foreign/` covering Bootstrap, Tailwind, MUI, and WHATWG patterns
+- `parseQuote` supports `<q>` inline quote elements, `<footer>` attribution, and `figure > blockquote + figcaption` (WHATWG-canonical pattern)
+- `parseTimeline` supports `<time datetime="...">` elements as time markers
+- `parseTable` supports `colspan` and `rowspan` spanning (header and body cells)
+- `parseColumns` supports CSS `flex` container detection (in addition to CSS Grid and `column-count`)
+- `parseCards` pattern options: `titleSelector`, `descSelector`, `badgeSelector`, `imageSelector` for custom card structures
+- Icon font resolver `fontFaceFor()` helper; icon layer detects non-FA icon families and skips FA-only resolution
+- `tokenizeCode` accepts an explicit `lang` parameter to override class-based detection
+- `CDN_VERSIONS` constant exported from `@jsamuel1/pptxgenjs/utils` with pinned CDN dependency versions (FA 6.7.2, BI 1.11.3, Ion 7.4.0)
+
+### Fixed
+
+- `parseCards` title/description extraction: DESC_PAT/TITLE_PAT use end-anchored class matching to prevent Bootstrap `card-body`/Tailwind `text-lg` false positives; heading fallback extended through `h6`; title subtree excluded from description; direct text nodes reachable in `textBlocks`
+- `parseBadges` regex anchored to prevent "vintage"/"caterpillar"/"heritage" false positives; unified badge vocabulary with `parse-cards` (added `chip`)
+- `stripQuoteGlyphs` includes CJK quote glyphs 「」『』(\u300C–\u300F)
+- `parseTimeline` container-swallow dedup: prefers innermost element over ancestor (fixes duplicate rows); multi-child body joined with ` — ` separator
+- Icon font resolver `useCdn` defaults to `false` (no network calls without explicit opt-in); CDN URLs pinned to specific versions
+
 ## [4.3.17](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.17) - 2026-06-12
 
 ### Changed
