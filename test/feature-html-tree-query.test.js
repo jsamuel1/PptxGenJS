@@ -274,6 +274,39 @@ module.exports = [
 			assert(decodeEntities('&Amp;') === '&Amp;', '&Amp; passes through (not same as &amp;)')
 		},
 	},
+	{
+		name: 'rawtext: textOf(<script>) returns verbatim source (no entity decoding)',
+		fn: async () => {
+			const root = parseHtml('<script>a = "&amp;" + "&middot;"</script>')
+			const script = query(root, 'script')[0]
+			assert(textOf(script) === 'a = "&amp;" + "&middot;"', 'script text must be verbatim; got: ' + textOf(script))
+		},
+	},
+	{
+		name: 'rawtext: textOf(<style>) returns verbatim source (no entity decoding)',
+		fn: async () => {
+			const root = parseHtml('<style>.x::before{content:"&quot;"}</style>')
+			const style = query(root, 'style')[0]
+			assert(textOf(style) === '.x::before{content:"&quot;"}', 'style text must be verbatim; got: ' + textOf(style))
+		},
+	},
+	{
+		name: 'rawtext: textarea/title still decode entities (escapable-raw-text)',
+		fn: async () => {
+			const root = parseHtml('<textarea>&amp; &lt;</textarea><title>&amp; test</title>')
+			const ta = query(root, 'textarea')[0]
+			const title = query(root, 'title')[0]
+			assert(textOf(ta) === '& <', 'textarea must decode; got: ' + textOf(ta))
+			assert(textOf(title) === '& test', 'title must decode; got: ' + textOf(title))
+		},
+	},
+	{
+		name: 'rawtext: normal element text still decodes entities',
+		fn: async () => {
+			const root = parseHtml('<p>&amp; &lt; &gt;</p>')
+			assert(textOf(query(root, 'p')[0]) === '& < >', 'normal text must decode; got: ' + textOf(query(root, 'p')[0]))
+		},
+	},
 ]
 
 /** Count every element (non-text, non-root) node — for the universal-selector assertion. */

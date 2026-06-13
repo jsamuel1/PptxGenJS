@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `textOf` no longer decodes HTML entities in `<script>` and `<style>` content (raw-text elements per HTML spec); `textarea`/`title` and all other elements continue to decode as before
+
 ## [4.3.20](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.20) - 2026-06-13
 
 ### Changed

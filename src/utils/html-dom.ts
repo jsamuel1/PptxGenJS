@@ -217,9 +217,11 @@ export function parseHtml (html: string): HNode {
 	const stack: HNode[] = [root]
 	const top = (): HNode => stack[stack.length - 1]
 	const addChild = (node: HNode): void => { node.parent = top(); top().children.push(node) }
+	const RAW_TEXT_TAGS = new Set(['script', 'style'])
 	const addText = (raw: string): void => {
 		if (raw.length === 0) return
-		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text: decodeHtmlEntities(raw) })
+		const text = RAW_TEXT_TAGS.has(top().tag) ? raw : decodeHtmlEntities(raw)
+		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text })
 	}
 
 	let i = 0

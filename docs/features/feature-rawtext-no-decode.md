@@ -1,6 +1,6 @@
 # Feature: raw-text elements — no entity decoding in `<script>`/`<style>`
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Low (correctness/conformance; coordinate with html-to-pptx before
 > shipping — its CONFIG extraction currently relies on the non-conformant behaviour)
 
