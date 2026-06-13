@@ -213,6 +213,17 @@ function stripPrefix (full: string, marker: string): string {
 	return full.replace(marker, '').trim()
 }
 
+/** Collect body text from `el` excluding the subtree rooted at `exclude`, joining child blocks with ` — `. */
+function bodyWithout (el: HNode, exclude: HNode): string {
+	const parts: string[] = []
+	for (const child of el.children) {
+		if (child === exclude || isAncestorOrSelf(child, exclude)) continue
+		const t = textOf(child).trim()
+		if (t) parts.push(t)
+	}
+	return parts.join(' \u2014 ')
+}
+
 /** Strip surrounding straight/curly/guillemet/CJK quote glyphs from `s`. */
 function stripQuoteGlyphs (s: string): string {
 	return s
@@ -250,22 +261,40 @@ export function parseTimeline (input: string | HNode, opts: ParseContentOptions 
 		for (const el of rowEls) {
 			if (exclPat && isExcluded(el, exclPat)) continue
 			const full = textOf(el).trim()
-			const timeEl = queryOne(el, '.time') || queryOne(el, '.timeline-time')
-			const marker = timeEl ? textOf(timeEl).trim() : (leadingTime(full) || '')
-			rows.push({ marker, body: stripPrefix(full, marker) })
+			// Prefer <time datetime> → .time → .timeline-time → leading regex
+			const dtEl = queryOne(el, 'time[datetime]')
+			const timeEl = dtEl || queryOne(el, '.time') || queryOne(el, '.timeline-time')
+			const marker = dtEl ? (dtEl.attrs.datetime || textOf(dtEl).trim())
+				: timeEl ? textOf(timeEl).trim()
+				: (leadingTime(full) || '')
+			const body = timeEl ? bodyWithout(el, timeEl) : stripPrefix(full, marker)
+			rows.push({ marker, body })
 		}
 		if (rows.length > 0) return rows
 	}
 
-	// (b) HEURISTIC — elements whose text starts with a time token, de-duped by nested-wrapper.
+	// (b) HEURISTIC — elements whose text starts with a time token OR containing <time datetime>.
+	const hasTime = (el: HNode): string | null => {
+		const dtEl = queryOne(el, 'time[datetime]')
+		if (dtEl) return dtEl.attrs.datetime || textOf(dtEl).trim() || null
+		return leadingTime(textOf(el))
+	}
 	const cands = elements(root).filter(el =>
-		(!exclPat || !isExcluded(el, exclPat)) && leadingTime(textOf(el)) !== null)
+		(!exclPat || !isExcluded(el, exclPat)) &&
+		!(el.tag === 'time' && el.attrs.datetime) &&
+		hasTime(el) !== null)
+	// De-dup: prefer INNERMOST — drop el if it is an ancestor of another candidate with the same time
 	const kept = cands.filter(el => {
-		const t = leadingTime(textOf(el))
-		return !cands.some(o => o !== el && isAncestorOrSelf(o, el) && leadingTime(textOf(o)) === t)
+		const t = hasTime(el)
+		return !cands.some(o => o !== el && isAncestorOrSelf(el, o) && hasTime(o) === t)
 	})
 	if (kept.length === 0) return null
 	return kept.map(el => {
+		const dtEl = queryOne(el, 'time[datetime]')
+		if (dtEl) {
+			const marker = dtEl.attrs.datetime || textOf(dtEl).trim()
+			return { marker, body: bodyWithout(el, dtEl) }
+		}
 		const full = textOf(el).trim()
 		const marker = leadingTime(full) || ''
 		return { marker, body: stripPrefix(full, marker) }

@@ -208,4 +208,40 @@ module.exports = [
 			assert(parseCallout('<p>x</p>') === null, 'prose → parseCallout null')
 		},
 	},
+	{
+		name: 'parseTimeline: <time datetime> as marker source (heuristic, German locale)',
+		fn: async () => {
+			const fs = require('fs')
+			const html = fs.readFileSync(require('path').resolve(__dirname, 'fixtures/foreign/timeline-datetime.html'), 'utf8')
+			const tl = parseTimeline(html)
+			assert(tl !== null, 'expected TimelineRow[], got null')
+			assert(tl.length === 2, 'expected 2 rows; got: ' + tl.length)
+			assert(tl[0].marker === '09:00', "row0 marker from datetime attr; got: " + tl[0].marker)
+			assert(tl[1].marker === '10:30', "row1 marker from datetime attr; got: " + tl[1].marker)
+			assert(/Registrierung/.test(tl[0].body), 'row0 body; got: ' + tl[0].body)
+			assert(/Keynote/.test(tl[1].body), 'row1 body; got: ' + tl[1].body)
+		},
+	},
+	{
+		name: 'parseTimeline: container-swallow dedup prefers innermost (no duplicates)',
+		fn: async () => {
+			// A container wraps items and its text starts with the same time token — must NOT swallow children
+			const html = '<div><div><time datetime="09:00">9:00</time> Morning</div><div><time datetime="10:00">10:00</time> Noon</div></div>'
+			const tl = parseTimeline(html)
+			assert(tl !== null, 'expected rows')
+			assert(tl.length === 2, 'container-swallow must not duplicate; got: ' + tl.length)
+		},
+	},
+	{
+		name: 'parseTimeline: explicit path with <time datetime> + body separator',
+		fn: async () => {
+			const html = '<div class="timeline"><div class="timeline-item"><time datetime="14:00">2 PM</time><span>Workshop</span><span>Room B</span></div></div>'
+			const tl = parseTimeline(html)
+			assert(tl !== null, 'expected rows')
+			assert(tl[0].marker === '14:00', 'marker from datetime; got: ' + tl[0].marker)
+			assert(tl[0].body.includes('Workshop'), 'body has Workshop; got: ' + tl[0].body)
+			assert(tl[0].body.includes('Room B'), 'body has Room B; got: ' + tl[0].body)
+			assert(tl[0].body.includes('\u2014'), 'body uses separator; got: ' + tl[0].body)
+		},
+	},
 ]
