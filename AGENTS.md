@@ -1,5 +1,11 @@
 # Agent instructions — PptxGenJS fork (@jsamuel1/pptxgenjs)
 
+> **Tool-agnostic:** this file is the canonical guidance for ANY coding agent
+> (Claude, Kiro, Copilot, Codex, …) and for humans. Thin pointer files exist at
+> `.kiro/steering/00-agents-md.md` and `.github/copilot-instructions.md` for
+> tools with their own discovery conventions — they all defer here. Keep this
+> file the single source; update pointers only if a new tool needs one.
+
 You are working in the PptxGenJS fork. Before any work, internalise:
 
 1. **[README-Fork.md → Goals](./README-Fork.md#goals)** — the fork's standing

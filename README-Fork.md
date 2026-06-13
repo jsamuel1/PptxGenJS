@@ -275,6 +275,12 @@ slide.addText('', {
 
 ---
 
+## For AI coding agents (any tool)
+
+Start at [AGENTS.md](./AGENTS.md) — canonical, tool-agnostic guidance (Goals,
+conventions, decision register, work queue). Pointer files for Kiro/Copilot defer
+to it.
+
 ## Documentation
 
 | Document | Purpose |
