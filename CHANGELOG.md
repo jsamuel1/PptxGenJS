@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.22]
+
+### Changed
+
+- Lint config excludes generated `icons-fa` file; indent and `require` errors fixed in `gen-objects.ts`, `pptxgen.ts`, `parse-content.ts` (no user-facing behaviour change)
+
 ## [4.3.21](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.21) - 2026-06-13
 
 ### Changed
