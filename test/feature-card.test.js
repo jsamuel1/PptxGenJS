@@ -174,7 +174,7 @@ module.exports = [
 			// bg + icon container tile = 2 roundRects (unchanged from v1)
 			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + icon tile); got: ' + inner)
 			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected icon tile fill 7C3AED; got: ' + inner)
-			assert(inner.indexOf('<a:srgbClr val="E4E4ED"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="FFFFFF"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
 		},
 	},
 	{
@@ -187,7 +187,7 @@ module.exports = [
 			const inner = groupInner(xml)
 			assert((inner.match(/prst="roundRect"/g) || []).length === 2, 'expected 2 roundRects (bg + icon tile); got: ' + inner)
 			assert(inner.indexOf('<a:custGeom>') !== -1, 'expected svg custGeom; got: ' + inner)
-			assert(inner.indexOf('<a:srgbClr val="E4E4ED"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="FFFFFF"/>') !== -1, 'expected default glyph color E4E4ED; got: ' + inner)
 		},
 	},
 	{
@@ -232,7 +232,7 @@ module.exports = [
 			const inner = groupInner(xml)
 			const fills = accentRectFills(inner)
 			assert(fills.length === 1 && fills[0].endsWith('<a:solidFill>'), 'expected one solid accent rect; got: ' + fills)
-			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected default accent color 7C3AED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="6366F1"/>') !== -1, 'expected default accent color 7C3AED; got: ' + inner)
 		},
 	},
 	{
@@ -332,7 +332,7 @@ module.exports = [
 			const inner = groupInner(xml)
 			assert((inner.match(/prst="ellipse"/g) || []).length === 1, 'expected exactly 1 ellipse bubble; got: ' + inner)
 			assert(inner.indexOf('<a:t>5</a:t>') !== -1, 'expected count value text "5"; got: ' + inner)
-			assert(inner.indexOf('<a:srgbClr val="7C3AED"/>') !== -1, 'expected default count bubble fill 7C3AED; got: ' + inner)
+			assert(inner.indexOf('<a:srgbClr val="6366F1"/>') !== -1, 'expected default count bubble fill 7C3AED; got: ' + inner)
 		},
 	},
 	{

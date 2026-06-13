@@ -118,8 +118,8 @@ module.exports = [
 			// first run bold + accent color
 			assert(/<a:rPr[^>]* b="1"[^>]*>\s*<a:solidFill><a:srgbClr val="A78BFA"/.test(xml),
 				'expected first run bold with A78BFA color; got: ' + xml)
-			// default accentBar {} => default 7C3AED filled rect
-			assert(/prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill><a:srgbClr val="7C3AED"\/><\/a:solidFill>/.test(xml),
+			// default accentBar {} => default 6366F1 filled rect
+			assert(/prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill><a:srgbClr val="6366F1"\/><\/a:solidFill>/.test(xml),
 				'expected default-color (7C3AED) accent rect; got: ' + xml)
 		},
 	},
@@ -129,7 +129,7 @@ module.exports = [
 			const xml = await buildSlideXml(slide => {
 				slide.addCallout({ text: 'x', accentBar: {} })
 			})
-			assert(/prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill><a:srgbClr val="7C3AED"\/><\/a:solidFill>/.test(xml),
+			assert(/prst="rect"><a:avLst><\/a:avLst><\/a:prstGeom><a:solidFill><a:srgbClr val="6366F1"\/><\/a:solidFill>/.test(xml),
 				'expected default 7C3AED accent rect; got: ' + xml)
 		},
 	},

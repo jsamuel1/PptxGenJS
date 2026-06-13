@@ -24,3 +24,4 @@ export { declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleShe
 export type { CssContext, ClassRule } from './utils/css-context'
 export { subsetIconPack } from './utils/subset-icon-pack'
 export type { SubsetIconPackOptions } from './utils/subset-icon-pack'
+export { relativeLuminance, contrastRatio, inkForFill } from './gen-utils'

@@ -60,7 +60,7 @@ import {
 	TextPropsOptions,
 } from './core-interfaces'
 import { getSlidesForTableRows } from './gen-tables'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions } from './gen-utils'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, inkForFill } from './gen-utils'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -973,7 +973,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	const h = options.h !== undefined ? Number(options.h) : 0.4
 	const w = options.w !== undefined ? Number(options.w) : 1.5
 	const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.1
-	const fill = options.fill !== undefined ? options.fill : '7C3AED'
+	const fill = options.fill !== undefined ? options.fill : '6366F1'
 	// Body text may be a string (single run) or a TextProps[] (multi-run). Normalise once.
 	const bodyText: TextProps[] = typeof options.text === 'string' ? [{ text: options.text || '', options: null }] : (options.text as TextProps[])
 
@@ -1030,7 +1030,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	let barW = 0
 	if (options.accentBar) {
 		barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03
-		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '7C3AED'
+		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '6366F1'
 		group.addShape(SHAPE_TYPE.RECTANGLE, {
 			x: 0, y: cornerRadius, w: barW, h: Math.max(0, h - 2 * cornerRadius),
 			fill: typeof barColor === 'string' ? { color: barColor } : barColor,
@@ -1061,7 +1061,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	if (options.attribution) {
 		group.addText(options.attribution, {
 			x: bodyX, y: Math.max(0, h - padB - attrH), w: bodyW, h: attrH,
-			color: options.attributionFont && options.attributionFont.color !== undefined ? options.attributionFont.color : '94A3B8',
+			color: options.attributionFont && options.attributionFont.color !== undefined ? options.attributionFont.color : inkForFill(typeof fill === 'string' ? fill : 'FFFFFF'),
 			fontSize: attrSize,
 			italic: options.attributionFont ? options.attributionFont.italic : undefined,
 			align,
@@ -1087,7 +1087,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 	const h = options.h !== undefined ? Number(options.h) : 2
 	const padding = 0.2
 	const cornerRadius = options.cornerRadius !== undefined ? options.cornerRadius : 0.12
-	const fill = options.fill !== undefined ? options.fill : '1a1a24'
+	const fill = options.fill !== undefined ? options.fill : '1E293B'
 	const align = options.align === 'left' ? 'left' : 'center'
 	const iconPosition = options.iconPosition === 'left' ? 'left' : 'top'
 	const iconSize = options.iconSize !== undefined ? Number(options.iconSize) : 0.4
@@ -1108,7 +1108,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 		fill: typeof fill === 'string' ? { color: fill } : fill,
 		rectRadius: cornerRadius,
 	}
-	if (options.border) bgOpts.line = { color: options.border.color || '2A2438', width: options.border.width || 1 }
+	if (options.border) bgOpts.line = { color: options.border.color || '334155', width: options.border.width || 1 }
 	if (options.shadow) bgOpts.shadow = { type: 'outer', ...options.shadow }
 	if (options.glow) bgOpts.glow = options.glow
 	group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, bgOpts)
@@ -1117,7 +1117,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 	//     square bar corners stay within the card's rounded outline.
 	if (options.accentBar) {
 		const barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03
-		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '7C3AED'
+		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '6366F1'
 		const barH = Math.max(0, h - 2 * cornerRadius)
 		group.addShape(SHAPE_TYPE.RECTANGLE, {
 			x: 0, y: cornerRadius, w: barW, h: barH,
@@ -1149,9 +1149,9 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 	if (hasIcon) {
 		// Bare-icon mode: `iconFill: 'none' | false` suppresses the container tile
 		const tileless = options.iconFill === 'none' || options.iconFill === false
-		const glyphColor = options.iconColor || titleFont.color || 'E4E4ED'
+		const glyphColor = options.iconColor || titleFont.color || inkForFill(typeof fill === 'string' ? fill : '1E293B')
 		if (!tileless) {
-			const iconFill = options.iconFill !== undefined ? options.iconFill : '7C3AED'
+			const iconFill = options.iconFill !== undefined ? options.iconFill : '6366F1'
 			group.addShape(SHAPE_TYPE.ROUNDED_RECTANGLE, {
 				x: iconX, y: iconY, w: iconSize, h: iconSize,
 				fill: { color: iconFill as string }, rectRadius: cornerRadius / 2, line: { type: 'none' },
@@ -1206,7 +1206,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 		x: titleX, y: titleY, w: titleW, h: titleH,
 		fontFace: titleFont.face, fontSize: titleFont.size !== undefined ? titleFont.size : 13,
 		bold: titleFont.bold !== undefined ? titleFont.bold : true,
-		color: titleFont.color || 'E4E4ED', align: textAlign, valign: 'top',
+		color: titleFont.color || inkForFill(typeof fill === 'string' ? fill : '1E293B'), align: textAlign, valign: 'top',
 	})
 
 	// 5) Description (shrink-to-fit so overflow stays inside the card)
@@ -1215,7 +1215,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 			x: descX, y: descY, w: descW, h: descH,
 			fontFace: descFont.face, fontSize: descFont.size !== undefined ? descFont.size : 10,
 			bold: descFont.bold !== undefined ? descFont.bold : false,
-			color: descFont.color || '8A8A9A', align: textAlign, valign: 'top', fit: 'shrink',
+			color: descFont.color || inkForFill(typeof fill === 'string' ? fill : '1E293B'), align: textAlign, valign: 'top', fit: 'shrink',
 		})
 	}
 
@@ -1228,7 +1228,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 		const by = badge.position === 'inline-right' ? Math.max(0, (h - dia) / 2) : padding
 		group.addShape(SHAPE_TYPE.OVAL, {
 			x: bx, y: by, w: dia, h: dia,
-			fill: { color: badge.fill || '7C3AED' }, line: { type: 'none' },
+			fill: { color: badge.fill || '6366F1' }, line: { type: 'none' },
 		})
 		group.addText(label, {
 			x: bx, y: by, w: dia, h: dia,
@@ -1300,7 +1300,7 @@ export function addBadgeDefinition(target: PresSlide, opts: BadgeProps): void {
 	const x = options.x !== undefined ? Number(options.x) : 1
 	const y = options.y !== undefined ? Number(options.y) : 1
 	const h = options.h !== undefined && Number(options.h) > 0 ? Number(options.h) : 0.25
-	const fill = options.fill !== undefined ? options.fill : '7C3AED'
+	const fill = options.fill !== undefined ? options.fill : '6366F1'
 	const color = options.color !== undefined ? options.color : 'FFFFFF'
 	const fontSize = options.fontSize !== undefined ? options.fontSize : 8
 	const bold = options.bold !== undefined ? options.bold : true

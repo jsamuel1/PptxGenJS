@@ -785,3 +785,26 @@ export function layoutStack (props: LayoutStackProps): LayoutStackResult {
 
 	return result
 }
+
+/** Relative luminance per WCAG 2.1 */
+export function relativeLuminance(hex: string): number {
+	const rgb = hex.replace(/^#/, '').match(/.{2}/g)!.map(c => {
+		const v = parseInt(c, 16) / 255
+		return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+	})
+	return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+}
+
+/** Contrast ratio between two hex colors */
+export function contrastRatio(hex1: string, hex2: string): number {
+	const l1 = relativeLuminance(hex1)
+	const l2 = relativeLuminance(hex2)
+	const lighter = Math.max(l1, l2)
+	const darker = Math.min(l1, l2)
+	return (lighter + 0.05) / (darker + 0.05)
+}
+
+/** Returns 'FFFFFF' or '1F2937' for best contrast against fill */
+export function inkForFill(fillHex: string): string {
+	return relativeLuminance(fillHex) > 0.179 ? '1F2937' : 'FFFFFF'
+}

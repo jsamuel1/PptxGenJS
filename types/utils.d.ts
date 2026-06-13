@@ -497,3 +497,12 @@ export function subsetIconPack(
 	pack: Record<string, { w: number; h: number; d: string; popularity?: number }>,
 	opts?: SubsetIconPackOptions
 ): Record<string, { w: number; h: number; d: string }>
+
+/** Relative luminance per WCAG 2.1 */
+export function relativeLuminance(hex: string): number
+
+/** Contrast ratio between two hex colors */
+export function contrastRatio(hex1: string, hex2: string): number
+
+/** Returns 'FFFFFF' or '1F2937' for best contrast against fill */
+export function inkForFill(fillHex: string): string
