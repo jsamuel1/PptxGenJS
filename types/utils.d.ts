@@ -5,8 +5,10 @@
 export interface ThemePalette {
 	/** Background colour. */
 	bg: string
-	/** Card/surface (secondary background) colour. */
-	bgSecondary: string
+	/** Surface (secondary background / card) colour. */
+	surface: string
+	/** Raised surface (mid-level background) colour. */
+	surfaceRaised: string
 	/** Primary accent colour. */
 	accent: string
 	/** Lighter accent colour. */
@@ -14,27 +16,28 @@ export interface ThemePalette {
 	/** Primary text colour. */
 	text: string
 	/** Muted/secondary text colour. */
-	textSecondary: string
+	textMuted: string
 	/** Font family. */
 	font: string
-	/** Extended palette — informational/utility colours. */
-	sky: string
-	green: string
-	orange: string
-	red: string
-	/** Extended palette (converter-equivalence) — extracted, with preset defaults. */
-	bgMid: string
-	bgLight: string
-	bgDeep: string
-	coral: string
-	gray100: string
-	gray300: string
-	gray500: string
+	/** Informational colour (sky/blue). */
+	info: string
+	/** Success colour (green). */
+	success: string
+	/** Warning colour (orange/amber). */
+	warn: string
+	/** Danger/error colour (red). */
+	danger: string
+	/** Neutral shade — lightest. */
+	neutral1: string
+	/** Neutral shade — mid. */
+	neutral2: string
+	/** Neutral shade — darkest. */
+	neutral3: string
 	/** Derived colour — subtle card border: `mix(accent, bg, 0.72)`. Present when `derivedColors`. */
 	cardLine?: string
-	/** Derived colour — card background blend: `mix(bgMid, bg, 0.4)`. Present when `derivedColors`. */
+	/** Derived colour — card background blend: `mix(surfaceRaised, bg, 0.4)`. Present when `derivedColors`. */
 	cardFill?: string
-	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, sky]`. */
+	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, info]`. */
 	barStops?: string[]
 	/** Which preset/source produced the palette (`'extracted'`, a preset name, or the fallback). */
 	presetName?: string

@@ -204,7 +204,7 @@ out('7c extractTheme(plain body{} no custom props)', { presetName: t3.presetName
 
 const lightVars = `:root{ --bg:#ffffff; --text:#111111; --primary:#0d6efd; }`
 const t4 = extractThemeFromCSS(lightVars)
-out('7d extractTheme(partial LIGHT vars, default preset=dark)', { presetName: t4.presetName, bg: t4.bg, text: t4.text, accent: t4.accent, textSecondary: t4.textSecondary, gray100: t4.gray100, bgSecondary: t4.bgSecondary, bgMid: t4.bgMid, cardFill: t4.cardFill, cardLine: t4.cardLine })
+out('7d extractTheme(partial LIGHT vars, default preset=dark)', { presetName: t4.presetName, bg: t4.bg, text: t4.text, accent: t4.accent, textMuted: t4.textMuted, neutral1: t4.neutral1, surface: t4.surface, surfaceRaised: t4.surfaceRaised, cardFill: t4.cardFill, cardLine: t4.cardLine })
 
 // non-:root scope?
 const scopedVars = `.theme-ocean{ --bg:#e0f2fe; --primary:#0369a1; }`

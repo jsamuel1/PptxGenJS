@@ -25,8 +25,8 @@ module.exports = [
 		name: 'extractTheme: empty CSS falls back to dark preset',
 		fn: async () => {
 			const theme = extractThemeFromCSS('', { defaultPreset: 'dark' })
-			assertEqual(theme.bg, '121218', 'bg from dark preset')
-			assertEqual(theme.accent, '7C3AED', 'accent from dark preset')
+			assertEqual(theme.bg, '1a1a2e', 'bg from dark preset')
+			assertEqual(theme.accent, '6366f1', 'accent from dark preset')
 		},
 	},
 	{
@@ -34,18 +34,18 @@ module.exports = [
 		fn: async () => {
 			const theme = extractThemeFromCSS(':root { --bg: #010101; --bg-card: #020202; }')
 			assertEqual(theme.bg, '010101', 'bg slot')
-			assertEqual(theme.bgSecondary, '020202', 'bgSecondary slot (from --bg-card)')
+			assertEqual(theme.surface, '020202', 'surface slot (from --bg-card)')
 		},
 	},
 	{
-		name: 'extractTheme: extended palette slots (sky/green/orange/red) + accentSoft',
+		name: 'extractTheme: extended palette slots (info/success/warn/danger) + accentSoft',
 		fn: async () => {
 			const css = ':root { --sky:#38BDF8; --green:#10B981; --orange:#FF9900; --red:#EF4444; --accent-soft:#A78BFA; }'
 			const theme = extractThemeFromCSS(css)
-			assertEqual(theme.sky, '38BDF8', 'sky')
-			assertEqual(theme.green, '10B981', 'green')
-			assertEqual(theme.orange, 'FF9900', 'orange')
-			assertEqual(theme.red, 'EF4444', 'red')
+			assertEqual(theme.info, '38BDF8', 'info')
+			assertEqual(theme.success, '10B981', 'success')
+			assertEqual(theme.warn, 'FF9900', 'warn')
+			assertEqual(theme.danger, 'EF4444', 'danger')
 			assertEqual(theme.accentSoft, 'A78BFA', 'accentSoft')
 		},
 	},
@@ -72,7 +72,7 @@ module.exports = [
 			assertEqual(theme.bg, '101010', 'bg via --background')
 			assertEqual(theme.accent, 'FF0000', 'accent via --primary')
 			assertEqual(theme.text, 'FFFFFF', 'text via --foreground')
-			assertEqual(theme.textSecondary, '808080', 'textSecondary via --muted')
+			assertEqual(theme.textMuted, '808080', 'textMuted via --muted')
 		},
 	},
 	{
@@ -95,9 +95,11 @@ module.exports = [
 		name: 'extractTheme: result is always a complete palette',
 		fn: async () => {
 			const theme = extractThemeFromCSS(':root { --bg:#000000; }')
-			for (const slot of ['bg', 'bgSecondary', 'accent', 'accentSoft', 'text', 'textSecondary', 'font', 'sky', 'green', 'orange', 'red']) {
+			for (const slot of ['bg', 'surface', 'accent', 'accentSoft', 'text', 'textMuted', 'info', 'success', 'warn', 'danger']) {
 				assert(typeof theme[slot] === 'string' && theme[slot].length > 0, 'expected slot "' + slot + '" populated; got: ' + theme[slot])
 			}
+			// font is intentionally empty in neutral presets (system default)
+			assert(typeof theme.font === 'string', 'expected font slot to be a string; got: ' + typeof theme.font)
 		},
 	},
 
@@ -126,15 +128,15 @@ module.exports = [
 		fn: async () => {
 			// cardLine = mix(accent #7C3AED, bg #121218, 0.72):
 			//   r=round(124*.28 + 18*.72)=48=0x30, g=round(58*.28 + 18*.72)=29=0x1D, b=round(237*.28 + 24*.72)=84=0x54 => 301D54
-			// cardFill = mix(bgMid #1E1E2A, bg #121218, 0.4):
+			// cardFill = mix(surfaceRaised #1E1E2A, bg #121218, 0.4):
 			//   r=g=round(30*.6 + 18*.4)=25=0x19, b=round(42*.6 + 24*.4)=35=0x23 => 191923
 			const theme = extractThemeFromCSS(':root { --accent:#7C3AED; --bg:#121218; --bg-mid:#1E1E2A; }')
 			assertEqual(theme.cardLine, '301D54', 'cardLine = mix(accent,bg,0.72)')
-			assertEqual(theme.cardFill, '191923', 'cardFill = mix(bgMid,bg,0.4)')
+			assertEqual(theme.cardFill, '191923', 'cardFill = mix(surfaceRaised,bg,0.4)')
 		},
 	},
 	{
-		name: 'extractTheme v2: barStops from --bar-gradient var() refs; fallback to [accent,accentSoft,sky]',
+		name: 'extractTheme v2: barStops from --bar-gradient var() refs; fallback to [accent,accentSoft,info]',
 		fn: async () => {
 			const css = ':root { --purple:#7C3AED; --purple-soft:#A78BFA; --sky:#38BDF8;'
 				+ ' --bar-gradient: linear-gradient(90deg, var(--purple), var(--purple-soft), var(--sky)); }'
@@ -142,30 +144,28 @@ module.exports = [
 			assertEqual(theme.barStops.join(','), '7C3AED,A78BFA,38BDF8', 'barStops from gradient var() refs')
 			// No --bar-gradient -> fallback
 			const t2 = extractThemeFromCSS(':root { --bg:#000000; }')
-			assertEqual(t2.barStops.join(','), [t2.accent, t2.accentSoft, t2.sky].join(','), 'barStops fallback')
+			assertEqual(t2.barStops.join(','), [t2.accent, t2.accentSoft, t2.info].join(','), 'barStops fallback')
 		},
 	},
 	{
 		name: 'extractTheme v2: forcePreset bypasses CSS; unknown name falls back (no throw)',
 		fn: async () => {
 			const theme = extractThemeFromCSS(':root { --bg:#000000; --purple:#FF0000; }', { forcePreset: 'light' })
-			assertEqual(theme.bg, 'FFFFFF', 'bg from forced light preset (CSS ignored)')
-			assertEqual(theme.accent, '7C3AED', 'accent from forced light preset (CSS ignored)')
+			assertEqual(theme.bg, 'ffffff', 'bg from forced light preset (CSS ignored)')
+			assertEqual(theme.accent, '6366f1', 'accent from forced light preset (CSS ignored)')
 			assertEqual(theme.presetName, 'light', 'presetName === forced preset')
 			// Unknown forcePreset must NOT throw — falls back to defaultPreset
 			const t2 = extractThemeFromCSS('', { forcePreset: 'nope', defaultPreset: 'light' })
-			assertEqual(t2.bg, 'FFFFFF', 'unknown forcePreset falls back to defaultPreset')
+			assertEqual(t2.bg, 'ffffff', 'unknown forcePreset falls back to defaultPreset')
 		},
 	},
 	{
-		name: 'extractTheme v2: extended palette slots (bgMid/bgDeep/coral/gray300)',
+		name: 'extractTheme v2: extended palette slots (surfaceRaised/neutral2)',
 		fn: async () => {
-			const css = ':root { --bg-mid:#111111; --bg-deep:#222222; --coral:#FB7185; --gray-300:#A0A0B0; }'
+			const css = ':root { --bg-mid:#111111; --gray-300:#A0A0B0; }'
 			const theme = extractThemeFromCSS(css)
-			assertEqual(theme.bgMid, '111111', 'bgMid via --bg-mid')
-			assertEqual(theme.bgDeep, '222222', 'bgDeep via --bg-deep (re-pointed from bg)')
-			assertEqual(theme.coral, 'FB7185', 'coral via --coral')
-			assertEqual(theme.gray300, 'A0A0B0', 'gray300 via --gray-300')
+			assertEqual(theme.surfaceRaised, '111111', 'surfaceRaised via --bg-mid')
+			assertEqual(theme.neutral2, 'A0A0B0', 'neutral2 via --gray-300')
 		},
 	},
 	{
@@ -201,10 +201,10 @@ module.exports = [
 		fn: async () => {
 			const css = ':root{ --emerald:#10B981; --amber:#FF9900; --rose:#EF4444; --cyan:#38BDF8; }'
 			const theme = extractThemeFromCSS(css)
-			assertEqual(theme.green, '10B981', 'green via --emerald')
-			assertEqual(theme.orange, 'FF9900', 'orange via --amber')
-			assertEqual(theme.red, 'EF4444', 'red via --rose')
-			assertEqual(theme.sky, '38BDF8', 'sky via --cyan')
+			assertEqual(theme.success, '10B981', 'success via --emerald')
+			assertEqual(theme.warn, 'FF9900', 'warn via --amber')
+			assertEqual(theme.danger, 'EF4444', 'danger via --rose')
+			assertEqual(theme.info, '38BDF8', 'info via --cyan')
 		},
 	},
 	{
@@ -222,7 +222,7 @@ module.exports = [
 		fn: async () => {
 			const theme = extractThemeFromCSS(':root{ --bg:#010101; --bg-card:#020202; }')
 			assertEqual(theme.bg, '010101', 'bg slot (canonicaliser must not strip -card)')
-			assertEqual(theme.bgSecondary, '020202', 'bgSecondary slot still distinct')
+			assertEqual(theme.surface, '020202', 'surface slot still distinct')
 		},
 	},
 	{
@@ -253,7 +253,7 @@ module.exports = [
 		name: 'extractTheme font-scan: generic-only font-family is ignored — font stays preset',
 		fn: async () => {
 			const theme = extractThemeFromCSS('body { font-family: sans-serif; }')
-			assertEqual(theme.font, 'Inter', 'generic sans-serif skipped, preset Inter retained')
+			assertEqual(theme.font, '', 'generic sans-serif skipped, preset empty retained')
 			assert(theme.font !== 'sans-serif', 'font must not be a CSS generic; got: ' + theme.font)
 		},
 	},
@@ -261,7 +261,7 @@ module.exports = [
 		name: 'extractTheme font-scan: scanFontFamily:false disables scanning (font stays preset)',
 		fn: async () => {
 			const theme = extractThemeFromCSS('body { font-family: Georgia; }', { scanFontFamily: false })
-			assertEqual(theme.font, 'Inter', 'scan disabled, preset Inter retained')
+			assertEqual(theme.font, '', 'scan disabled, preset empty retained')
 		},
 	},
 	{

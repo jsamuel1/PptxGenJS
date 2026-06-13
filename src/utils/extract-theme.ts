@@ -9,17 +9,19 @@
  *
  * v2 (converter-equivalence, docs/features/feature-enhancements-converter-gaps.md §3): adds
  * `rgb()`/`rgba()` parsing, `var()` resolution, derived colours (`cardLine`/`cardFill`/
- * `barStops`), an extended palette (`bgMid`/`bgLight`/`bgDeep`/`coral`/`gray100/300/500`),
- * a `forcePreset` override, and `presetName`/`vars` metadata. All additions are ADDITIVE and
- * default-on; the core slot mapping is unchanged.
+ * `barStops`), role-named palette slots (`surface`/`surfaceRaised`/`info`/`success`/`warn`/
+ * `danger`/`neutral1`/`neutral2`/`neutral3`), a `forcePreset` override, and `presetName`/
+ * `vars` metadata. All additions are ADDITIVE and default-on; the core slot mapping is unchanged.
  */
 
 /** A resolved theme palette. All colours are 6-digit hex strings (no leading `#`). */
 export interface ThemePalette {
 	/** Background colour. */
 	bg: string
-	/** Card/surface (secondary background) colour. */
-	bgSecondary: string
+	/** Surface (secondary background / card) colour. */
+	surface: string
+	/** Raised surface (mid-level background) colour. */
+	surfaceRaised: string
 	/** Primary accent colour. */
 	accent: string
 	/** Lighter accent colour. */
@@ -27,27 +29,28 @@ export interface ThemePalette {
 	/** Primary text colour. */
 	text: string
 	/** Muted/secondary text colour. */
-	textSecondary: string
+	textMuted: string
 	/** Font family. */
 	font: string
-	/** Extended palette — informational/utility colours. */
-	sky: string
-	green: string
-	orange: string
-	red: string
-	/** Extended palette (converter-equivalence) — extracted, with preset defaults. */
-	bgMid: string
-	bgLight: string
-	bgDeep: string
-	coral: string
-	gray100: string
-	gray300: string
-	gray500: string
+	/** Informational colour (sky/blue). */
+	info: string
+	/** Success colour (green). */
+	success: string
+	/** Warning colour (orange/amber). */
+	warn: string
+	/** Danger/error colour (red). */
+	danger: string
+	/** Neutral shade — lightest. */
+	neutral1: string
+	/** Neutral shade — mid. */
+	neutral2: string
+	/** Neutral shade — darkest. */
+	neutral3: string
 	/** Derived colour — subtle card border: `mix(accent, bg, 0.72)`. Present when `derivedColors`. */
 	cardLine?: string
-	/** Derived colour — card background blend: `mix(bgMid, bg, 0.4)`. Present when `derivedColors`. */
+	/** Derived colour — card background blend: `mix(surfaceRaised, bg, 0.4)`. Present when `derivedColors`. */
 	cardFill?: string
-	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, sky]`. */
+	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, info]`. */
 	barStops?: string[]
 	/** Which preset/source produced the palette (`'extracted'`, a preset name, or the fallback). */
 	presetName?: string
@@ -85,50 +88,42 @@ export interface ExtractThemeOptions {
 	fontFamilySelectors?: string[]
 }
 
-/** Built-in dark preset (matches docs/features/feature-theme-extraction.md). */
+/** Built-in dark preset (neutral, unbranded defaults). */
 const DARK_PRESET: ThemePalette = {
-	bg: '121218',
-	bgSecondary: '1A1A24',
-	accent: '7C3AED',
-	accentSoft: 'A78BFA',
-	text: 'E4E4ED',
-	textSecondary: '8A8A9A',
-	font: 'Inter',
-	sky: '38BDF8',
-	green: '10B981',
-	orange: 'FF9900',
-	red: 'EF4444',
-	// Extended (converter-equivalence)
-	bgMid: '1E1E2A',
-	bgLight: '2A2A38',
-	bgDeep: '0C0C12',
-	coral: 'FB7185',
-	gray100: 'E4E4ED',
-	gray300: 'A0A0B0',
-	gray500: '64646E',
+	bg: '1a1a2e',
+	surface: '25253e',
+	surfaceRaised: '2d2d4a',
+	accent: '6366f1',
+	accentSoft: '818cf8',
+	text: 'e8e8f0',
+	textMuted: '9090a8',
+	font: '',
+	info: '38bdf8',
+	success: '34d399',
+	warn: 'fbbf24',
+	danger: 'f87171',
+	neutral1: 'e8e8f0',
+	neutral2: 'a0a0b8',
+	neutral3: '606078',
 }
 
-/** Built-in light preset. */
+/** Built-in light preset (neutral, unbranded defaults). */
 const LIGHT_PRESET: ThemePalette = {
-	bg: 'FFFFFF',
-	bgSecondary: 'F4F4F7',
-	accent: '7C3AED',
-	accentSoft: 'A78BFA',
-	text: '121218',
-	textSecondary: '5A5A6A',
-	font: 'Inter',
-	sky: '0EA5E9',
-	green: '059669',
-	orange: 'EA580C',
-	red: 'DC2626',
-	// Extended (converter-equivalence)
-	bgMid: 'F0F0F4',
-	bgLight: 'FAFAFC',
-	bgDeep: 'E8E8EE',
-	coral: 'F43F5E',
-	gray100: '2A2A32',
-	gray300: '5A5A6A',
-	gray500: '8A8A9A',
+	bg: 'ffffff',
+	surface: 'f5f5f7',
+	surfaceRaised: 'ebebf0',
+	accent: '6366f1',
+	accentSoft: '818cf8',
+	text: '1a1a2e',
+	textMuted: '5a5a72',
+	font: '',
+	info: '0ea5e9',
+	success: '059669',
+	warn: 'd97706',
+	danger: 'dc2626',
+	neutral1: '2a2a3a',
+	neutral2: '5a5a72',
+	neutral3: '8a8aa2',
 }
 
 /**
@@ -139,9 +134,9 @@ const VAR_TO_SLOT: Record<string, keyof ThemePalette> = {
 	// bg
 	bg: 'bg', 'color-bg': 'bg', background: 'bg',
 	'bg-color': 'bg', 'background-color': 'bg', surface: 'bg', 'page-bg': 'bg', canvas: 'bg',
-	// bgSecondary
-	'bg-card': 'bgSecondary', card: 'bgSecondary', 'color-bg-secondary': 'bgSecondary', 'bg-surface': 'bgSecondary',
-	'surface-2': 'bgSecondary', 'surface-variant': 'bgSecondary', panel: 'bgSecondary', elevated: 'bgSecondary',
+	// surface
+	'bg-card': 'surface', card: 'surface', 'color-bg-secondary': 'surface', 'bg-surface': 'surface',
+	'surface-2': 'surface', 'surface-variant': 'surface', panel: 'surface', elevated: 'surface',
 	// accent
 	purple: 'accent', accent: 'accent', 'color-primary': 'accent', primary: 'accent',
 	brand: 'accent', 'brand-color': 'accent', 'primary-color': 'accent', 'accent-color': 'accent', 'theme-color': 'accent', highlight: 'accent',
@@ -151,36 +146,34 @@ const VAR_TO_SLOT: Record<string, keyof ThemePalette> = {
 	// text
 	white: 'text', text: 'text', 'color-text': 'text', foreground: 'text',
 	'text-color': 'text', fg: 'text', ink: 'text', 'body-color': 'text', 'on-background': 'text',
-	// textSecondary
-	gray: 'textSecondary', muted: 'textSecondary', 'color-text-secondary': 'textSecondary',
-	'text-muted': 'textSecondary', 'text-secondary': 'textSecondary', subtle: 'textSecondary', grey: 'textSecondary', dim: 'textSecondary',
-	// sky
-	sky: 'sky', blue: 'sky', info: 'sky',
-	cyan: 'sky', teal: 'sky', azure: 'sky',
-	// green
-	green: 'green', success: 'green',
-	emerald: 'green', lime: 'green', mint: 'green',
-	// orange
-	orange: 'orange', warning: 'orange',
-	amber: 'orange', yellow: 'orange', gold: 'orange',
-	// red
-	red: 'red', error: 'red', danger: 'red',
-	pink: 'red', rose: 'red', crimson: 'red',
+	// textMuted
+	gray: 'textMuted', muted: 'textMuted', 'color-text-secondary': 'textMuted',
+	'text-muted': 'textMuted', 'text-secondary': 'textMuted', subtle: 'textMuted', grey: 'textMuted', dim: 'textMuted',
+	// info
+	sky: 'info', blue: 'info', info: 'info',
+	cyan: 'info', teal: 'info', azure: 'info',
+	// success
+	green: 'success', success: 'success',
+	emerald: 'success', lime: 'success', mint: 'success',
+	// warn
+	orange: 'warn', warning: 'warn',
+	amber: 'warn', yellow: 'warn', gold: 'warn',
+	// danger
+	red: 'danger', error: 'danger', danger: 'danger',
+	pink: 'danger', rose: 'danger', crimson: 'danger',
 	// font
 	font: 'font', 'font-family': 'font',
 	'font-sans': 'font', 'font-body': 'font', 'font-base': 'font', typeface: 'font',
-	// extended (converter-equivalence)
-	'bg-mid': 'bgMid',
-	'bg-light': 'bgLight', 'bg-hover': 'bgLight',
-	'bg-deep': 'bgDeep',
-	coral: 'coral', 'secondary-accent': 'coral',
-	'gray-100': 'gray100', 'gray-300': 'gray300', 'gray-500': 'gray500',
+	// surfaceRaised
+	'bg-mid': 'surfaceRaised',
+	// neutrals
+	'gray-100': 'neutral1', 'gray-300': 'neutral2', 'gray-500': 'neutral3',
 }
 
 /** Slots whose value is a colour (vs. a font family) — used to decide value normalisation. */
 const COLOR_SLOTS = new Set<keyof ThemePalette>([
-	'bg', 'bgSecondary', 'accent', 'accentSoft', 'text', 'textSecondary', 'sky', 'green', 'orange', 'red',
-	'bgMid', 'bgLight', 'bgDeep', 'coral', 'gray100', 'gray300', 'gray500',
+	'bg', 'surface', 'surfaceRaised', 'accent', 'accentSoft', 'text', 'textMuted', 'info', 'success', 'warn', 'danger',
+	'neutral1', 'neutral2', 'neutral3',
 ])
 
 /** Parse an `rgb()`/`rgba()` value to a 6-digit hex (upper-case, no `#`). Returns null on non-match. */
@@ -253,7 +246,7 @@ function deriveBarStops (vars: Record<string, string>, palette: ThemePalette, ba
 			.filter(Boolean)
 		if (stops.length >= 2) return stops
 	}
-	return [palette.accent, palette.accentSoft, palette.sky]
+	return [palette.accent, palette.accentSoft, palette.info]
 }
 
 /** Normalise a font-family value: strip surrounding quotes and take the first family. */
@@ -424,7 +417,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 
 	if (derivedColors) {
 		theme.cardLine = mixColors(theme.accent, theme.bg, 0.72)
-		theme.cardFill = mixColors(theme.bgMid, theme.bg, 0.4)
+		theme.cardFill = mixColors(theme.surfaceRaised, theme.bg, 0.4)
 		theme.barStops = deriveBarStops(vars, theme, barGradientVar, resolveVarRefs, parseRgb)
 	}
 
