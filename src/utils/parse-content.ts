@@ -279,7 +279,7 @@ export function parseTimeline (input: string | HNode, opts: ParseContentOptions 
 			const timeEl = dtEl || queryOne(el, '.time') || queryOne(el, '.timeline-time')
 			const marker = dtEl ? (dtEl.attrs.datetime || textOf(dtEl).trim())
 				: timeEl ? textOf(timeEl).trim()
-				: (leadingTime(full) || '')
+					: (leadingTime(full) || '')
 			const body = timeEl ? bodyWithout(el, timeEl) : stripPrefix(full, marker)
 			rows.push({ marker, body })
 		}

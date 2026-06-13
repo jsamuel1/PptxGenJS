@@ -614,7 +614,7 @@ export default class PptxGenJS implements IPresentationProps {
 		return faces.map(async face => {
 			try {
 				if (!face.value.startsWith('data:') && /\.(ttf|otf)$/i.test(face.value)) {
-					const fs = require('fs')
+					const fs = await import('fs')
 					fontData[face.index] = Buffer.from(fs.readFileSync(face.value)).toString('base64')
 				} else {
 					fontData[face.index] = toBase64(face.value)

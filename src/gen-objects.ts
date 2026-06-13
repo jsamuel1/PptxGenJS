@@ -886,8 +886,8 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
 	options.objectName = options.morphId
 		? encodeXmlEntities(options.morphId)
 		: options.objectName
-		? encodeXmlEntities(options.objectName)
-		: `Shape ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
+			? encodeXmlEntities(options.objectName)
+			: `Shape ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
 	// 3: Handle line (lots of deprecated opts)
 	if (typeof options.line === 'string') {
@@ -1798,8 +1798,8 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 			itemOpts.objectName = itemOpts.morphId
 				? encodeXmlEntities(itemOpts.morphId)
 				: itemOpts.objectName
-				? encodeXmlEntities(itemOpts.objectName)
-				: `Text ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
+					? encodeXmlEntities(itemOpts.objectName)
+					: `Text ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
 			// B:
 			if (itemOpts.shape === SHAPE_TYPE.LINE) {
