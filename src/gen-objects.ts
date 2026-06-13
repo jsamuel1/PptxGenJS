@@ -1462,8 +1462,11 @@ export function addTableDefinition(
 	// STEP 1: REALITY-CHECK
 	{
 		// A: check for empty
-		if (tableRows === null || tableRows.length === 0 || !Array.isArray(tableRows)) {
+		if (!Array.isArray(tableRows)) {
 			throw new Error('addTable: Array expected! EX: \'slide.addTable( [rows], {options} );\' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)')
+		}
+		if (tableRows.length === 0) {
+			throw new Error('addTable: rows array must not be empty. EX: \'slide.addTable( [rows], {options} );\' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)')
 		}
 
 		// B: check for non-well-formatted array (ex: rows=['a','b'] instead of [['a','b']])

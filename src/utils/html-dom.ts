@@ -300,6 +300,7 @@ const PUA_RE = /[\uE000-\uF8FF]|[\uDB80-\uDBFF][\uDC00-\uDFFF]/g
 
 /** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
 export function textOf (node: HNode, opts?: { keepPUA?: boolean }): string {
+	if (typeof node === 'string') throw new Error('textOf: expected HNode from parseHtml(), got a string')
 	const raw = _textOf(node)
 	if (opts?.keepPUA) return raw
 	const stripped = raw.replace(PUA_RE, '')
