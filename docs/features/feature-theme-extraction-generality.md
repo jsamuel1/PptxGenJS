@@ -1,6 +1,6 @@
 # Feature: Theme extraction that reads real-world CSS
 
-> **Status:** Proposed
+> **Status:** Implemented (4.3.20, commit 6f4504ed)
 > **Priority:** High — pairs with feature-depalette-public-surface.md (ADR 0009).
 > Source: overfitting audit 2026-06-13, execution-verified.
 
