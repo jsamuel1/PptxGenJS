@@ -150,14 +150,22 @@ function findFirst (root: HNode, pred: (e: HNode) => boolean, skip?: Set<HNode>)
 }
 
 /** Is this class token a Font-Awesome marker (`fa`, `fas`, `far`, `fab`, … or `fa-*`)? */
-function isFaClass (tok: string): boolean {
-	return /^fa[srlbdt]?$/.test(tok) || /^fa-/.test(tok)
+/** Known icon-font family prefixes that `detectIcon` resolves from class tokens. */
+const ICON_FAMILIES = new Set(['fa', 'bi', 'ph', 'ion', 'icon', 'material-icons', 'material-symbols', 'material-icons-outlined', 'material-symbols-outlined'])
+
+/** Returns true when an `<i>`/`<span>` element carries any recognised icon-font classes. */
+function isIconEl (el: HNode): boolean {
+	if (el.tag !== 'i' && el.tag !== 'span') return false
+	const desc = detectIcon(el.classes.join(' '), textOf(el, { keepPUA: true }))
+	if (!desc) return false
+	// detectIcon returns a descriptor for ANY classed element (fallback fontFamily = tokens[0]).
+	// Only treat it as a genuine icon if the family is one we explicitly recognise.
+	return ICON_FAMILIES.has(desc.fontFamily) || desc.isLigature
 }
 
 /**
- * Pick the PowerPoint font family for a detected icon family + class tokens. Font Awesome resolves
- * to one of its three installed families (Solid / Regular / Brands); anything else falls back to the
- * generic FA Free family (in practice only FA icons reach the font-icon branch of `parseCards`).
+ * Pick the PowerPoint font family for a detected icon family + class tokens.
+ * Supports FA, Bootstrap Icons, Phosphor, Ionicons, Material Icons, and generic icon fonts.
  */
 function fontFaceFor (family: string, classes: string[]): string {
 	if (family === 'fa') {
@@ -165,7 +173,11 @@ function fontFaceFor (family: string, classes: string[]): string {
 		if (classes.some(c => c === 'far' || c === 'fa-regular')) return 'Font Awesome 6 Free Regular'
 		return 'Font Awesome 6 Free Solid'
 	}
-	return 'Font Awesome 6 Free'
+	if (family === 'bi') return 'Bootstrap Icons'
+	if (family === 'ph') return 'Phosphor'
+	if (family === 'ion') return 'Ionicons'
+	if (family === 'material-icons' || family === 'material-symbols-outlined' || family === 'material-icons-outlined') return 'Material Icons'
+	return family || 'Font Awesome 6 Free'
 }
 
 /** First class of `classes` that has a `::before` codepoint in `cssCodepoints`, as a glyph char. */
@@ -244,12 +256,11 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 		const parts = parseSvg(svgEl.raw || '', opts.defaultFill ? { defaultFill: opts.defaultFill } : {})
 		icon = { type: 'svg', parts }
 	} else {
-		const faEl = findFirst(card, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
+		const faEl = findFirst(card, e => isIconEl(e))
 		if (faEl) {
 			iconEl = faEl
 			skip.add(faEl)
 			const desc = detectIcon(faEl.classes.join(' '), textOf(faEl, { keepPUA: true }))
-			// `faEl` matched `isFaClass`, so `detectIcon` always returns a descriptor; guard anyway.
 			const className = desc ? desc.className : faEl.classes.join(' ')
 			const fontFamily = desc ? desc.fontFamily : 'fa'
 			const glyphName = desc ? desc.glyphName : ''
@@ -374,7 +385,7 @@ const NEVER_ADOPT_CLASS = /(^|-)(quote|callout|testimonial|blockquote)\b/
 /** True when the subtree contains an inline `<svg>` or an icon-font `<i>`/`<span>`. */
 function hasIcon (node: HNode): boolean {
 	return !!findFirst(node, e => e.tag === 'svg') ||
-		!!findFirst(node, e => (e.tag === 'i' || e.tag === 'span') && e.classes.some(isFaClass))
+		!!findFirst(node, e => isIconEl(e))
 }
 
 /** Returns true when `sibling` is structurally similar to the already-detected `cards`. */

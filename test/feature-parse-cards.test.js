@@ -507,4 +507,18 @@ module.exports = [
 			assert(cards[1].description === 'Beschreibung der zweiten Karte', 'card[1].desc; got ' + cards[1].description)
 		},
 	},
+	{
+		name: 'foreign — Bootstrap Icons detected via broadened icon gate',
+		fn () {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/cards-bootstrap-icon.html'), 'utf8')
+			const cards = parseCards(html)
+			assert(cards.length === 2, 'expected 2 cards; got ' + cards.length)
+			assert(cards[0].icon && cards[0].icon.type === 'fontIcon', 'card[0] should have fontIcon; got ' + JSON.stringify(cards[0].icon))
+			assert(cards[0].icon.fontFamily === 'bi', 'card[0].icon.fontFamily; got ' + cards[0].icon.fontFamily)
+			assert(cards[0].icon.fontFace === 'Bootstrap Icons', 'card[0].icon.fontFace; got ' + cards[0].icon.fontFace)
+			assert(cards[0].icon.glyphName === 'gear', 'card[0].icon.glyphName; got ' + cards[0].icon.glyphName)
+			assert(cards[1].icon && cards[1].icon.fontFamily === 'bi', 'card[1] icon family; got ' + JSON.stringify(cards[1].icon))
+			assert(cards[1].icon.glyphName === 'person', 'card[1].icon.glyphName; got ' + cards[1].icon.glyphName)
+		},
+	},
 ]
