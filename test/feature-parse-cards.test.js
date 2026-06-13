@@ -489,4 +489,22 @@ module.exports = [
 			assert(q.text === '未来はすでにここにある', 'text; got ' + q.text)
 		},
 	},
+	// ── Slice 7: Pattern options exposure ─────────────────────────────────────────────
+	{
+		name: 'parseCards foreign: custom titlePattern/descPattern match German .titel/.beschreibung classes',
+		fn () {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/cards-custom-pattern.html'), 'utf8')
+			const cards = parseCards(html, {
+				containerPattern: /(?:^|-)grid\b/,
+				cardPattern: /(?:^|-)(karte)\b/,
+				titlePattern: /(?:^|-)(titel)$/,
+				descPattern: /(?:^|-)(beschreibung)$/,
+			})
+			assert(cards.length === 2, 'expected 2 cards; got ' + cards.length)
+			assert(cards[0].title === 'Erste Karte', 'card[0].title; got ' + cards[0].title)
+			assert(cards[1].title === 'Zweite Karte', 'card[1].title; got ' + cards[1].title)
+			assert(cards[0].description === 'Beschreibung der ersten Karte', 'card[0].desc; got ' + cards[0].description)
+			assert(cards[1].description === 'Beschreibung der zweiten Karte', 'card[1].desc; got ' + cards[1].description)
+		},
+	},
 ]

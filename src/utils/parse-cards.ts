@@ -95,6 +95,18 @@ export interface ParseCardsOptions {
 	 * descriptor. Must be sync — `parseCards` stays synchronous.
 	 */
 	iconResolver?: (className: string, fontFamily: string, glyphName: string) => SvgPart[] | null
+	/** Class pattern identifying TITLE elements within a card. @default /(?:^|-)(title|name|heading|head|label)$/ */
+	titlePattern?: RegExp
+	/** Class pattern identifying DESCRIPTION elements within a card. @default /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/ */
+	descPattern?: RegExp
+	/** Class pattern identifying BADGE elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip)$/i */
+	badgePattern?: RegExp
+	/** Class pattern for elements that must NEVER be adopted as sibling cards. @default /(^|-)(quote|callout|testimonial|blockquote)\b/ */
+	neverAdoptPattern?: RegExp
+	/** Max character length for title-likeness heuristic in sibling adoption. @default 60 */
+	titleMaxChars?: number
+	/** Max character length for badge text. @default 24 */
+	badgeMaxChars?: number
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -259,7 +271,9 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 
 	// ── badge ─────────────────────────────────────────────────────────────────────────────
 	let badge: CardData['badge']
-	const badgeEl = findFirst(card, e => classMatch(e, BADGE_PAT) && textOf(e).trim().length > 0 && textOf(e).trim().length <= 24, skip)
+	const badgePat = opts.badgePattern || BADGE_PAT
+	const badgeMax = opts.badgeMaxChars ?? 24
+	const badgeEl = findFirst(card, e => classMatch(e, badgePat) && textOf(e).trim().length > 0 && textOf(e).trim().length <= badgeMax, skip)
 	if (badgeEl) {
 		skip.add(badgeEl)
 		const bt = textOf(badgeEl).trim()
@@ -270,17 +284,18 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 	// ── title ─────────────────────────────────────────────────────────────────────────────
 	let titleEl: HNode | null = null
 	let title = ''
+	const titlePat = opts.titlePattern || TITLE_PAT
 	const heading = findFirst(card, e => /^(h[1-6]|strong|b)$/.test(e.tag), skip)
 	if (heading) { titleEl = heading; title = textOf(heading).trim() }
 	if (!title) {
-		const classTitleEl = findByTitle(card, skip)
+		const classTitleEl = findByTitle(card, skip, titlePat)
 		if (classTitleEl) { titleEl = classTitleEl; title = textOf(classTitleEl).trim() }
 	}
 
 	// Skip title subtree when searching for description
 	if (titleEl) skip.add(titleEl)
 	// Also skip any class-based TITLE_PAT match (and its card-child ancestor) to prevent text leakage
-	const classTitleHit = findByTitle(card, skip)
+	const classTitleHit = findByTitle(card, skip, titlePat)
 	if (classTitleHit && classTitleHit !== titleEl) {
 		skip.add(classTitleHit)
 		// Walk up to the direct child of card so the entire chip/badge wrapper is skipped
@@ -291,7 +306,8 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 
 	// ── description ───────────────────────────────────────────────────────────────────────
 	let description: string | undefined
-	let descEl: HNode | null = findFirst(card, e => classMatch(e, DESC_PAT) && textOf(e).trim().length > 0 && !(titleEl && isAncestorOrSelf(e, titleEl)), skip)
+	const descPat = opts.descPattern || DESC_PAT
+	let descEl: HNode | null = findFirst(card, e => classMatch(e, descPat) && textOf(e).trim().length > 0 && !(titleEl && isAncestorOrSelf(e, titleEl)), skip)
 	const blocks = textBlocks(card, skip)
 	if (!title && blocks.length) { title = blocks[0].text }
 	if (descEl) {
@@ -344,8 +360,8 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 }
 
 /** Title element: a `*-title|name|heading|head|label` class, skipping `skip` subtrees. */
-function findByTitle (card: HNode, skip: Set<HNode>): HNode | null {
-	return findFirst(card, e => classMatch(e, TITLE_PAT) && textOf(e).trim().length > 0, skip)
+function findByTitle (card: HNode, skip: Set<HNode>, titlePat: RegExp = TITLE_PAT): HNode | null {
+	return findFirst(card, e => classMatch(e, titlePat) && textOf(e).trim().length > 0, skip)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -362,10 +378,13 @@ function hasIcon (node: HNode): boolean {
 }
 
 /** Returns true when `sibling` is structurally similar to the already-detected `cards`. */
-function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp, ctx: CssContext): boolean {
+function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp, ctx: CssContext, opts: ParseCardsOptions): boolean {
+	const neverAdopt = opts.neverAdoptPattern || NEVER_ADOPT_CLASS
+	const titlePat = opts.titlePattern || TITLE_PAT
+	const maxChars = opts.titleMaxChars ?? 60
 	// Never adopt <blockquote> elements or elements with quote/callout/testimonial classes
 	if (sibling.tag === 'blockquote') return false
-	if (sibling.classes.some(c => NEVER_ADOPT_CLASS.test(c))) return false
+	if (sibling.classes.some(c => neverAdopt.test(c))) return false
 
 	// Never adopt a sibling that is itself a card CONTAINER (a second grid/flex row): its
 	// CHILDREN are cards, not the element itself — adopting it would swallow them as one card.
@@ -389,13 +408,13 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp,
 	}
 
 	// Title-likeness: a card leads with short heading-like text. A titled element (TITLE_PAT
-	// class or <h1>–<h6>) qualifies; otherwise the first text block must be ≤60 chars. Prose
+	// class or <h1>–<h6>) qualifies; otherwise the first text block must be ≤titleMaxChars chars. Prose
 	// siblings (footnotes, disclaimers, captioned quotes) fail this and are not adopted.
-	const titleish = findFirst(sibling, e => (classMatch(e, TITLE_PAT) || /^h[1-6]$/.test(e.tag)) && textOf(e).trim().length > 0)
+	const titleish = findFirst(sibling, e => (classMatch(e, titlePat) || /^h[1-6]$/.test(e.tag)) && textOf(e).trim().length > 0)
 	if (!titleish) {
 		const firstTextEl = findFirst(sibling, e => e.children.some(c => c.tag === '#text' && (c.text || '').trim().length > 0))
 		const t = firstTextEl ? textOf(firstTextEl).trim() : ''
-		if (t.length === 0 || t.length > 60) return false
+		if (t.length === 0 || t.length > maxChars) return false
 	}
 
 	return true
@@ -468,7 +487,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 				// A sibling that contains an already-detected card (e.g. row 2 of a two-row
 				// class-matched grid) is part of the card region — skip it, never adopt it.
 				if (cards.some(c => isAncestorOrSelf(sib, c))) continue
-				if (isStructurallySimilar(sib, cards, contPat, ctx)) {
+				if (isStructurallySimilar(sib, cards, contPat, ctx, opts)) {
 					cards.push(sib)
 				} else {
 					break // first non-match terminates scanning
