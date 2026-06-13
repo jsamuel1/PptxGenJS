@@ -117,7 +117,7 @@ export interface ParseCardsOptions {
 // ──────────────────────────────────────────────────────────────────────────────────────────
 const DEFAULT_CARD = /(?:^|-)(card|item|tile|cell)\b/
 const DEFAULT_CONTAINER = /(?:^|-)grid\b/
-const DEFAULT_EXCLUDE = /(?:^|-)(anim-right|product-anim|flow|feed-item)\b/
+
 const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)$/
 const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/
 const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)$/i
@@ -131,7 +131,8 @@ const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)$/i
 // behaviour is unchanged — it uses the identical parser, now in one place.
 
 /** True when `el` (or an ancestor) matches the exclude pattern. */
-function isExcluded (el: HNode, pat: RegExp): boolean {
+function isExcluded (el: HNode, pat: RegExp | undefined): boolean {
+	if (!pat) return false
 	let cur: HNode | null = el
 	while (cur) { if (cur.classes.length && classMatch(cur, pat)) return true; cur = cur.parent }
 	return false
@@ -433,7 +434,7 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp,
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
 /** Locate a grid/flex container whose repeated children are the cards. */
-function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp, ctx: CssContext): HNode | null {
+function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp | undefined, ctx: CssContext): HNode | null {
 	for (const e of allEls) {
 		if (isExcluded(e, exclPat)) continue
 		const childEls = e.children.filter(c => c.tag !== '#text')
@@ -457,7 +458,7 @@ export function parseCards (input: string, opts: ParseCardsOptions = {}): CardDa
 	if (typeof input !== 'string' || input.length === 0) return []
 	const cardPat = opts.cardPattern || DEFAULT_CARD
 	const contPat = opts.containerPattern || DEFAULT_CONTAINER
-	const exclPat = opts.excludeWithin || DEFAULT_EXCLUDE
+	const exclPat = opts.excludeWithin
 
 	const root = buildTree(input)
 	const allEls = elements(root)

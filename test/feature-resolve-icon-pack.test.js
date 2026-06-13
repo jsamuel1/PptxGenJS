@@ -14,15 +14,14 @@ module.exports = [
     }
   },
   {
-    name: 'pack option falls through to bundled when icon not in pack',
+    name: 'pack option falls through to unresolved when icon not in pack (bundled empty per ADR 0008)',
     fn: async () => {
       const pack = { 'fa-anchor': { w: 512, h: 512, d: 'M0 0z' } }
       const html = '<i class="fas fa-star"></i>'
       const result = await resolveIconFonts(html, { pack, useCdn: false })
       const parts = result.get('fas fa-star')
-      // star is in bundled set, should resolve from bundled
-      if (!parts || parts.length === 0) throw new Error('star not resolved from bundled')
-      if (parts[0].source !== 'bundled') throw new Error('expected source bundled, got ' + parts[0].source)
+      // Bundled icons removed (ADR 0008); star is not in the user's pack → unresolved
+      if (parts && parts.length > 0) throw new Error('expected no resolution without bundled/CDN; got ' + parts[0].source)
     }
   },
   {

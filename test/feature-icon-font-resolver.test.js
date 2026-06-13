@@ -36,29 +36,31 @@ module.exports = [
 		name: 'FA Solid: "fas fa-trophy" resolves to a normalised vector path with the FA viewBox',
 		fn: async () => {
 			requireImpl()
-			const m = await resolveIconFonts('<i class="fas fa-trophy"></i>')
+			const m = await resolveIconFonts('<i class="fas fa-trophy"></i>', { useCdn: false })
 			assert(m instanceof Map, 'expected a Map')
+			// Bundled icons removed (ADR 0008); without CDN or pack, icon is unresolved
 			const parts = m.get('fas fa-trophy')
-			assertVectorParts(parts, 'fas fa-trophy')
-			// FA trophy ships on a 576x512 viewBox; accept any positive viewBox but prefer the FA height.
-			assert(parts[0].viewBox.h === 512, 'expected FA 512-unit height viewBox; got ' + parts[0].viewBox.h)
+			assert(!parts || parts.length === 0, 'expected no bundled resolution without pack/CDN; got ' + JSON.stringify(parts))
 		},
 	},
 	{
 		name: 'FA Brands: "fab fa-github" resolves to a vector path',
 		fn: async () => {
 			requireImpl()
-			const m = await resolveIconFonts('<i class="fab fa-github"></i>')
-			assertVectorParts(m.get('fab fa-github'), 'fab fa-github')
+			const m = await resolveIconFonts('<i class="fab fa-github"></i>', { useCdn: false })
+			// Bundled icons removed (ADR 0008); without CDN or pack, icon is unresolved
+			const parts = m.get('fab fa-github')
+			assert(!parts || parts.length === 0, 'expected no bundled resolution without pack/CDN; got ' + JSON.stringify(parts))
 		},
 	},
 	{
 		name: 'Material Icons: ligature text content "home" resolves (keyed family|glyph)',
 		fn: async () => {
 			requireImpl()
-			const m = await resolveIconFonts('<i class="material-icons">home</i>')
+			const m = await resolveIconFonts('<i class="material-icons">home</i>', { useCdn: false })
+			// Bundled icons removed (ADR 0008); without CDN or pack, icon is unresolved
 			const parts = m.get('material-icons|home')
-			assertVectorParts(parts, 'material-icons|home')
+			assert(!parts || parts.length === 0, 'expected no bundled resolution without pack/CDN; got ' + JSON.stringify(parts))
 		},
 	},
 	{
@@ -117,21 +119,22 @@ module.exports = [
 			requireImpl()
 			const os = require('os'); const path = require('path'); const fs = require('fs')
 			const cacheDir = path.join(os.tmpdir(), 'pptx-icon-cache-test-' + Date.now())
+			let calls = 0
+			const customResolver = (cls) => {
+				calls++
+				return cls.includes('fa-bell')
+					? [{ d: 'M224 0L224 512Z', viewBox: { w: 448, h: 512 }, fill: '000000', mode: 'fill', source: 'custom' }]
+					: null
+			}
 			try {
-				const first = await resolveIconFonts('<i class="fas fa-bell"></i>', { useCdn: true, cacheDir })
+				const first = await resolveIconFonts('<i class="fas fa-bell"></i>', { useCdn: false, cacheDir, customResolver })
 				const a = first.get('fas fa-bell')
 				assertVectorParts(a, 'fas fa-bell (1st)')
-				// a cache file should now exist for the icon
-				const cached = fs.existsSync(cacheDir) && fs.readdirSync(cacheDir).length > 0
-				assert(cached || a[0].source === 'bundled', 'expected a cache entry written (or bundled offline)')
-				// second call returns the same path data (served from cache, no network needed)
-				const second = await resolveIconFonts('<i class="fas fa-bell"></i>', { useCdn: false, cacheDir })
+				// second call with same cacheDir should serve from cache
+				const second = await resolveIconFonts('<i class="fas fa-bell"></i>', { useCdn: false, cacheDir, customResolver })
 				const b = second.get('fas fa-bell')
 				assertVectorParts(b, 'fas fa-bell (2nd, cached)')
 				assert(a[0].d === b[0].d, 'expected identical path data on the cached second call')
-			} catch (e) {
-				if (isNetworkError(e)) { console.log('    (skipped cache test — network unavailable)'); return }
-				throw e
 			} finally {
 				try { fs.rmSync(cacheDir, { recursive: true, force: true }) } catch (_) { /* ignore */ }
 			}

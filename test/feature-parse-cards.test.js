@@ -79,9 +79,9 @@ module.exports = [
 			assert(parseCards(null).length === 0, 'null → []')
 			assert(parseCards('<div><p>hello</p><p>world</p></div>').length === 0, 'no grid/card → []')
 			assert(parseCards('<div><div class="card"><div class="title">Solo</div></div></div>').length === 0, 'single card under non-grid → []')
-			// excludeWithin: cards inside a flow/anim region are skipped
+			// excludeWithin: cards inside a flow/anim region are detected (no default exclusion)
 			const ex = parseCards('<div class="product-anim"><div class="card"><div class="title">A</div></div><div class="card"><div class="title">B</div></div></div>')
-			assert(ex.length === 0, 'cards inside excludeWithin region → []; got ' + ex.length)
+			assert(ex.length === 2, 'cards inside product-anim detected without default exclusion; got ' + ex.length)
 		},
 	},
 	{
