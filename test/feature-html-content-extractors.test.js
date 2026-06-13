@@ -244,4 +244,40 @@ module.exports = [
 			assert(tl[0].body.includes('\u2014'), 'body uses separator; got: ' + tl[0].body)
 		},
 	},
+	// ─── parseTable: colspan + rowspan (Slice 5) ───────────────────────────
+	{
+		name: 'parseTable: colspan attribute preserved on cells',
+		fn: async () => {
+			const { readFileSync } = await import('fs')
+			const html = readFileSync('test/fixtures/foreign/table-colspan.html', 'utf8')
+			const t = parseTable(html)
+			assert(t !== null, 'table detected')
+			// Row 0: "Name" colspan=2, "Age", "Notes" rowspan=2 — 3 physical cells
+			const hdr = t.rows[0]
+			assert(hdr[0].text === 'Name', 'first header is Name; got: ' + hdr[0].text)
+			assert(hdr[0].colspan === 2, 'Name has colspan=2; got: ' + hdr[0].colspan)
+			assert(hdr[0].isHeader === true, 'Name is header')
+			assert(hdr[1].text === 'Age', 'second header is Age; got: ' + hdr[1].text)
+			assert(hdr[1].colspan === undefined, 'Age has no colspan')
+			assert(hdr[2].text === 'Notes', 'third header is Notes; got: ' + hdr[2].text)
+			assert(hdr[2].rowspan === 2, 'Notes has rowspan=2; got: ' + hdr[2].rowspan)
+		},
+	},
+	{
+		name: 'parseTable: logical column alignment — header spans cover body cells',
+		fn: async () => {
+			const { readFileSync } = await import('fs')
+			const html = readFileSync('test/fixtures/foreign/table-colspan.html', 'utf8')
+			const t = parseTable(html)
+			assert(t !== null, 'table detected')
+			// Header row 0: Name(colspan=2) + Age(1) + Notes(1) = 4 logical columns
+			const hdr = t.rows[0]
+			const logicalCols = hdr.reduce((n, c) => n + (c.colspan || 1), 0)
+			assert(logicalCols === 4, 'header spans 4 logical columns; got: ' + logicalCols)
+			// Body rows (index 2,3) have 4 physical cells each
+			const body = t.rows[2]
+			assert(body.length === 4, 'body row has 4 cells; got: ' + body.length)
+			assert(body[0].text === 'Alice', 'first body cell; got: ' + body[0].text)
+		},
+	},
 ]

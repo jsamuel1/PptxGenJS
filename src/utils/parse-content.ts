@@ -32,6 +32,10 @@ export interface TableCell {
 	isHeader: boolean
 	/** Cell text colour (6-digit hex, no `#`), when detectable. Omitted otherwise. */
 	color?: HexColor
+	/** Column span (omitted when 1). Maps to PptxGenJS `options.colspan`. */
+	colspan?: number
+	/** Row span (omitted when 1). Maps to PptxGenJS `options.rowspan`. */
+	rowspan?: number
 }
 
 /** A parsed HTML `<table>`: rows of cells. Maps straight onto `slide.addTable()`. */
@@ -101,6 +105,10 @@ export function parseTable (input: string | HNode, opts: ParseContentOptions = {
 			const out: TableCell = { text: textOf(cell).trim(), isHeader: cell.tag === 'th' }
 			const color = colorOf(cell, 'color', ctx)
 			if (color) out.color = color
+			const cs = parseInt(cell.attrs.colspan, 10)
+			if (cs > 1) out.colspan = cs
+			const rs = parseInt(cell.attrs.rowspan, 10)
+			if (rs > 1) out.rowspan = rs
 			cells.push(out)
 		}
 		rows.push(cells)
