@@ -62,6 +62,12 @@ export interface ExtractThemeOptions {
 	parseRgb?: boolean
 	/** CSS var name for the gradient bar used by `barStops`. @default '--bar-gradient' */
 	barGradientVar?: string
+	/** When no `--font*` custom property matched, scan top-level `font-family:` declarations. @default true */
+	scanFontFamily?: boolean
+	/** Selector priority list scanned for a `font-family:` declaration (highest priority first). */
+	fontFamilySelectors?: string[]
+	/** User-supplied variable-name→slot aliases applied BEFORE the built-in VAR_TO_SLOT lookup. */
+	varAliases?: Record<string, string>
 }
 
 /**

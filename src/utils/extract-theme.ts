@@ -14,6 +14,8 @@
  * `vars` metadata. All additions are ADDITIVE and default-on; the core slot mapping is unchanged.
  */
 
+import { relativeLuminance } from '../gen-utils'
+
 /** A resolved theme palette. All colours are 6-digit hex strings (no leading `#`). */
 export interface ThemePalette {
 	/** Background colour. */
@@ -86,6 +88,11 @@ export interface ExtractThemeOptions {
 	 * @default [':root','html','body','.slide','section.slide','.reveal','*']
 	 */
 	fontFamilySelectors?: string[]
+	/**
+	 * User-supplied variable-name→slot aliases applied BEFORE the built-in VAR_TO_SLOT lookup.
+	 * Keys are bare variable names (no `--`); values are ThemePalette slot names.
+	 */
+	varAliases?: Record<string, string>
 }
 
 /** Built-in dark preset (neutral, unbranded defaults). */
@@ -138,14 +145,15 @@ const VAR_TO_SLOT: Record<string, keyof ThemePalette> = {
 	'bg-card': 'surface', card: 'surface', 'color-bg-secondary': 'surface', 'bg-surface': 'surface',
 	'surface-2': 'surface', 'surface-variant': 'surface', panel: 'surface', elevated: 'surface',
 	// accent
-	purple: 'accent', accent: 'accent', 'color-primary': 'accent', primary: 'accent',
+	accent: 'accent', 'color-primary': 'accent', primary: 'accent',
 	brand: 'accent', 'brand-color': 'accent', 'primary-color': 'accent', 'accent-color': 'accent', 'theme-color': 'accent', highlight: 'accent',
 	// accentSoft
 	'purple-soft': 'accentSoft', 'accent-soft': 'accentSoft', 'color-primary-light': 'accentSoft',
-	'accent-light': 'accentSoft', 'primary-light': 'accentSoft', 'brand-light': 'accentSoft',
+	'accent-light': 'accentSoft', 'primary-light': 'accentSoft', 'brand-light': 'accentSoft', secondary: 'accentSoft',
 	// text
-	white: 'text', text: 'text', 'color-text': 'text', foreground: 'text',
+	text: 'text', 'color-text': 'text', foreground: 'text',
 	'text-color': 'text', fg: 'text', ink: 'text', 'body-color': 'text', 'on-background': 'text',
+	'body-bg': 'bg', 'on-surface': 'text', 'on-primary': 'text',
 	// textMuted
 	gray: 'textMuted', muted: 'textMuted', 'color-text-secondary': 'textMuted',
 	'text-muted': 'textMuted', 'text-secondary': 'textMuted', subtle: 'textMuted', grey: 'textMuted', dim: 'textMuted',
@@ -321,6 +329,9 @@ function canonicalVarName (name: string): string[] {
 	return lc === stripped ? [lc] : [lc, stripped]
 }
 
+/** Known CSS framework prefixes to strip before VAR_TO_SLOT lookup. */
+const KNOWN_PREFIXES = ['bs-', 'md-sys-color-', 'mui-', 'tw-', 'chakra-', 'mantine-', 'sl-']
+
 /**
  * Extract `--name: value;` custom-property declarations from CSS text.
  * Prefers declarations inside `:root { … }` blocks; if none are found, falls back to scanning
@@ -329,29 +340,25 @@ function canonicalVarName (name: string): string[] {
  */
 function parseCssVars (css: string): Record<string, string> {
 	const out: Record<string, string> = {}
-	const declRegex = /--([\w-]+)\s*:\s*([^;]+);/g
+	const declRegex = /--([\w-]+)\s*:\s*([^;}\n]+)/g
 
-	const collect = (text: string): void => {
+	const collect = (text: string, target: Record<string, string>): void => {
 		let m: RegExpExecArray | null
 		while ((m = declRegex.exec(text)) !== null) {
-			out[m[1].trim().toLowerCase()] = m[2].trim()
+			target[m[1].trim().toLowerCase()] = m[2].trim()
 		}
 	}
 
-	// 1) :root blocks (there can be more than one)
+	// 1) Scan whole CSS for custom-prop declarations (baseline)
+	declRegex.lastIndex = 0
+	collect(css, out)
+
+	// 2) :root blocks override (there can be more than one) — same-name vars take precedence
 	const rootRegex = /:root\s*\{([^}]*)\}/g
 	let rootMatch: RegExpExecArray | null
-	let foundRoot = false
 	while ((rootMatch = rootRegex.exec(css)) !== null) {
-		foundRoot = true
 		declRegex.lastIndex = 0
-		collect(rootMatch[1])
-	}
-
-	// 2) Fallback: no :root vars — scan the whole CSS for custom-prop declarations
-	if (!foundRoot) {
-		declRegex.lastIndex = 0
-		collect(css)
+		collect(rootMatch[1], out)
 	}
 
 	return out
@@ -379,6 +386,9 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 	const fontFamilySelectors = options.fontFamilySelectors || DEFAULT_FONT_SELECTORS
 
 	const vars: Record<string, string> = (typeof css === 'string' && css.length > 0) ? parseCssVars(css) : {}
+	const varAliases = options.varAliases || {}
+	// Track which slots were explicitly extracted from CSS (not preset)
+	const extractedSlots = new Set<string>()
 
 	let theme: ThemePalette
 	let presetName: string
@@ -396,16 +406,68 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		let fontFromVar = false
 		Object.keys(vars).forEach(name => {
 			let slot: keyof ThemePalette | undefined
-			for (const cand of canonicalVarName(name)) {
-				if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+			// 5e: varAliases applied BEFORE VAR_TO_SLOT lookup
+			const lcName = name.toLowerCase()
+			if (varAliases[lcName]) {
+				slot = varAliases[lcName] as keyof ThemePalette
+			} else {
+				// 5a: try canonical name, then prefix-stripped canonical name
+				for (const cand of canonicalVarName(name)) {
+					if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+				}
+				if (!slot) {
+					// Strip known framework prefixes and retry
+					for (const prefix of KNOWN_PREFIXES) {
+						if (lcName.startsWith(prefix)) {
+							const stripped = lcName.slice(prefix.length)
+							for (const cand of canonicalVarName(stripped)) {
+								if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+							}
+							if (slot) break
+						}
+					}
+				}
 			}
 			if (!slot) return
 			matched++
 			if (slot === 'font') fontFromVar = true
+			extractedSlots.add(slot as string)
 			let value = vars[name]
 			if (resolveVarRefs) value = resolveVar(value, vars)
 			theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value, parseRgb)
 		})
+
+		// 5b: Fallback chain — scan body{}/html{} for background/color when bg/text not from vars
+		if (typeof css === 'string' && css.length > 0) {
+			const bodyHtmlRegex = /(?:body|html)\s*\{([^}]*)\}/gi
+			let bm: RegExpExecArray | null
+			while ((bm = bodyHtmlRegex.exec(css)) !== null) {
+				const block = bm[1]
+				if (!extractedSlots.has('bg')) {
+					const bgMatch = block.match(/(?:background-color|background)\s*:\s*([^;]+)/i)
+					if (bgMatch) {
+						const val = normalizeColor(bgMatch[1].trim(), parseRgb)
+						if (/^[0-9A-F]{6}$/.test(val)) {
+							theme.bg = val
+							extractedSlots.add('bg')
+							matched++
+						}
+					}
+				}
+				if (!extractedSlots.has('text')) {
+					const colorMatch = block.match(/(?:^|[^-\w])color\s*:\s*([^;]+)/i)
+					if (colorMatch) {
+						const val = normalizeColor(colorMatch[1].trim(), parseRgb)
+						if (/^[0-9A-F]{6}$/.test(val)) {
+							theme.text = val
+							extractedSlots.add('text')
+							matched++
+						}
+					}
+				}
+			}
+		}
+
 		// Gap 2: when no explicit `--font*` var set the font, adopt a scanned `font-family:` family.
 		// An explicit `--font*` var ALWAYS wins over a scanned declaration.
 		if (!fontFromVar && scanFontFamily) {
@@ -413,12 +475,52 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 			if (scanned) theme.font = normalizeFont(scanned)
 		}
 		presetName = matched > 0 ? 'extracted' : fallbackName
+
+		// 5c: Light/dark inference — only when caller did NOT explicitly provide defaultPreset
+		if (presetName === 'extracted' && !options.defaultPreset) {
+			let inferLight = false
+			if (extractedSlots.has('bg')) {
+				const bgLum = relativeLuminance(theme.bg)
+				if (bgLum > 0.5) inferLight = true
+			} else if (extractedSlots.has('text')) {
+				const textLum = relativeLuminance(theme.text)
+				if (textLum < 0.4) inferLight = true
+			}
+			if (inferLight) {
+				// Fill unfilled slots from LIGHT_PRESET instead of the dark fallback
+				for (const key of Object.keys(LIGHT_PRESET) as (keyof ThemePalette)[]) {
+					if (!extractedSlots.has(key as string) && key !== 'font') {
+						(theme as any)[key] = LIGHT_PRESET[key]
+					}
+				}
+			}
+		}
+
+		// 5d: Anti-Frankenstein — recalculate surfaceRaised when both bg and text extracted
+		if (extractedSlots.has('bg') && extractedSlots.has('text') && !extractedSlots.has('surfaceRaised')) {
+			theme.surfaceRaised = mixColors(theme.bg, theme.text, 0.07)
+		}
 	}
 
 	if (derivedColors) {
 		theme.cardLine = mixColors(theme.accent, theme.bg, 0.72)
 		theme.cardFill = mixColors(theme.surfaceRaised, theme.bg, 0.4)
 		theme.barStops = deriveBarStops(vars, theme, barGradientVar, resolveVarRefs, parseRgb)
+
+		// 5d: Safety check — nudge derived colours too close to bg toward text (only when both extracted)
+		if (extractedSlots.has('bg') && extractedSlots.has('text')) {
+			const bgLum = relativeLuminance(theme.bg)
+			const textHex = theme.text
+			for (const slot of ['cardFill', 'cardLine'] as const) {
+				const val = theme[slot]
+				if (val && /^[0-9A-F]{6}$/i.test(val)) {
+					const slotLum = relativeLuminance(val)
+					if (Math.abs(slotLum - bgLum) < 0.1) {
+						theme[slot] = mixColors(val, textHex, 0.15)
+					}
+				}
+			}
+		}
 	}
 
 	theme.presetName = presetName

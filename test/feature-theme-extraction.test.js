@@ -11,9 +11,9 @@ const { assert, assertEqual } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'extractTheme: maps --bg/--purple/--white/--font to bg/accent/text/font',
+		name: 'extractTheme: maps --bg/--accent/--text/--font to bg/accent/text/font',
 		fn: async () => {
-			const css = ":root {\n  --bg: #121218;\n  --purple: #7C3AED;\n  --white: #E4E4ED;\n  --font: 'Inter';\n}"
+			const css = ":root {\n  --bg: #121218;\n  --accent: #7C3AED;\n  --text: #E4E4ED;\n  --font: 'Inter';\n}"
 			const theme = extractThemeFromCSS(css)
 			assertEqual(theme.bg, '121218', 'bg')
 			assertEqual(theme.accent, '7C3AED', 'accent')
@@ -226,11 +226,11 @@ module.exports = [
 		},
 	},
 	{
-		name: 'extractTheme aliases: regression — existing exact names unchanged (--bg/--purple)',
+		name: 'extractTheme aliases: regression — existing exact names unchanged (--bg/--accent)',
 		fn: async () => {
-			const theme = extractThemeFromCSS(':root{ --bg:#121218; --purple:#7C3AED; }')
+			const theme = extractThemeFromCSS(':root{ --bg:#121218; --accent:#7C3AED; }')
 			assertEqual(theme.bg, '121218', 'bg unchanged')
-			assertEqual(theme.accent, '7C3AED', 'accent via --purple unchanged')
+			assertEqual(theme.accent, '7C3AED', 'accent via --accent unchanged')
 		},
 	},
 
@@ -285,6 +285,66 @@ module.exports = [
 			const css = 'body { font-family: Georgia; } .deck { font-family: Roboto; }'
 			const theme = extractThemeFromCSS(css, { fontFamilySelectors: ['.deck', 'body'] })
 			assertEqual(theme.font, 'Roboto', '.deck prioritised via custom fontFamilySelectors')
+		},
+	},
+
+	// --- Slice 5: Theme extraction generality ---
+	{
+		name: 'extractTheme s5: extracts Bootstrap vars with prefix stripping',
+		fn: async () => {
+			const css = ':root{--bs-primary:#0d6efd;--bs-body-bg:#ffffff;--bs-body-color:#212529}'
+			const result = extractThemeFromCSS(css)
+			assertEqual(result.accent, '0D6EFD', 'accent from --bs-primary')
+			assertEqual(result.bg, 'FFFFFF', 'bg from --bs-body-bg')
+			assertEqual(result.text, '212529', 'text from --bs-body-color')
+			assertEqual(result.presetName, 'extracted', 'presetName')
+			// Light preset should be inferred (bg luminance > 0.5)
+		},
+	},
+	{
+		name: 'extractTheme s5: extracts Material Design tokens with prefix stripping',
+		fn: async () => {
+			const css = ':root{--md-sys-color-primary:#6750a4;--md-sys-color-surface:#fffbfe;--md-sys-color-on-surface:#1c1b1f}'
+			const result = extractThemeFromCSS(css)
+			assertEqual(result.accent, '6750A4', 'accent from --md-sys-color-primary')
+			assertEqual(result.bg, 'FFFBFE', 'bg from --md-sys-color-surface (surface maps to bg)')
+			assertEqual(result.text, '1C1B1F', 'text from --md-sys-color-on-surface (on-surface maps to text)')
+		},
+	},
+	{
+		name: 'extractTheme s5: extracts bg/text from body{} when no vars provide them',
+		fn: async () => {
+			const css = 'body{background:#fafafa;color:#222222}'
+			const result = extractThemeFromCSS(css)
+			assertEqual(result.bg, 'FAFAFA', 'bg from body background')
+			assertEqual(result.text, '222222', 'text from body color')
+			// Light should be inferred
+		},
+	},
+	{
+		name: 'extractTheme s5: does not mix dark preset values into light-extracted palette',
+		fn: async () => {
+			const css = ':root{--bg:#f8f9fa;--text:#212529}'
+			const result = extractThemeFromCSS(css)
+			// No derived slot should contain dark preset hex values
+			const darkPresetValues = ['1a1a2e', '25253e', '2d2d4a', '606078']
+			if (result.cardFill) {
+				for (const dark of darkPresetValues) {
+					assert(result.cardFill.toLowerCase() !== dark, 'cardFill should not be dark preset value ' + dark + '; got: ' + result.cardFill)
+				}
+			}
+			// cardFill should be readable against bg (luminance distance >= 0.1 after nudge)
+		},
+	},
+	{
+		name: 'extractTheme s5: maps deck-specific var names via varAliases option',
+		fn: async () => {
+			const css = ':root{--purple:#7C3AED}'
+			const withAlias = extractThemeFromCSS(css, { varAliases: { purple: 'accent' } })
+			assertEqual(withAlias.accent, '7C3AED', 'accent mapped via varAliases')
+			const without = extractThemeFromCSS(css)
+			// Without varAliases, purple should NOT map to accent (removed from VAR_TO_SLOT)
+			assert(without.accent !== '7C3AED', 'without varAliases, purple should not map to accent; got: ' + without.accent)
 		},
 	},
 ]
