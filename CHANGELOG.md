@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** `ThemePalette` type uses role-named slots (`bg`, `surface`, `text`, `accent`, etc.) instead of deck-specific slot names
+- **BREAKING:** `addCallout`, `addCard`, `addBadge` default colors are now luminance-derived (WCAG 2.1 ≥ 4.5:1 contrast) using `inkForFill()` instead of hardcoded hex values
+- Default accent color changed from `7C3AED` to `6366F1` (indigo-500)
+- Default card fill changed from `1a1a24` to `1E293B` (slate-800)
+- `@default` annotations in `core-interfaces.ts` updated to reflect new values
+
+### Removed
+
+- **BREAKING:** Deck-specific palette presets (`DARK_PRESET`/`LIGHT_PRESET` with branded hex values `FF9900`, `Inter`)
+- **BREAKING:** `DEFAULT_EXCLUDE` regex in `parseCards` — card exclusion is now opt-in via `excludeWithin`
+- **BREAKING:** `BUNDLED_ICONS` entries emptied (icon data distribution is the consumer's responsibility per ADR 0008)
+
 ## [4.3.19](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.19) - 2026-06-13
 
 ### Added

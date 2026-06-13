@@ -1104,7 +1104,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	 * v2 group path (when `accentBar` or `attribution` is present).
 	 */
 	text: string | TextProps[]
-	/** Background fill (hex color or fill props). @default '7C3AED' */
+	/** Background fill (hex color or fill props). @default '6366F1' */
 	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
 	/** Text color (hex). @default 'FFFFFF' (v1) / 'FFFFFF' body (v2) */
 	fontColor?: HexColor
@@ -1136,7 +1136,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	 * Presence switches the callout to the v2 group path.
 	 */
 	accentBar?: {
-		/** Bar color — hex string or gradient fill. @default '7C3AED' */
+		/** Bar color — hex string or gradient fill. @default '6366F1' */
 		color?: HexColor | GradientFillProps
 		/** Bar width in inches. @default 0.03 */
 		width?: number
@@ -1145,7 +1145,7 @@ export interface CalloutProps extends PositionProps, ObjectNameProps {
 	attributionFont?: {
 		/** Attribution font size (points). @default 9 */
 		size?: number
-		/** Attribution text color (hex). @default '94A3B8' */
+		/** Attribution text color (hex). @default derived from inkForFill(fill) */
 		color?: HexColor
 		/** Italic attribution? */
 		italic?: boolean
@@ -1185,7 +1185,7 @@ export interface CardCountBadgeProps {
 	type: 'count'
 	/** The count to display (rendered as `String(value)`; non-finite values render as `'0'`). */
 	value: number
-	/** Bubble fill (hex). @default '7C3AED' (accent) */
+	/** Bubble fill (hex). @default '6366F1' (accent) */
 	fill?: HexColor
 	/** Bubble text colour (hex). @default 'FFFFFF' */
 	color?: HexColor
@@ -1215,7 +1215,7 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	 * `'inline-right'` for nav/sidebar items).
 	 */
 	badge?: CardBadgeProps | CardCountBadgeProps
-	/** Card background fill (hex or fill props). @default '1a1a24' */
+	/** Card background fill (hex or fill props). @default '1E293B' */
 	fill?: ShapeFillProps | GradientFillProps | PatternFillProps | ImageFillProps | HexColor
 	/** Card border. */
 	border?: { color?: HexColor, width?: number }
@@ -1225,29 +1225,29 @@ export interface CardProps extends PositionProps, ObjectNameProps {
 	shadow?: ShadowProps
 	/** Glow on the card background. */
 	glow?: TextGlowProps
-	/** Title text styling. @default { size: 13, bold: true, color: 'E4E4ED' } */
+	/** Title text styling. @default { size: 13, bold: true, color: inkForFill(fill) } */
 	titleFont?: CardFontProps
-	/** Description text styling. @default { size: 10, color: '8A8A9A' } */
+	/** Description text styling. @default { size: 10, color: inkForFill(fill) } */
 	descFont?: CardFontProps
 	/** Icon container size (inches). @default 0.4 */
 	iconSize?: number
 	/**
 	 * Icon container background fill (hex, alpha allowed). Set to `'none'` or `false` to
 	 * suppress the container tile entirely (bare-icon mode — the glyph is drawn directly on
-	 * the card). @default '7C3AED'
+	 * the card). @default '6366F1'
 	 */
 	iconFill?: HexColor | 'none' | false
 	/**
 	 * Icon glyph accent colour (hex). Applies to emoji/text, SVG-path, and font-icon glyphs,
 	 * independent of the container tile — useful for bare icons. Falls back to
-	 * `titleFont.color` then `'E4E4ED'` when omitted.
+	 * `titleFont.color` then `inkForFill(fill)` when omitted.
 	 */
 	iconColor?: HexColor
 	/**
 	 * Thin vertical accent bar on the card's left edge (category colour-coding / brand accent).
 	 * Drawn behind the icon/title/description. `color` is a solid hex or a gradient fill
 	 * (default a sensible accent when omitted); `width` is in inches.
-	 * @default { color: '7C3AED', width: 0.03 }
+	 * @default { color: '6366F1', width: 0.03 }
 	 */
 	accentBar?: { color?: HexColor | GradientFillProps, width?: number }
 	/** Content alignment within the card. @default 'center' */
@@ -1291,7 +1291,7 @@ export interface BadgeProps extends PositionProps, ObjectNameProps {
 	text: string
 	/** Badge shape. @default 'pill' */
 	shape?: 'circle' | 'pill'
-	/** Badge fill colour (hex). @default '7C3AED' */
+	/** Badge fill colour (hex). @default '6366F1' */
 	fill?: HexColor
 	/** Label colour (hex). @default 'FFFFFF' */
 	color?: HexColor

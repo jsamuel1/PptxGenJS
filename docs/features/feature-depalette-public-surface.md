@@ -1,6 +1,6 @@
 # Feature: De-palette the public surface (neutral defaults)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** High — BREAKING; implements [ADR 0009](../architecture/decisions/0009-neutral-defaults.md).
 > Land with/after the ADR 0008 icons-fa removal so the library breaks in coordinated
 > chunks (multiple breaking chunks are approved — no external consumers yet).
