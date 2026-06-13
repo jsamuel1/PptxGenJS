@@ -5,6 +5,8 @@
 // (src/bld/utils.cjs.js) so they exercise shipped output; the end-to-end maps a parsed
 // {type:'svg'} CardData into addCard on src/bld/pptxgen.cjs.js and validates the OOXML.
 
+const fs = require('fs')
+const path = require('path')
 const JSZip = require('jszip')
 const { parseCards } = require('../src/bld/utils.cjs.js')
 const PptxGenJS = require('../src/bld/pptxgen.cjs.js')
@@ -378,6 +380,59 @@ module.exports = [
 				'<blockquote><svg viewBox="0 0 24 24"><path d="M1 1"/></svg><div>Wise words</div></blockquote>'
 			const cards = parseCards(html)
 			assert(cards.length === 2, 'expected 2 cards (blockquote not adopted); got ' + cards.length)
+		},
+	},
+	// ── foreign framework correctness (Fix 1–4 regression tests) ──────────────────────────
+	{
+		name: 'parseCards foreign: Bootstrap card-body/card-text not confused as description container',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/bootstrap-cards.html'), 'utf8')
+			const cards = parseCards(html)
+			assert(cards.length === 3, 'expected 3 Bootstrap cards; got ' + cards.length)
+			assert(cards[0].title === 'Authentication', 'card0 title; got ' + cards[0].title)
+			assert(cards[1].title === 'Authorization', 'card1 title; got ' + cards[1].title)
+			assert(cards[2].title === 'Encryption', 'card2 title; got ' + cards[2].title)
+			assert(cards[0].description === 'Secure login with OAuth2 and MFA support.', 'card0 desc; got ' + cards[0].description)
+			assert(cards[1].description === 'Role-based access control for all endpoints.', 'card1 desc; got ' + cards[1].description)
+			assert(cards[2].description === 'AES-256 encryption at rest and in transit.', 'card2 desc; got ' + cards[2].description)
+		},
+	},
+	{
+		name: 'parseCards foreign: Tailwind text-lg/text-gray-600 do not confuse title/desc extraction',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/tailwind-cards.html'), 'utf8')
+			const cards = parseCards(html)
+			assert(cards.length === 3, 'expected 3 Tailwind cards; got ' + cards.length)
+			assert(cards[0].title === 'Fast Delivery', 'card0 title; got ' + cards[0].title)
+			assert(cards[1].title === 'Easy Returns', 'card1 title; got ' + cards[1].title)
+			assert(cards[2].title === '24/7 Support', 'card2 title; got ' + cards[2].title)
+			assert(cards[0].description === 'Ship in under 24 hours worldwide.', 'card0 desc; got ' + cards[0].description)
+			assert(cards[1].description === '30-day hassle-free return policy.', 'card1 desc; got ' + cards[1].description)
+			assert(cards[2].description === 'Always here when you need us.', 'card2 desc; got ' + cards[2].description)
+		},
+	},
+	{
+		name: 'parseCards foreign: MUI h6 titles beat MuiChip-label (heading preferred over class hit)',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/mui-cards.html'), 'utf8')
+			const cards = parseCards(html)
+			assert(cards.length === 3, 'expected 3 MUI cards; got ' + cards.length)
+			assert(cards[0].title === 'Dashboard', 'card0 title from h6; got ' + cards[0].title)
+			assert(cards[1].title === 'Reports', 'card1 title from h6; got ' + cards[1].title)
+			assert(cards[2].title === 'Settings', 'card2 title from h6; got ' + cards[2].title)
+			assert(cards[0].description === 'View analytics and metrics.', 'card0 desc; got ' + cards[0].description)
+			assert(cards[1].description === 'Generate custom PDF reports.', 'card1 desc; got ' + cards[1].description)
+			assert(cards[2].description === 'Configure system preferences.', 'card2 desc; got ' + cards[2].description)
+		},
+	},
+	{
+		name: 'parseCards foreign: direct text nodes collected by textBlocks (list-group-item)',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/list-group-text-nodes.html'), 'utf8')
+			const cards = parseCards(html)
+			assert(cards.length === 2, 'expected 2 list-group cards; got ' + cards.length)
+			assert(cards[0].title === 'First item text', 'card0 title from direct text; got ' + cards[0].title)
+			assert(cards[1].title === 'Second item text', 'card1 title from direct text; got ' + cards[1].title)
 		},
 	},
 ]

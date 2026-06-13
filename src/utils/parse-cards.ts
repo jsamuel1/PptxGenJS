@@ -105,8 +105,8 @@ export interface ParseCardsOptions {
 const DEFAULT_CARD = /(?:^|-)(card|item|tile|cell)\b/
 const DEFAULT_CONTAINER = /(?:^|-)grid\b/
 const DEFAULT_EXCLUDE = /(?:^|-)(anim-right|product-anim|flow|feed-item)\b/
-const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)\b/
-const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)\b/
+const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)$/
+const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/
 const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)\b/
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -207,7 +207,14 @@ function textBlocks (card: HNode, skip: Set<HNode>): Array<{ el: HNode, text: st
 			for (const c of childWithText) walk(c)
 		}
 	}
-	for (const c of card.children) { if (c.tag !== '#text') walk(c) }
+	for (const c of card.children) {
+		if (c.tag === '#text') {
+			const t = (c.text || '').trim()
+			if (t) out.push({ el: c, text: t })
+		} else {
+			walk(c)
+		}
+	}
 	return out
 }
 
@@ -261,17 +268,30 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 	}
 
 	// ── title ─────────────────────────────────────────────────────────────────────────────
-	const titleEl = findByTitle(card, skip)
+	let titleEl: HNode | null = null
 	let title = ''
-	if (titleEl) title = textOf(titleEl).trim()
-	else {
-		const heading = findFirst(card, e => /^(h[1-4]|strong|b)$/.test(e.tag), skip)
-		if (heading) title = textOf(heading).trim()
+	const heading = findFirst(card, e => /^(h[1-6]|strong|b)$/.test(e.tag), skip)
+	if (heading) { titleEl = heading; title = textOf(heading).trim() }
+	if (!title) {
+		const classTitleEl = findByTitle(card, skip)
+		if (classTitleEl) { titleEl = classTitleEl; title = textOf(classTitleEl).trim() }
+	}
+
+	// Skip title subtree when searching for description
+	if (titleEl) skip.add(titleEl)
+	// Also skip any class-based TITLE_PAT match (and its card-child ancestor) to prevent text leakage
+	const classTitleHit = findByTitle(card, skip)
+	if (classTitleHit && classTitleHit !== titleEl) {
+		skip.add(classTitleHit)
+		// Walk up to the direct child of card so the entire chip/badge wrapper is skipped
+		let anc: HNode | null = classTitleHit
+		while (anc && anc.parent !== card) anc = anc.parent
+		if (anc && anc !== titleEl) skip.add(anc)
 	}
 
 	// ── description ───────────────────────────────────────────────────────────────────────
 	let description: string | undefined
-	let descEl: HNode | null = findFirst(card, e => classMatch(e, DESC_PAT) && textOf(e).trim().length > 0, skip)
+	let descEl: HNode | null = findFirst(card, e => classMatch(e, DESC_PAT) && textOf(e).trim().length > 0 && !(titleEl && isAncestorOrSelf(e, titleEl)), skip)
 	const blocks = textBlocks(card, skip)
 	if (!title && blocks.length) { title = blocks[0].text }
 	if (descEl) {
