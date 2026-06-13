@@ -107,7 +107,7 @@ const DEFAULT_CONTAINER = /(?:^|-)grid\b/
 const DEFAULT_EXCLUDE = /(?:^|-)(anim-right|product-anim|flow|feed-item)\b/
 const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)$/
 const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/
-const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)\b/
+const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)$/i
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // HTML tree node + tiny dependency-free tree builder + tree helpers

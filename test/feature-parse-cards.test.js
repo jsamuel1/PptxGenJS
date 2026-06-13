@@ -8,7 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const JSZip = require('jszip')
-const { parseCards } = require('../src/bld/utils.cjs.js')
+const { parseCards, parseBadges } = require('../src/bld/utils.cjs.js')
 const PptxGenJS = require('../src/bld/pptxgen.cjs.js')
 const { assert } = require('./helpers')
 const { isInstalled, validateBuf } = require('./validator')
@@ -433,6 +433,17 @@ module.exports = [
 			assert(cards.length === 2, 'expected 2 list-group cards; got ' + cards.length)
 			assert(cards[0].title === 'First item text', 'card0 title from direct text; got ' + cards[0].title)
 			assert(cards[1].title === 'Second item text', 'card1 title from direct text; got ' + cards[1].title)
+		},
+	},
+	{
+		name: 'parseBadges anchored regex: no false-positives on vintage/caterpillar/heritage-tagline',
+		fn: async () => {
+			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/badges-false-positive.html'), 'utf8')
+			const badges = parseBadges(html)
+			assert(badges.length === 3, 'expected 3 real badges; got ' + badges.length + ' → ' + JSON.stringify(badges))
+			assert(badges[0] === 'New', 'badge0 New; got ' + badges[0])
+			assert(badges[1] === 'Sale', 'badge1 Sale; got ' + badges[1])
+			assert(badges[2] === 'Hot', 'badge2 Hot; got ' + badges[2])
 		},
 	},
 ]

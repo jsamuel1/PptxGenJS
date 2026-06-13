@@ -309,7 +309,7 @@ export function parseBadges (input: string | HNode, opts: ParseContentOptions = 
 	const root = toRoot(input)
 	const exclPat = opts.excludeWithin
 	const matched = elements(root).filter(el =>
-		(!exclPat || !isExcluded(el, exclPat)) && classMatch(el, /badge|pill|tag/i))
+		(!exclPat || !isExcluded(el, exclPat)) && classMatch(el, /(?:^|-)(badge|pill|tag|count|chip)$/i))
 	// nested de-dup: drop a badge that has a badge ANCESTOR (keep the outermost)
 	const kept = matched.filter(el => !matched.some(o => o !== el && isAncestorOrSelf(o, el)))
 	const out: string[] = []
