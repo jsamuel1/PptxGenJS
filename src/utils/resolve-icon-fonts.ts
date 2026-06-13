@@ -33,7 +33,7 @@ export interface IconResolveOptions {
 	stylesheets?: string[]
 	/** Local woff2/woff/ttf paths for glyph outlines, keyed by font family. */
 	fontFiles?: Record<string, string>
-	/** Allow CDN fetches for KNOWN fonts not in the bundled set. @default true */
+	/** Allow CDN fetches for KNOWN fonts not in the bundled set. @default false */
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
 	customResolver?: (className: string, fontFamily: string) => Array<Partial<ResolvedSvgPart> & { d: string; viewBox: { w: number; h: number } }> | null
@@ -80,16 +80,23 @@ function lookupBundled (desc: IconDescriptor): string | null {
 	return null
 }
 
+/** Pinned CDN versions for reproducible builds. */
+export const CDN_VERSIONS = {
+	fa: '6.7.2',
+	bi: '1.11.3',
+	ion: '7.4.0',
+} as const
+
 /** Known-font CDN URL for a descriptor, or null when the font is not in the registry. */
 function cdnUrl (desc: IconDescriptor, classTokensArr: string[]): string | null {
 	if (desc.fontFamily === 'fa' && desc.glyphName) {
 		let style = 'solid'
 		if (classTokensArr.some(t => t === 'fab' || t === 'fa-brands')) style = 'brands'
 		else if (classTokensArr.some(t => t === 'far' || t === 'fa-regular')) style = 'regular'
-		return `https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/${style}/${desc.glyphName}.svg`
+		return `https://raw.githubusercontent.com/FortAwesome/Font-Awesome/${CDN_VERSIONS.fa}/svgs/${style}/${desc.glyphName}.svg`
 	}
-	if (desc.fontFamily === 'bi' && desc.glyphName) return `https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/${desc.glyphName}.svg`
-	if (desc.fontFamily === 'ion' && desc.glyphName) return `https://unpkg.com/ionicons/dist/svg/${desc.glyphName}.svg`
+	if (desc.fontFamily === 'bi' && desc.glyphName) return `https://cdn.jsdelivr.net/npm/bootstrap-icons@${CDN_VERSIONS.bi}/icons/${desc.glyphName}.svg`
+	if (desc.fontFamily === 'ion' && desc.glyphName) return `https://unpkg.com/ionicons@${CDN_VERSIONS.ion}/dist/svg/${desc.glyphName}.svg`
 	return null
 }
 
@@ -168,7 +175,7 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
 	}
 
 	// 4) CDN fetch (best-effort) — only for KNOWN registries NOT covered by the bundled set.
-	if (opts.useCdn !== false) {
+	if (opts.useCdn === true) {
 		const url = cdnUrl(desc, classTokens(desc.className))
 		if (url) {
 			const svg = await fetchCdnSvg(url, opts.cacheDir)

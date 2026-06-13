@@ -149,4 +149,24 @@ module.exports = [
 			assert(m2 instanceof Map && !m2.has('totally-unknown-font xyz-9999'), 'unresolvable icon should be omitted')
 		},
 	},
+	{
+		name: 'CDN_VERSIONS: exported constant has pinned semver strings for fa, bi, ion',
+		fn: () => {
+			const { CDN_VERSIONS } = require('../src/bld/utils.cjs.js')
+			assert(CDN_VERSIONS, 'CDN_VERSIONS must be exported')
+			assert(/^\d+\.\d+\.\d+$/.test(CDN_VERSIONS.fa), 'fa version must be semver; got ' + CDN_VERSIONS.fa)
+			assert(/^\d+\.\d+\.\d+$/.test(CDN_VERSIONS.bi), 'bi version must be semver; got ' + CDN_VERSIONS.bi)
+			assert(/^\d+\.\d+\.\d+$/.test(CDN_VERSIONS.ion), 'ion version must be semver; got ' + CDN_VERSIONS.ion)
+		},
+	},
+	{
+		name: 'useCdn defaults false: no CDN fetch without explicit useCdn:true',
+		fn: async () => {
+			requireImpl()
+			// An icon NOT in the bundled set should NOT resolve when useCdn is not set (default = false)
+			const m = await resolveIconFonts('<i class="fas fa-zzzz-nonexistent-icon-999"></i>')
+			assert(m instanceof Map, 'expected a Map')
+			assert(m.size === 0, 'icon should NOT resolve without useCdn:true; got size ' + m.size)
+		},
+	},
 ]
