@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `resolveFontFiles(source, families, opts?)` — new `/utils` export that scans a directory (or explicit file list) and maps each wanted font family name to its resolved role paths (`regular`/`bold`/`italic`/`boldItalic`) by reading the OpenType `name` table. Matching is case-insensitive and exact ("Inter" never matches "Inter Tight"). Covers TTF, OTF, TTC; WOFF/WOFF2 return `null` gracefully. Zero new dependencies.
+- `readFontName(buf)` — low-level primitive exported from `/utils`: parses nameID 16 (typographic family) ?? nameID 1 and nameID 17 ?? nameID 2 from an sfnt/TTC buffer. Returns `null` for WOFF/WOFF2 or unrecognised buffers.
+
 ## [4.3.22]
 
 ### Changed

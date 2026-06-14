@@ -504,6 +504,43 @@ export function subsetIconPack(
 	opts?: SubsetIconPackOptions
 ): Record<string, { w: number; h: number; d: string }>
 
+/** File paths for each role of a resolved font family. */
+export interface FontFiles {
+	regular?: string
+	bold?: string
+	italic?: string
+	boldItalic?: string
+}
+
+/** Options for {@link resolveFontFiles}. */
+export interface ResolveFontFilesOptions {
+	/** File extensions to scan. @default ['.ttf','.otf','.ttc','.woff','.woff2'] */
+	exts?: string[]
+}
+
+/**
+ * Parse the family and subfamily name from a font buffer (TTF, OTF, TTC). Reads nameID 16
+ * (typographic family) ?? nameID 1; nameID 17 ?? nameID 2. Returns `null` for WOFF/WOFF2
+ * (unsupported) or unrecognised/truncated buffers.
+ */
+export function readFontName(buf: Buffer): { family: string; subfamily: string } | null
+
+/**
+ * Scan `source` (a directory path or explicit list of font file paths) for font files matching
+ * the given `families` and return a `Map` from each matched family name to its resolved role
+ * paths. Matching is **case-insensitive, exact** — "Inter" never matches "Inter Tight". Only
+ * families found in at least one file appear in the returned Map.
+ *
+ * A file whose subfamily is not one of Regular / Bold / Italic / Bold Italic is used as a
+ * `regular` fallback when no regular has been found for that family yet — this covers
+ * single-variant icon fonts (e.g. Font Awesome Solid) that carry a non-standard subfamily name.
+ */
+export function resolveFontFiles(
+	source: string | string[],
+	families: string[],
+	opts?: ResolveFontFilesOptions,
+): Map<string, FontFiles>
+
 /** Relative luminance per WCAG 2.1 */
 export function relativeLuminance(hex: string): number
 

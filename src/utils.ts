@@ -24,4 +24,6 @@ export { declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleShe
 export type { CssContext, ClassRule } from './utils/css-context'
 export { subsetIconPack } from './utils/subset-icon-pack'
 export type { SubsetIconPackOptions } from './utils/subset-icon-pack'
+export { resolveFontFiles, readFontName } from './utils/resolve-font-files'
+export type { FontFiles, ResolveFontFilesOptions } from './utils/resolve-font-files'
 export { relativeLuminance, contrastRatio, inkForFill } from './gen-utils'

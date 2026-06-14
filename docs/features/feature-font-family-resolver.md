@@ -1,6 +1,6 @@
 # Feature: `resolveFontFiles` — match font files by internal family name
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** High — `embedFont` is unusable for any consumer that downloads fonts
 > under their real distribution names. Sibling of `resolveIconFonts`.
 > Source: 2026-06-14 field repro — a converted deck wanting "Inter" had
