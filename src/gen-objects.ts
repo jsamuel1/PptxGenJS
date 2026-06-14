@@ -61,6 +61,7 @@ import {
 } from './core-interfaces'
 import { getSlidesForTableRows } from './gen-tables'
 import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, inkForFill } from './gen-utils'
+import { measureTextWidth } from './utils/measure-text-width'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -1309,9 +1310,9 @@ export function addBadgeDefinition(target: PresSlide, opts: BadgeProps): void {
 	let w: number
 	if (shape === 'circle') {
 		// Count bubble: a square sized to fit the (short) label, never smaller than `h`.
-		w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, 0.1 * text.length + 0.1)
+		w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, measureTextWidth(text, { fontSize }) + 0.1)
 	} else {
-		w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, 0.1 * text.length + 0.2)
+		w = options.w !== undefined && Number(options.w) > 0 ? Number(options.w) : Math.max(h, measureTextWidth(text, { fontSize }) + 0.2)
 	}
 	// Circles must be square so the ellipse is a true circle (use the larger of w/h).
 	const dim = shape === 'circle' ? Math.max(w, h) : 0
@@ -1756,15 +1757,16 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 
 	// fit:'fill' (alias 'grow') — compute the largest font size that fits the box dimensions
 	if (opts?.fit === 'fill' || opts?.fit === 'grow') {
-		// Total character count across all text items
-		const textLength = (text || []).reduce((sum, t) => sum + (t.text || '').length, 0) || 1
+		// Combine all text items; use a single space as fallback so measureTextWidth returns non-zero.
+		const combinedText = (text || []).map(t => t.text || '').join('') || ' '
 		// Box dimensions in inches (default to standard slide 10×5.625; convert percentage strings)
 		const slideW = 10
 		const slideH = 5.625
 		const w = typeof opts.w === 'string' ? (parseFloat(opts.w) / 100) * slideW : (opts.w || slideW)
 		const h = typeof opts.h === 'string' ? (parseFloat(opts.h) / 100) * slideH : (opts.h || slideH)
-		// Compute fontSize: min of height-constrained and width-constrained, clamped [1, 256]
-		const fontSize = Math.max(1, Math.min(256, Math.min(h * 72, (w * 72) / (textLength * 0.6))))
+		// Width at 1pt scales linearly with fontSize; back-compute the fontSize that fills width w.
+		const widthAt1pt = measureTextWidth(combinedText, { fontSize: 1 })
+		const fontSize = Math.max(1, Math.min(256, Math.min(h * 72, widthAt1pt > 0 ? w / widthAt1pt : 256)))
 		opts.fontSize = Math.round(fontSize)
 		opts.fit = 'none' // pre-computed size; no autofit XML needed
 	}

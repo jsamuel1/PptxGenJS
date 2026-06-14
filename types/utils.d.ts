@@ -541,6 +541,32 @@ export function resolveFontFiles(
 	opts?: ResolveFontFilesOptions,
 ): Map<string, FontFiles>
 
+/** Options for {@link measureTextWidth}. */
+export interface MeasureTextWidthOptions {
+	/** Font size in points (required). */
+	fontSize: number
+	/** Path to a TTF, OTF, or TTC font file. When supplied, uses per-glyph advance widths from hmtx. */
+	fontFile?: string
+	/**
+	 * Override the per-character em factor used by the Unicode-block fallback. When omitted, each
+	 * codepoint is classified individually (CJK ≈ 1.0, Latin ≈ 0.5). When supplied, every
+	 * codepoint uses this factor.
+	 */
+	fallbackEmFactor?: number
+}
+
+/**
+ * Estimate the advance width of `text` rendered at `opts.fontSize` points, in **inches**.
+ *
+ * When `opts.fontFile` is given, parses the sfnt `head`/`hhea`/`hmtx`/`cmap` (format 4) tables
+ * for per-glyph metrics (TTF, OTF, TTC). Falls back to Unicode-block em factors
+ * (CJK/fullwidth ≈ 1.0 em, Latin/ASCII ≈ 0.5 em) when the file cannot be read, is a
+ * WOFF/WOFF2, or has no format-4 cmap subtable.
+ *
+ * Returns `0` for an empty string.
+ */
+export function measureTextWidth(text: string, opts: MeasureTextWidthOptions): number
+
 /** Relative luminance per WCAG 2.1 */
 export function relativeLuminance(hex: string): number
 

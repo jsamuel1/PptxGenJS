@@ -1,6 +1,6 @@
 # Feature: Text measurement from font metrics (not char-count guesses)
 
-> **Status:** Proposed
+> **Status:** Implemented
 > **Priority:** Medium — unlocked by `feature-font-family-resolver.md` (same font
 > parser); fixes a real Goal-#1 break (CJK/wide-glyph overflow). Source: 2026-06-14
 > hardcode sweep.
