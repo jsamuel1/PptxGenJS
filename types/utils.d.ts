@@ -43,7 +43,15 @@ export interface ThemePalette {
 	presetName?: string
 	/** Raw parsed CSS custom properties (bare-name keyed, no leading `--`). */
 	vars?: Record<string, string>
-	[key: string]: string | string[] | Record<string, string> | undefined
+	/**
+	 * Per-slot resolver provenance. Values:
+	 * - `'extracted'` — slot was read directly from a CSS custom property.
+	 * - `'derived'`   — slot was computed from other extracted values (cardLine, cardFill, barStops,
+	 *                   anti-Frankenstein surfaceRaised).
+	 * - `'preset'`    — slot came from the fallback preset (not present in the CSS).
+	 */
+	slotSource?: Record<string, 'extracted' | 'derived' | 'preset' | undefined>
+	[key: string]: string | string[] | Record<string, string> | Record<string, 'extracted' | 'derived' | 'preset' | undefined> | undefined
 }
 
 /** Options for `extractThemeFromCSS`. */
@@ -504,12 +512,23 @@ export function subsetIconPack(
 	opts?: SubsetIconPackOptions
 ): Record<string, { w: number; h: number; d: string }>
 
-/** File paths for each role of a resolved font family. */
+/**
+ * File paths for each role of a resolved font family.
+ *
+ * `matchedBy` is the resolver provenance tag:
+ * - `'name-table'` — family was found in the scanned files via the OpenType name table.
+ * - `'none'`       — family was requested but no matching file was found.
+ *
+ * Every family passed to {@link resolveFontFiles} appears in the returned Map; check
+ * `matchedBy` to distinguish resolved from missing without a separate `has()` call.
+ */
 export interface FontFiles {
 	regular?: string
 	bold?: string
 	italic?: string
 	boldItalic?: string
+	/** Resolver provenance: how (or whether) this family was matched. */
+	matchedBy: 'name-table' | 'none'
 }
 
 /** Options for {@link resolveFontFiles}. */
@@ -527,9 +546,11 @@ export function readFontName(buf: Buffer): { family: string; subfamily: string }
 
 /**
  * Scan `source` (a directory path or explicit list of font file paths) for font files matching
- * the given `families` and return a `Map` from each matched family name to its resolved role
- * paths. Matching is **case-insensitive, exact** — "Inter" never matches "Inter Tight". Only
- * families found in at least one file appear in the returned Map.
+ * the given `families` and return a `Map` from each requested family name to its resolved role
+ * paths. Matching is **case-insensitive, exact** — "Inter" never matches "Inter Tight".
+ *
+ * Every requested family appears in the returned Map. Found families carry
+ * `{ matchedBy: 'name-table', ...rolePaths }`; missing families carry `{ matchedBy: 'none' }`.
  *
  * A file whose subfamily is not one of Regular / Bold / Italic / Bold Italic is used as a
  * `regular` fallback when no regular has been found for that family yet — this covers

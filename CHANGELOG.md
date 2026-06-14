@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Resolver provenance** — uniform `source`/`matchedBy` tags on every resolver result so consumers can distinguish resolved-vs-fallback without ad-hoc checks:
+  - `FontFiles.matchedBy: 'name-table' | 'none'` — every family passed to `resolveFontFiles` now appears in the returned `Map`; found families carry `matchedBy: 'name-table'`; families not matched in any scanned file carry `{ matchedBy: 'none' }` (no role paths).
+  - `ThemePalette.slotSource?: Record<string, 'extracted' | 'derived' | 'preset' | undefined>` — `extractThemeFromCSS` populates a per-slot provenance map: `'extracted'` for slots read from a CSS custom property, `'derived'` for computed slots (`cardLine`, `cardFill`, `barStops`, anti-Frankenstein `surfaceRaised`), `'preset'` for slots filled by the fallback preset.
+
 ## [4.3.25](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.25) - 2026-06-14
 
 ### Added

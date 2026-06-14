@@ -58,8 +58,16 @@ export interface ThemePalette {
 	presetName?: string
 	/** Raw parsed CSS custom properties (bare-name keyed, no leading `--`). */
 	vars?: Record<string, string>
+	/**
+	 * Per-slot resolver provenance. Values:
+	 * - `'extracted'` — slot was read directly from a CSS custom property.
+	 * - `'derived'`   — slot was computed from other extracted values (cardLine, cardFill, barStops,
+	 *                   anti-Frankenstein surfaceRaised).
+	 * - `'preset'`    — slot came from the fallback preset (not present in the CSS).
+	 */
+	slotSource?: Record<string, 'extracted' | 'derived' | 'preset' | undefined>
 	/** Allow extra slots from custom presets. */
-	[key: string]: string | string[] | Record<string, string> | undefined
+	[key: string]: string | string[] | Record<string, string> | Record<string, 'extracted' | 'derived' | 'preset' | undefined> | undefined
 }
 
 /** Options for {@link extractThemeFromCSS}. */
@@ -389,6 +397,8 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 	const varAliases = options.varAliases || {}
 	// Track which slots were explicitly extracted from CSS (not preset)
 	const extractedSlots = new Set<string>()
+	// Track which slots were derived (computed from other values)
+	const derivedSlots = new Set<string>()
 
 	let theme: ThemePalette
 	let presetName: string
@@ -499,6 +509,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		// 5d: Anti-Frankenstein — recalculate surfaceRaised when both bg and text extracted
 		if (extractedSlots.has('bg') && extractedSlots.has('text') && !extractedSlots.has('surfaceRaised')) {
 			theme.surfaceRaised = mixColors(theme.bg, theme.text, 0.07)
+			derivedSlots.add('surfaceRaised')
 		}
 	}
 
@@ -506,6 +517,9 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		theme.cardLine = mixColors(theme.accent, theme.bg, 0.72)
 		theme.cardFill = mixColors(theme.surfaceRaised, theme.bg, 0.4)
 		theme.barStops = deriveBarStops(vars, theme, barGradientVar, resolveVarRefs, parseRgb)
+		derivedSlots.add('cardLine')
+		derivedSlots.add('cardFill')
+		derivedSlots.add('barStops')
 
 		// 5d: Safety check — nudge derived colours too close to bg toward text (only when both extracted)
 		if (extractedSlots.has('bg') && extractedSlots.has('text')) {
@@ -525,6 +539,16 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 
 	theme.presetName = presetName
 	theme.vars = vars
+
+	// Build per-slot provenance map
+	const slotSource: Record<string, 'extracted' | 'derived' | 'preset'> = {}
+	for (const key of Object.keys(theme)) {
+		if (key === 'presetName' || key === 'vars' || key === 'slotSource') continue
+		if (derivedSlots.has(key)) slotSource[key] = 'derived'
+		else if (extractedSlots.has(key)) slotSource[key] = 'extracted'
+		else slotSource[key] = 'preset'
+	}
+	theme.slotSource = slotSource
 
 	return theme
 }

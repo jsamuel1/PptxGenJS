@@ -291,11 +291,13 @@ module.exports = [
 	// ── edge cases ───────────────────────────────────────────────────────────
 
 	{
-		name: 'resolveFontFiles: returns empty Map for non-existent directory',
+		name: 'resolveFontFiles: missing family has matchedBy=none for non-existent directory',
 		fn: () => {
 			requireImpl()
 			const m = resolveFontFiles('/tmp/__nonexistent_dir_pptxgenjs__', ['Inter'])
-			assert(m instanceof Map && m.size === 0, 'expected empty Map for missing dir')
+			assert(m instanceof Map, 'expected a Map')
+			assert(m.has('Inter'), 'expected Inter in result (all requested families present)')
+			assert(m.get('Inter').matchedBy === 'none', 'expected matchedBy=none for unresolved family')
 		},
 	},
 

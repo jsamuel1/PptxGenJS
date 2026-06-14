@@ -12,12 +12,23 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-/** File paths for each role of a matched font family. */
+/**
+ * File paths for each role of a matched font family.
+ *
+ * `matchedBy` is the resolver provenance tag:
+ * - `'name-table'` — family was found in the scanned files via the OpenType name table.
+ * - `'none'`       — family was requested but no matching file was found.
+ *
+ * Every family passed to {@link resolveFontFiles} appears in the returned Map; check
+ * `matchedBy` to distinguish resolved from missing without a separate `has()` call.
+ */
 export interface FontFiles {
 	regular?: string
 	bold?: string
 	italic?: string
 	boldItalic?: string
+	/** Resolver provenance: how (or whether) this family was matched. */
+	matchedBy: 'name-table' | 'none'
 }
 
 /** Options for {@link resolveFontFiles}. */
@@ -145,7 +156,7 @@ function decodeUtf16BE(buf: Buffer, start: number, len: number): string {
 
 // ── subfamily → role mapping ──────────────────────────────────────────────────
 
-type SubfamilyRole = keyof FontFiles
+type SubfamilyRole = 'regular' | 'bold' | 'italic' | 'boldItalic'
 
 function subfamilyToRole(subfamily: string): SubfamilyRole | null {
 	const s = subfamily.toLowerCase().replace(/\s+/g, ' ').trim()
@@ -159,17 +170,18 @@ function subfamilyToRole(subfamily: string): SubfamilyRole | null {
 // ── public API ────────────────────────────────────────────────────────────────
 
 /**
- * Scan font files and return a Map from each matched family name (as supplied in `families`) to
+ * Scan font files and return a Map from each requested family name (as supplied in `families`) to
  * its resolved role paths. Matching is case-insensitive and exact — "Inter" never matches
  * "Inter Tight".
  *
  * `source` is a directory path or an explicit list of font file paths.
  * `families` is a list of wanted family names (e.g. `['Inter', 'Roboto']`).
  *
- * Only families that were found in at least one file appear in the returned Map. A file whose
- * subfamily is not one of Regular/Bold/Italic/Bold Italic is used as a `regular` fallback if no
- * regular has been found for that family yet — this covers single-variant icon fonts (e.g.
- * Font Awesome Solid) that carry a non-standard subfamily name.
+ * Every requested family appears in the returned Map. Families that were not found carry
+ * `{ matchedBy: 'none' }`; found families carry `{ matchedBy: 'name-table', ...rolePaths }`.
+ * A file whose subfamily is not one of Regular/Bold/Italic/Bold Italic is used as a `regular`
+ * fallback if no regular has been found for that family yet — this covers single-variant icon
+ * fonts (e.g. Font Awesome Solid) that carry a non-standard subfamily name.
  */
 export function resolveFontFiles(
 	source: string | string[],
@@ -195,7 +207,7 @@ export function resolveFontFiles(
 		const callerFamily = wantedMap.get(nameInfo.family.toLowerCase())
 		if (!callerFamily) continue
 
-		if (!result.has(callerFamily)) result.set(callerFamily, {})
+		if (!result.has(callerFamily)) result.set(callerFamily, { matchedBy: 'name-table' })
 		const entry = result.get(callerFamily)!
 
 		const role = subfamilyToRole(nameInfo.subfamily)
@@ -205,6 +217,11 @@ export function resolveFontFiles(
 			// Non-standard subfamily (e.g. 'Solid', 'Light'): use as regular fallback
 			if (!entry.regular) entry.regular = filePath
 		}
+	}
+
+	// Ensure every requested family appears — missing ones get matchedBy: 'none'
+	for (const [, callerFamily] of wantedMap) {
+		if (!result.has(callerFamily)) result.set(callerFamily, { matchedBy: 'none' })
 	}
 
 	return result
