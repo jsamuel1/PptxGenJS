@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.25](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.25) - 2026-06-14
+
 ### Added
 
 - `measureTextWidth(text, opts)` — new `/utils` export. Estimates the advance width of a text run in **inches** at a given point size. Uses per-glyph `hmtx` advances (from the sfnt `head`/`hhea`/`hmtx`/`cmap` format-4 tables) when a font file is supplied; falls back to per-codepoint Unicode-block em factors (CJK/fullwidth ≈ 1.0 em, Latin/ASCII ≈ 0.5 em) otherwise. Covers TTF, OTF, TTC; WOFF/WOFF2 fall back gracefully.
