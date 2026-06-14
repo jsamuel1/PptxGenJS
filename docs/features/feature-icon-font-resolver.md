@@ -1,6 +1,6 @@
 # Feature: Dynamic Icon-Font Resolver — `resolveIconFonts()`
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (v4.3.0)
 > **Target:** `@jsamuel1/pptxgenjs/utils`
 > **Implemented:** `src/utils/resolve-icon-fonts.ts` (orchestrator; + shared classifier `src/utils/icon-classify.ts` and last-resort glyph map `src/utils/bundled-icons.ts`); exported from `src/utils.ts` (`/utils` subpath); types `types/utils.d.ts` (`resolveIconFonts`, `IconResolveOptions`, `ResolvedSvgPart`); tests `test/feature-icon-font-resolver.test.js`; demo `demos/browser/icon-font-resolver.html`
 > **Depends on:** `parseSvg()` (see `feature-svg-normalisation.md`)

@@ -1,6 +1,6 @@
 # Feature: Resolve Font-Icon Glyphs in `parseCards()` (stop dropping card icons)
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (v4.3.0)
 > **Target:** `@jsamuel1/pptxgenjs/utils` (next minor — 4.3.0)
 > **Implemented:** `src/utils/parse-cards.ts` + shared classifier `src/utils/icon-classify.ts`; types `types/utils.d.ts` (`CardData`, `ParseCardsOptions`); tests `test/feature-parse-cards.test.js`
 > **Depends on:** `parseSvg()` (`feature-svg-normalisation.md`), and dovetails with `resolveIconFonts()` (`feature-icon-font-resolver.md`)

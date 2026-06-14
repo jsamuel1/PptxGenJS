@@ -1,6 +1,6 @@
 # Feature: Vertical Stack / Region-Flow Layout — `layoutStack()`
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (v4.3.1)
 > **Implemented:** `layoutStack` in `src/gen-utils.ts` (sibling to `layoutGrid`), instance method re-exported via `src/pptxgen.ts`; types `LayoutStackBlock`/`LayoutStackProps`/`LayoutStackCell`/`LayoutStackResult` in `src/core-interfaces.ts` + `types/index.d.ts`; tests `test/feature-layout-stack.test.js`
 > **Target:** `@jsamuel1/pptxgenjs/utils` (next minor) — or core, alongside `layoutGrid()`
 > **Depends on:** nothing — pure box arithmetic, reuses `LayoutGridArea`/`LayoutGridCell`

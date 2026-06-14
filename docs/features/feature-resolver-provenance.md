@@ -1,6 +1,6 @@
 # Feature: Consistent resolver provenance (`source` on every result)
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (v4.3.26)
 > **Priority:** Medium — lets consumers distinguish a real resolution from a fallback.
 > The downstream converter's provenance report
 > (`../html-to-pptx/docs/features/feature-conversion-provenance-report.md`) consumes

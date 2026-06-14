@@ -1,6 +1,6 @@
 # Feature: Native Arc (`A`) & Smooth-Curve (`S`/`T`) Geometry in custGeom
 
-> **Status:** Implemented (Unreleased)
+> **Status:** Implemented (v4.3.0)
 > **Target:** `src/gen-utils.ts` — `svgPathToOoxml()`, the `<a:custGeom>` path-command parser used by the `svgPath` shape builder; tests `test/feature-arc-smooth-geometry.test.js`
 > **Implemented:** `src/gen-utils.ts` (`svgPathToOoxml` now pre-folds the path through `normalizeSvgPath`) reusing the tested arc/smooth geometry (`arcToCubics`/`normalizeSvgPath`/`tokenizeSvgPath`) in `src/utils/parse-svg.ts`; tests `test/feature-arc-smooth-geometry.test.js`
 > **Priority:** High — correctness fix (current behaviour emits garbage points) **and** eliminates 100+ lines of pre-normalisation in every consumer
