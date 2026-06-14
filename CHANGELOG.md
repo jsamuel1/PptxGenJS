@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.24](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.24) - 2026-06-14
+
 ### Added
 
 - `resolveFontFiles(source, families, opts?)` — new `/utils` export that scans a directory (or explicit file list) and maps each wanted font family name to its resolved role paths (`regular`/`bold`/`italic`/`boldItalic`) by reading the OpenType `name` table. Matching is case-insensitive and exact ("Inter" never matches "Inter Tight"). Covers TTF, OTF, TTC; WOFF/WOFF2 return `null` gracefully. Zero new dependencies.
