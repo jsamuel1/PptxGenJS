@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.26](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.26) - 2026-06-14
+
 ### Added
 
 - **Resolver provenance** — uniform `source`/`matchedBy` tags on every resolver result so consumers can distinguish resolved-vs-fallback without ad-hoc checks:
