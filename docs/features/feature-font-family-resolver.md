@@ -60,8 +60,9 @@ a non-factor. If a future change reverses this posture, add an ADR.
    `Inter` → `{ regular: '…/Inter-Regular.ttf' }` for a dir containing
    `Inter-Regular.ttf` (and also for `Inter-VariableFont_slnt,wght.ttf`).
 2. `resolveFontFiles(dir, ['Font Awesome 6 Free'])` resolves `fa-solid-900.ttf` by its
-   internal name (subfamily "Solid"), proving the converter's hardcoded FA table is
-   no longer needed.
+   internal name (subfamily "Solid") — the explicit goal being that the downstream
+   converter can then DELETE its hardcoded `FONT_FILE_CANDIDATES` FA table entirely
+   (no font, not even FA, needs a filename special-case).
 3. Exact-family discipline: a dir with both `Inter` and `Inter Tight` resolves each to
    its own file; "Inter" never returns the Tight file.
 4. API parity green (export ↔ typings); no network in any test; CHANGELOG `### Added`.
