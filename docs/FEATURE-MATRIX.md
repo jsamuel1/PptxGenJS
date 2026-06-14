@@ -161,6 +161,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | `parseColumns` — multi-column detection | ✅ Done | CSS Grid, `column-count`, and Flexbox paths |
 | `tokenizeCode` — syntax highlighting tokenizer | ✅ Done | Explicit `lang` param; class-based fallback |
 | Icon font resolver — CDN font loading | ✅ Done | FA/Bootstrap Icons/Ionicons; pinned CDN versions; default-off (`useCdn`) |
+| `measureTextWidth` — script-aware text width | ✅ Done | Unicode-block fallback (CJK ≈ 1.0em, Latin ≈ 0.5em); optional sfnt font-file fast path; updates `addBadge` + `fit:'fill'` call sites |
 
 ---
 
