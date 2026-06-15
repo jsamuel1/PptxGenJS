@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.3.28](https://github.com/jsamuel1/PptxGenJS/releases/tag/v4.3.28) - 2026-06-15
+
 ### Fixed
 
 - **Counter static export** — counter animations no longer show stacked frames in static renders (PDF/image export, timing-aware viewers). An initial-hide `<p:par>` block sets `visibility:hidden` on all counter frames before the `<p:seq>`; animated playback is unchanged (entrance animations override on trigger).
