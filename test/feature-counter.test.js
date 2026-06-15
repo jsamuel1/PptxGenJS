@@ -34,7 +34,12 @@ module.exports = [
 			assert(xml.includes('<a:t>4×</a:t>'), 'expected frame text 4×; got: ' + xml)
 			assert(xml.includes('<a:t>7×</a:t>'), 'expected frame text 7×; got: ' + xml)
 			assert(countOccurrences(xml, '<p:strVal val="visible"/>') === 7, 'expected 7 visible sets; got: ' + countOccurrences(xml, '<p:strVal val="visible"/>'))
-			assert(countOccurrences(xml, '<p:strVal val="hidden"/>') === 6, 'expected 6 hidden sets; got: ' + countOccurrences(xml, '<p:strVal val="hidden"/>'))
+			// Static-export fix: 7 initial-hide sets come before <p:seq>, 6 exit-hide sets come inside it.
+			const seqIdx = xml.indexOf('<p:seq ')
+			const beforeSeq = xml.substring(0, seqIdx)
+			const afterSeq = xml.substring(seqIdx)
+			assert(countOccurrences(beforeSeq, '<p:strVal val="hidden"/>') === 7, 'expected 7 initial-hide sets before <p:seq>; got: ' + countOccurrences(beforeSeq, '<p:strVal val="hidden"/>'))
+			assert(countOccurrences(afterSeq, '<p:strVal val="hidden"/>') === 6, 'expected 6 exit-hide sets inside mainSeq; got: ' + countOccurrences(afterSeq, '<p:strVal val="hidden"/>'))
 			// every frame is an appear (presetID=1), zero animEffect/anim leakage
 			assert(!xml.includes('<p:animEffect'), 'counter must not emit animEffect; got: ' + xml)
 			assert(!xml.includes('<p:anim '), 'counter must not emit <p:anim>; got: ' + xml)
@@ -53,12 +58,15 @@ module.exports = [
 		}
 	},
 	{
-		name: 'counter: from 5 to 5 (N=1) → single frame, zero hidden sets',
+		name: 'counter: from 5 to 5 (N=1) → single frame, zero exit-hidden sets',
 		fn: async () => {
 			const xml = await slide1Xml(s => s.addText('', { x: 1, y: 1, w: 4, h: 1, counter: { from: 5, to: 5 } }))
 			assert(xml.includes('<a:t>5</a:t>'), 'expected single frame text 5; got: ' + xml)
 			assert(countOccurrences(xml, '<p:strVal val="visible"/>') === 1, 'expected 1 visible set; got: ' + xml)
-			assert(countOccurrences(xml, '<p:strVal val="hidden"/>') === 0, 'N=1 must have zero hidden sets; got: ' + xml)
+			// N=1: no exit-hides inside mainSeq (only the single initial-hide before <p:seq>)
+			const seqIdx = xml.indexOf('<p:seq ')
+			const afterSeq = xml.substring(seqIdx)
+			assert(countOccurrences(afterSeq, '<p:strVal val="hidden"/>') === 0, 'N=1 must have zero exit-hidden sets in mainSeq; got: ' + xml)
 		}
 	},
 	{
@@ -106,6 +114,27 @@ module.exports = [
 			assert(ids.length > 0, 'expected some <p:cTn id>; got: ' + xml)
 			const unique = new Set(ids)
 			assert(unique.size === ids.length, 'all <p:cTn id> must be unique; got ' + ids.length + ' ids, ' + unique.size + ' unique: ' + ids.join(','))
+		}
+	},
+	{
+		name: 'counter: initial-hide block present before mainSeq (static-export fix)',
+		fn: async () => {
+			// from=1 to=7 → 7 frames; initial-hide block must hide all 7 before <p:seq>
+			const xml = await slide1Xml(s => s.addText('', { x: 1, y: 1, w: 4, h: 1, counter: { from: 1, to: 7, stepMs: 180 } }))
+			// The initial-hide block sits between tmRoot's <p:childTnLst> and the <p:seq>
+			const seqIdx = xml.indexOf('<p:seq ')
+			assert(seqIdx > 0, 'expected <p:seq> in timing; got: ' + xml)
+			const beforeSeq = xml.substring(0, seqIdx)
+			// Must have 7 hidden sets in the block before the sequence
+			const hiddenCount = countOccurrences(beforeSeq, '<p:strVal val="hidden"/>')
+			assert(hiddenCount === 7, 'expected 7 initial-hide sets before <p:seq>, got ' + hiddenCount + '; xml before seq: ' + beforeSeq)
+		}
+	},
+	{
+		name: 'counter: initial-hide block absent for plain addText (default-off)',
+		fn: async () => {
+			const xml = await slide1Xml(s => s.addText('hello', { x: 1, y: 1, w: 4, h: 1 }))
+			assert(!xml.includes('<p:timing'), 'plain text must emit no timing (and no initial-hide block); got: ' + xml)
 		}
 	}
 ]

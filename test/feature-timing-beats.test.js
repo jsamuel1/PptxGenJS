@@ -95,8 +95,11 @@ module.exports = [
 				assert(xml.includes(`grpId="0" nodeType="withEffect"><p:stCondLst><p:cond delay="${d}"/>`),
 					`expected an odometer frame at cumulative delay="${d}"; got: ` + xml)
 			})
-			// 6 of 7 frames carry an exit (hide) block; the last frame stays visible.
-			assert((xml.match(/<p:strVal val="hidden"\/>/g) || []).length === 6, 'expected 6 frame-exit (hidden) blocks; got: ' + xml)
+			// 6 of 7 frames carry an exit (hide) block inside mainSeq; the last frame stays visible.
+			// (7 additional initial-hide sets appear before <p:seq> — the static-export fix.)
+			const seqIdx = xml.indexOf('<p:seq ')
+			const afterSeq = xml.substring(seqIdx)
+			assert((afterSeq.match(/<p:strVal val="hidden"\/>/g) || []).length === 6, 'expected 6 frame-exit (hidden) blocks in mainSeq; got: ' + xml)
 		}
 	},
 	{

@@ -1748,6 +1748,7 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 				// is relative to each frame's own appearance), so frame N+1 masks frame N -> count-up.
 				if (i < frameCount - 1) frameOpts._counterExit = stepMs
 				else delete frameOpts._counterExit
+				frameOpts._counterFrame = true
 				addTextDefinition(target, [{ text: `${value}${suffix}`, options: null }], frameOpts, isPlaceholder)
 			}
 			return

@@ -1631,6 +1631,8 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	counter?: CounterProps
 	/** @internal Delay (ms) after which this counter frame hides itself (all frames but the last). */
 	_counterExit?: number
+	/** @internal Marks this object as a counter frame so genXmlTiming emits an initial-hide block (static-export fix). */
+	_counterFrame?: boolean
 	/** @internal Pre-computed `roundRect` corner-radius `adj` value (Feature 7 `addCallout`); emitted verbatim as `<a:gd name="adj" fmla="val N"/>`. */
 	_calloutAdj?: number
 	_bodyProp?: {

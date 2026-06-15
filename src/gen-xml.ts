@@ -2454,6 +2454,13 @@ function genXmlTiming (slide: PresSlide): string {
 	let idCounter = 3
 	const nextId = (): number => idCounter++
 
+	// Counter-frame spids: shapes marked _counterFrame need an initial-hide block so
+	// static-export renderers (timing-aware) don't show all stacked frames simultaneously.
+	const counterSpids = slide._slideObjects
+		.map((obj, idx) => ({ spid: idx + 2, flag: (obj.options as any)?._counterFrame as boolean | undefined }))
+		.filter(e => e.flag)
+		.map(e => e.spid)
+
 	// presetID labels the effect in the PowerPoint UI
 	const presetMap: Record<string, number> = { appear: 1, fadeIn: 10, flyIn: 2, zoomIn: 23, pulse: 1, spin: 8, grow: 6, colorPulse: 2, disappear: 1, fadeOut: 10, flyOut: 2, zoomOut: 23, motionPath: 0 }
 	// trigger -> build-step wrapper nodeType
@@ -2569,9 +2576,38 @@ function genXmlTiming (slide: PresSlide): string {
 			'</p:par>'
 	})
 
+	// Build initial-hide block: one <p:par delay="0"> before the main sequence that sets all
+	// counter frames to hidden so timing-aware static renderers don't see them stacked/overlapping.
+	let initialHideXml = ''
+	if (counterSpids.length > 0) {
+		const wrapId = nextId()
+		const setsXml = counterSpids
+			.map(spid =>
+				'<p:set>' +
+				'<p:cBhvr>' +
+				`<p:cTn id="${nextId()}" dur="1" fill="hold"/>` +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				'<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst>' +
+				'</p:cBhvr>' +
+				'<p:to><p:strVal val="hidden"/></p:to>' +
+				'</p:set>'
+			)
+			.join('')
+		initialHideXml =
+			'<p:par>' +
+			`<p:cTn id="${wrapId}" fill="hold">` +
+			'<p:stCondLst><p:cond delay="0"/></p:stCondLst>' +
+			'<p:childTnLst>' +
+			setsXml +
+			'</p:childTnLst>' +
+			'</p:cTn>' +
+			'</p:par>'
+	}
+
 	return (
 		'<p:timing><p:tnLst><p:par>' +
 		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
+		initialHideXml +
 		'<p:seq concurrent="1" nextAc="seek">' +
 		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>' +
 		stepsXml +
