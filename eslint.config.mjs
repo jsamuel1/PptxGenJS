@@ -10,7 +10,6 @@ export default tseslint.config(
 		// space-indented, double-quoted, semicolon-terminated code).
 		ignores: [
 			'src/bld/**', // tsc/rollup output (compiled .js + emitted .d.ts)
-			'src/icons-fa.generated.ts', // auto-generated from Font Awesome source; not hand-written
 			'dist/**', // shipped bundles
 			'types/**', // published type declarations
 			'out/**', // tsc declarationDir

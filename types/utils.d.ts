@@ -290,7 +290,7 @@ export function outerHtml(node: HNode): string
 export function decodeEntities(s: string): string
 
 /** How a resolved icon part was produced. */
-export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom' | 'pack'
+export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
 
 /** Pinned CDN versions for reproducible builds. */
 export declare const CDN_VERSIONS: {
@@ -314,8 +314,6 @@ export interface IconResolveOptions {
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
 	customResolver?: (className: string, fontFamily: string) => Array<Partial<ResolvedSvgPart> & { d: string; viewBox: { w: number; h: number } }> | null
-	/** Injected icon pack; keys are `fa-<glyphName>` entries with path data. */
-	pack?: Record<string, { w: number; h: number; d: string }>
 	/** Directory to cache CDN-fetched glyphs (a repeat resolve is a cache hit, no network). */
 	cacheDir?: string
 	/** Fill handed to `parseSvg` for the resolved glyph (6-hex, no `#`). @default '000000' */
@@ -487,30 +485,6 @@ export function sizeOf(node: HNode, ctx: CssContext): { wPx?: number, hPx?: numb
 
 /** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
 export function parseStyleSheets(html: string): CssContext
-
-/** Options for {@link subsetIconPack}. */
-export interface SubsetIconPackOptions {
-	/** Icon names that MUST appear in the output regardless of budget. */
-	include?: string[]
-	/** Maximum `JSON.stringify` byte-length of the returned object. */
-	budget?: number
-	/** Custom ranking function (higher = more important). Defaults to `entry.popularity ?? 0`. */
-	rank?: (name: string, entry: { w: number; h: number; d: string; popularity?: number }) => number
-}
-
-/**
- * Return a subset of `pack` that fits within a JSON byte budget.
- *
- * - Always includes entries listed in `opts.include`.
- * - Remaining entries sorted by rank descending; ties broken alphabetically.
- * - Entries added greedily until the next would exceed `budget`.
- * - Output entries contain only `{ w, h, d }` (strips `popularity`).
- * - Never mutates the input.
- */
-export function subsetIconPack(
-	pack: Record<string, { w: number; h: number; d: string; popularity?: number }>,
-	opts?: SubsetIconPackOptions
-): Record<string, { w: number; h: number; d: string }>
 
 /**
  * File paths for each role of a resolved font family.

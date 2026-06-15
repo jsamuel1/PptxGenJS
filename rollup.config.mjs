@@ -92,17 +92,6 @@ export default [
 		],
 	},
 
-	// 1c) src/bld/icons-fa.* — Font Awesome icon-pack entry
-	{
-		input: 'src/icons-fa.ts',
-		external: externalLib,
-		plugins: basePlugins(),
-		output: [
-			{ file: './src/bld/icons-fa.cjs.js', format: 'cjs', exports: 'default' },
-			{ file: './src/bld/icons-fa.es.js', format: 'es', footer: 'export { default as FA_ICONS };' },
-		],
-	},
-
 	// The dist/* artifacts are only built for publishing (`npm run ship`).
 	...(isShip
 		? [
@@ -135,17 +124,6 @@ export default [
 					{ file: './dist/utils.cjs.js', format: 'cjs', banner },
 					{ file: './dist/utils.js', format: 'cjs', banner },
 					{ file: './dist/utils.es.js', format: 'es', banner },
-				],
-			},
-
-			// 2c) dist/icons-fa.* — Font Awesome icon-pack entry (published)
-			{
-				input: 'src/icons-fa.ts',
-				external: externalLib,
-				plugins: basePlugins(),
-				output: [
-					{ file: './dist/icons-fa.cjs.js', format: 'cjs', banner, exports: 'default' },
-					{ file: './dist/icons-fa.es.js', format: 'es', banner, footer: 'export { default as FA_ICONS };' },
 				],
 			},
 
