@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.0) - 2026-06-15
+
 ### Removed
 
 - **`./icons-fa` subpath export** — the bundled Font Awesome icon-path pack (`src/icons-fa.ts`, `src/icons-fa.generated.ts`, `types/icons-fa.d.ts`, `dist/icons-fa.*`) has been removed. **Breaking change** (major). Consumers needing offline icon data should supply their own pack via `resolveIconFonts({ customResolver })` or `resolveIconFonts({ useCdn: true })`. See [ADR 0008](docs/architecture/decisions/0008-remove-icons-fa-pack.md).
