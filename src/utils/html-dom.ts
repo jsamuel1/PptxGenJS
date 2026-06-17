@@ -268,6 +268,16 @@ export function parseHtml (html: string): HNode {
 		addChild(node)
 		if (!selfClose && !VOID_TAGS.has(name)) stack.push(node)
 		i = e + 1
+		if (RAW_TEXT_TAGS.has(name) && !selfClose) {
+			const closeRe = new RegExp('</' + name + '\\s*>', 'i')
+			const closeM = closeRe.exec(html.slice(i))
+			if (closeM) {
+				addText(html.slice(i, i + closeM.index))
+				stack.pop()
+				i = i + closeM.index + closeM[0].length
+			}
+			continue
+		}
 	}
 	return root
 }
