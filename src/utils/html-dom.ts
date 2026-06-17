@@ -415,19 +415,21 @@ export function outerHtml (node: HNode): string {
 //
 // Grammar (the ENTIRE supported subset — anything else throws `unsupported selector`):
 //   universal `*` · type `div` · class `.x` · id `#x` · `[attr]` · `[attr="v"]` · `[attr*="v"]`
-//   compound (type+class/attr, no space) · descendant (space) · child (`>`) · list (comma)
-// Explicitly unsupported (throws): pseudo-classes/elements (`:`/`::`), sibling combinators
-// (`+`/`~`), `^=`/`$=`/`~=`/`|=` attribute operators, namespaces, `@media`, specificity.
+//   `[attr^="v"]` · `[attr$="v"]`
+//   compound (type+class/attr, no space) · descendant (space) · child (`>`) · adjacent (`+`)
+//   · general sibling (`~`) · list (comma)
+// Explicitly unsupported (throws): pseudo-classes/elements (`:`/`::`), `~=`/`|=` attribute
+// operators, namespaces, `@media`, specificity.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
 /** A single attribute condition within a compound selector. */
-interface AttrCond { name: string, op: 'present' | 'exact' | 'substring', value: string }
+interface AttrCond { name: string, op: 'present' | 'exact' | 'substring' | 'starts' | 'ends', value: string }
 
 /** A compound selector (simple selectors with no combinator between them). */
 interface Compound { universal: boolean, type?: string, id?: string, classes: string[], attrs: AttrCond[] }
 
 /** One step of a complex selector: a compound plus the combinator linking it to the previous step. */
-interface Segment { combinator: 'descendant' | 'child' | null, compound: Compound }
+interface Segment { combinator: 'descendant' | 'child' | 'adjacent' | 'sibling' | null, compound: Compound }
 
 /** Raise the canonical bounded-grammar error. */
 function unsupported (selector: string): never {
@@ -462,7 +464,9 @@ function parseAttrCond (body: string, selector: string): AttrCond {
 	if (m[2] === undefined) return { name, op: 'present', value: '' }
 	if (m[2] === '=') return { name, op: 'exact', value: unquote(m[3] ?? '') }
 	if (m[2] === '*=') return { name, op: 'substring', value: unquote(m[3] ?? '') }
-	// ^=, $=, ~=, |= are out of the bounded grammar
+	if (m[2] === '^=') return { name, op: 'starts', value: unquote(m[3] ?? '') }
+	if (m[2] === '$=') return { name, op: 'ends', value: unquote(m[3] ?? '') }
+	// ~=, |= are out of the bounded grammar
 	return unsupported(selector)
 }
 
@@ -532,7 +536,7 @@ function parseComplex (selector: string, original: string): Segment[] {
 	const segments: Segment[] = []
 	let i = 0
 	const n = selector.length
-	let pendingCombinator: 'descendant' | 'child' | null = null
+	let pendingCombinator: 'descendant' | 'child' | 'adjacent' | 'sibling' | null = null
 	let first = true
 
 	while (i < n) {
@@ -542,6 +546,16 @@ function parseComplex (selector: string, original: string): Segment[] {
 		if (i >= n) break
 		if (selector[i] === '>') {
 			pendingCombinator = 'child'
+			i++
+			continue
+		}
+		if (selector[i] === '+') {
+			pendingCombinator = 'adjacent'
+			i++
+			continue
+		}
+		if (selector[i] === '~') {
+			pendingCombinator = 'sibling'
 			i++
 			continue
 		}
@@ -557,7 +571,7 @@ function parseComplex (selector: string, original: string): Segment[] {
 			if (c === '"' || c === "'") { q = c; i++; continue }
 			if (c === '[') { depth++; i++; continue }
 			if (c === ']') { depth = Math.max(0, depth - 1); i++; continue }
-			if (depth === 0 && (/\s/.test(c) || c === '>')) break
+			if (depth === 0 && (/\s/.test(c) || c === '>' || c === '+' || c === '~')) break
 			i++
 		}
 		const token = selector.slice(start, i)
@@ -590,6 +604,8 @@ function matchCompound (node: HNode, c: Compound): boolean {
 		if (a.op === 'present') { if (v === undefined) return false }
 		else if (a.op === 'exact') { if (v !== a.value) return false }
 		else if (a.op === 'substring') { if (v === undefined || v.indexOf(a.value) === -1) return false }
+		else if (a.op === 'starts') { if (v === undefined || !v.startsWith(a.value)) return false }
+		else if (a.op === 'ends') { if (v === undefined || !v.endsWith(a.value)) return false }
 	}
 	return true
 }
@@ -599,6 +615,24 @@ function matchSegments (node: HNode, segments: Segment[], index: number): boolea
 	if (!matchCompound(node, segments[index].compound)) return false
 	if (index === 0) return true
 	const comb = segments[index].combinator
+	if (comb === 'adjacent') {
+		if (!node.parent) return false
+		const siblings = node.parent.children
+		const idx = siblings.indexOf(node)
+		for (let j = idx - 1; j >= 0; j--) {
+			if (siblings[j].tag !== '#text') return matchSegments(siblings[j], segments, index - 1)
+		}
+		return false
+	}
+	if (comb === 'sibling') {
+		if (!node.parent) return false
+		const siblings = node.parent.children
+		const idx = siblings.indexOf(node)
+		for (let j = idx - 1; j >= 0; j--) {
+			if (siblings[j].tag !== '#text' && matchSegments(siblings[j], segments, index - 1)) return true
+		}
+		return false
+	}
 	if (comb === 'child') {
 		return node.parent ? matchSegments(node.parent, segments, index - 1) : false
 	}

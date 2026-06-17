@@ -137,10 +137,6 @@ module.exports = [
 			const bad = [
 				'li:nth-child(2)',   // pseudo-class
 				'p::before',         // pseudo-element
-				'a + b',             // adjacent-sibling combinator
-				'a ~ b',             // general-sibling combinator
-				'[href^="http"]',    // prefix attr operator
-				'[href$=".png"]',    // suffix attr operator
 				'[lang|="en"]',      // dash-match attr operator
 				'[class~="x"]',      // include attr operator
 			]
