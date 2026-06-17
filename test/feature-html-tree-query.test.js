@@ -135,7 +135,6 @@ module.exports = [
 			// silently returning a wrong result. This is the GAP regression-catch: if the
 			// guard regressed (e.g. a pseudo-class were silently ignored), these would not throw.
 			const bad = [
-				'li:nth-child(2)',   // pseudo-class
 				'p::before',         // pseudo-element
 				'[lang|="en"]',      // dash-match attr operator
 				'[class~="x"]',      // include attr operator

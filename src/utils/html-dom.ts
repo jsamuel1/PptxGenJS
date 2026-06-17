@@ -418,15 +418,19 @@ export function outerHtml (node: HNode): string {
 //   `[attr^="v"]` · `[attr$="v"]`
 //   compound (type+class/attr, no space) · descendant (space) · child (`>`) · adjacent (`+`)
 //   · general sibling (`~`) · list (comma)
-// Explicitly unsupported (throws): pseudo-classes/elements (`:`/`::`), `~=`/`|=` attribute
+//   pseudo-classes: `:first-child` · `:last-child` · `:nth-child(n)` · `:not(sel)`
+// Explicitly unsupported (throws): pseudo-elements (`::before` etc.), `~=`/`|=` attribute
 // operators, namespaces, `@media`, specificity.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
 /** A single attribute condition within a compound selector. */
 interface AttrCond { name: string, op: 'present' | 'exact' | 'substring' | 'starts' | 'ends', value: string }
 
+/** A parsed pseudo-class condition. */
+interface Pseudo { name: 'first-child' | 'last-child' | 'nth-child' | 'not', arg?: string }
+
 /** A compound selector (simple selectors with no combinator between them). */
-interface Compound { universal: boolean, type?: string, id?: string, classes: string[], attrs: AttrCond[] }
+interface Compound { universal: boolean, type?: string, id?: string, classes: string[], attrs: AttrCond[], pseudos: Pseudo[] }
 
 /** One step of a complex selector: a compound plus the combinator linking it to the previous step. */
 interface Segment { combinator: 'descendant' | 'child' | 'adjacent' | 'sibling' | null, compound: Compound }
@@ -472,7 +476,7 @@ function parseAttrCond (body: string, selector: string): AttrCond {
 
 /** Parse one compound selector token (no combinators inside) into a {@link Compound}. */
 function parseCompound (token: string, selector: string): Compound {
-	const compound: Compound = { universal: false, classes: [], attrs: [] }
+	const compound: Compound = { universal: false, classes: [], attrs: [], pseudos: [] }
 	let i = 0
 	const n = token.length
 	if (n === 0) unsupported(selector)
@@ -505,8 +509,30 @@ function parseCompound (token: string, selector: string): Compound {
 			if (close === -1) unsupported(selector)
 			compound.attrs.push(parseAttrCond(token.slice(i + 1, close), selector))
 			i = close + 1
+		} else if (c === ':') {
+			if (token[i + 1] === ':') unsupported(selector) // pseudo-elements (::before etc.)
+			i++ // skip the `:`
+			const nameMatch = token.slice(i).match(/^[-\w]+/)
+			if (!nameMatch) unsupported(selector)
+			const pName = nameMatch[0]
+			i += pName.length
+			if (pName === 'first-child' || pName === 'last-child') {
+				compound.pseudos.push({ name: pName })
+			} else if (pName === 'nth-child' || pName === 'not') {
+				if (token[i] !== '(') unsupported(selector)
+				let depth = 1, argStart = i + 1
+				i++
+				while (i < n && depth > 0) {
+					if (token[i] === '(') depth++
+					else if (token[i] === ')') depth--
+					i++
+				}
+				if (depth !== 0) unsupported(selector)
+				compound.pseudos.push({ name: pName, arg: token.slice(argStart, i - 1).trim() })
+			} else {
+				unsupported(selector)
+			}
 		} else {
-			// `:`/`::` (pseudo), `+`/`~` (siblings), or any other char → unsupported
 			unsupported(selector)
 		}
 	}
@@ -593,6 +619,26 @@ function parseSelector (selector: string): Segment[][] {
 	return groups.map(g => parseComplex(g, selector))
 }
 
+/** True when an element node satisfies a single pseudo-class condition. */
+function matchPseudo (node: HNode, pseudo: Pseudo): boolean {
+	if (!node.parent) return false
+	const siblings = node.parent.children.filter(c => c.tag !== '#text')
+	const idx = siblings.indexOf(node)
+	switch (pseudo.name) {
+		case 'first-child': return idx === 0
+		case 'last-child': return idx === siblings.length - 1
+		case 'nth-child': {
+			const n = parseInt(pseudo.arg ?? '', 10)
+			if (isNaN(n) || n < 1) return false
+			return idx === n - 1
+		}
+		case 'not': {
+			const groups = parseSelector(pseudo.arg ?? '')
+			return !groups.some(seg => matchSegments(node, seg, seg.length - 1))
+		}
+	}
+}
+
 /** True when an element node satisfies a single compound selector. (Text/root nodes never match.) */
 function matchCompound (node: HNode, c: Compound): boolean {
 	if (node.tag === '#text' || node.tag === '') return false
@@ -607,6 +653,7 @@ function matchCompound (node: HNode, c: Compound): boolean {
 		else if (a.op === 'starts') { if (v === undefined || !v.startsWith(a.value)) return false }
 		else if (a.op === 'ends') { if (v === undefined || !v.endsWith(a.value)) return false }
 	}
+	for (const p of c.pseudos) if (!matchPseudo(node, p)) return false
 	return true
 }
 
