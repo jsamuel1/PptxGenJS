@@ -14,6 +14,7 @@
  * `@jsamuel1/pptxgenjs/utils`; it emits NO OOXML and touches no core code path.
  */
 import type { GradientFillProps, GradientStop } from '../core-interfaces'
+import { cssNamedColorToHex } from './css-named-colors'
 
 /** Hex colour string (6-digit, no leading `#`). */
 type HexColor = string
@@ -56,7 +57,10 @@ function normalizeColor (raw: string): string {
 	let v = (raw || '').trim().replace(/^#/, '')
 	if (/^[0-9a-fA-F]{3}$/.test(v)) v = v.split('').map(c => c + c).join('')
 	if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v.slice(0, 6).toUpperCase()
-	// rgb()/hsl()/named colours: pass through trimmed (documented limitation)
+	// Named CSS colour lookup
+	const named = cssNamedColorToHex(v)
+	if (named) return named
+	// hsl()/unknown colours: pass through trimmed (documented limitation)
 	return v
 }
 

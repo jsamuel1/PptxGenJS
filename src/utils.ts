@@ -16,6 +16,7 @@ export { parseHtml, query, queryOne, closest, matches, isAncestorOrSelf, textOf,
 export type { HNode } from './utils/html-dom'
 export { parseTable, parseColumns, parseTimeline, parseQuote, parseBadges, parseCallout } from './utils/parse-content'
 export type { TableData, TableCell, ColumnData, TimelineRow, QuoteData, CalloutData, ParseContentOptions } from './utils/parse-content'
+export { cssNamedColorToHex } from './utils/css-named-colors'
 export { resolveIconFonts, CDN_VERSIONS } from './utils/resolve-icon-fonts'
 export type { IconResolveOptions, IconSource, ResolvedSvgPart } from './utils/resolve-icon-fonts'
 export { tokenizeCode, codeRuns } from './utils/tokenize-code'

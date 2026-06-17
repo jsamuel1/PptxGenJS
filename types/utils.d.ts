@@ -569,5 +569,8 @@ export function relativeLuminance(hex: string): number
 /** Contrast ratio between two hex colors */
 export function contrastRatio(hex1: string, hex2: string): number
 
+/** Look up a CSS named colour → 6-digit uppercase hex (no `#`), or `null` if unknown. */
+export declare function cssNamedColorToHex(name: string): string | null;
+
 /** Returns 'FFFFFF' or '1F2937' for best contrast against fill */
 export function inkForFill(fillHex: string): string

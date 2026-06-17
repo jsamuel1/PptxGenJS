@@ -15,6 +15,7 @@
  */
 
 import { relativeLuminance } from '../gen-utils'
+import { cssNamedColorToHex } from './css-named-colors'
 
 /** A resolved theme palette. All colours are 6-digit hex strings (no leading `#`). */
 export interface ThemePalette {
@@ -225,7 +226,10 @@ function normalizeColor (raw: string, parseRgb = true): string {
 		const hex = rgbToHex(raw)
 		if (hex) return hex
 	}
-	// hsl()/named colours are returned trimmed but unconverted (documented limitation)
+	// Named CSS colour lookup
+	const named = cssNamedColorToHex(v)
+	if (named) return named
+	// hsl()/unknown colours are returned trimmed but unconverted (documented limitation)
 	return v
 }
 
