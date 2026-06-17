@@ -291,7 +291,7 @@ export function outerHtml(node: HNode): string
 export function decodeEntities(s: string): string
 
 /** How a resolved icon part was produced. */
-export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
+export type IconSource = 'cdn' | 'bundled' | 'custom'
 
 /** Pinned CDN versions for reproducible builds. */
 export declare const CDN_VERSIONS: {
@@ -307,10 +307,6 @@ export interface ResolvedSvgPart extends SvgPart {
 
 /** Options for `resolveIconFonts`. */
 export interface IconResolveOptions {
-	/** CSS text for `::before`/`::after` content-property codepoint extraction. */
-	stylesheets?: string[]
-	/** Local woff2/woff/ttf paths for glyph outlines, keyed by font family. */
-	fontFiles?: Record<string, string>
 	/** Allow CDN fetches for KNOWN fonts not in the bundled set. @default false */
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */

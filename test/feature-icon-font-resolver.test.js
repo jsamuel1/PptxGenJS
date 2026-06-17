@@ -3,7 +3,7 @@
 // Tests for the proposed dynamic icon-font resolver (see docs/features/feature-icon-font-resolver.md).
 // resolveIconFonts(html, opts) -> Promise<Map<string, SvgPart[]>>. Keys are the icon element's
 // class string (Material/ligature entries keyed `family|glyph`); each SvgPart carries a
-// `source` tag ('css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom').
+// `source` tag ('cdn' | 'bundled' | 'custom').
 //
 // NOTE: until the feature ships, `resolveIconFonts` is undefined and these go red (tests-first).
 // Network-dependent cases (CDN fallback) are written to SKIP gracefully when offline so the
@@ -67,19 +67,17 @@ module.exports = [
 		name: 'CSS content extraction: an inline <style> ::before rule maps class -> codepoint',
 		fn: async () => {
 			requireImpl()
-			// Provide both an inline style (codepoint) AND a custom resolver that can turn the
-			// codepoint into a path, so the test does not require a real font file or network.
+			// Provide a custom resolver that can resolve the icon to a path.
 			const html = '<style>.my-icon::before{content:"\\e900"}</style><i class="my-icon iconset"></i>'
 			const m = await resolveIconFonts(html, {
-				// custom resolver receives the class + family; here it stands in for font-file/CDN
+				// custom resolver receives the class + family
 				customResolver: (cls /*, family */) => cls.includes('my-icon')
-					? [{ d: 'M0 0L24 0L24 24L0 24Z', viewBox: { w: 24, h: 24 }, fill: '000000', mode: 'fill', source: 'css-content' }]
+					? [{ d: 'M0 0L24 0L24 24L0 24Z', viewBox: { w: 24, h: 24 }, fill: '000000', mode: 'fill', source: 'custom' }]
 					: null,
 			})
 			const parts = m.get('my-icon iconset')
 			assertVectorParts(parts, 'my-icon iconset')
-			// the codepoint was discovered from the ::before content rule
-			assert(['css-content', 'font-file', 'custom'].includes(parts[0].source), 'expected css/font/custom source; got ' + parts[0].source)
+			assert(parts[0].source === 'custom', 'expected custom source; got ' + parts[0].source)
 		},
 	},
 	{

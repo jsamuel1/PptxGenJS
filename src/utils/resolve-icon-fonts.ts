@@ -7,24 +7,24 @@
  * `addCard({ icon: { parts } })` or `addShape('custGeom', { svgPath })`.
  *
  * Resolution order per icon (first hit wins); the chosen method is recorded on each part's
- * `source` tag: `customResolver` → CSS `::before content` codepoint → bundled offline fallback →
- * CDN fetch (best-effort, cached). Bundled is tried before network so the resolver works
- * OFFLINE for the common icons with zero network calls; CDN is only reached for icons that are
- * NOT in the bundled set. An icon that no method resolves is OMITTED (never throws).
+ * `source` tag: customResolver → bundled offline fallback → CDN fetch (best-effort, cached).
+ * Bundled is tried before network so the resolver works OFFLINE for the common icons with zero
+ * network calls; CDN is only reached for icons that are NOT in the bundled set. An icon that no
+ * method resolves is OMITTED (never throws).
  *
  * Pure logic; the only side effects are the optional CDN `fetch` and `cacheDir` reads/writes
  * (both gated/optional). This is an OPTIONAL utility imported from `@jsamuel1/pptxgenjs/utils`.
  */
 import { parseSvg, type SvgPart } from './parse-svg'
 import { BUNDLED_ICONS } from './bundled-icons'
-import { classTokens, detectIcon, extractCssCodepoints, type IconDescriptor } from './icon-classify'
+import { classTokens, detectIcon, type IconDescriptor } from './icon-classify'
 import { faCdnUrl, biCdnUrl, ionCdnUrl, type FaStyle } from './icon-fonts.constants'
 
 // Re-exported so existing consumers (e.g. `@jsamuel1/pptxgenjs/utils`) keep importing it from here.
 export { CDN_VERSIONS } from './icon-fonts.constants'
 
 /** How a resolved part was produced. */
-export type IconSource = 'css-content' | 'font-file' | 'cdn' | 'bundled' | 'custom'
+export type IconSource = 'cdn' | 'bundled' | 'custom'
 
 /** A resolved `SvgPart` plus the resolution-source tag. */
 export interface ResolvedSvgPart extends SvgPart {
@@ -33,10 +33,6 @@ export interface ResolvedSvgPart extends SvgPart {
 
 /** Options for {@link resolveIconFonts}. */
 export interface IconResolveOptions {
-	/** CSS text for `::before`/`::after` content-property codepoint extraction. */
-	stylesheets?: string[]
-	/** Local woff2/woff/ttf paths for glyph outlines, keyed by font family. */
-	fontFiles?: Record<string, string>
 	/** Allow CDN fetches for KNOWN fonts not in the bundled set. @default false */
 	useCdn?: boolean
 	/** Caller hook resolving a class to parts; takes precedence over every built-in method. */
@@ -63,15 +59,6 @@ function scanIcons (html: string): IconDescriptor[] {
 		if (desc && !seen.has(desc.key)) { seen.add(desc.key); out.push(desc) }
 	}
 	return out
-}
-
-/** Pull inline `<style>...</style>` blocks out of an HTML string. */
-function inlineStyles (html: string): string[] {
-	const blocks: string[] = []
-	const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
-	let m: RegExpExecArray | null
-	while ((m = re.exec(html)) !== null) blocks.push(m[1])
-	return blocks
 }
 
 /** Look up a bundled offline SVG for a descriptor, or null. */
@@ -151,7 +138,7 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
 		if (parts.length) return tagSource(parts, 'bundled')
 	}
 
-	// 4) CDN fetch (best-effort) — only for KNOWN registries NOT covered by the bundled set.
+	// 3) CDN fetch (best-effort) — only for KNOWN registries NOT covered by the bundled set.
 	if (opts.useCdn === true) {
 		const url = cdnUrl(desc, classTokens(desc.className))
 		if (url) {
@@ -177,9 +164,6 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
 export async function resolveIconFonts (html: string, opts: IconResolveOptions = {}): Promise<Map<string, ResolvedSvgPart[]>> {
 	const out = new Map<string, ResolvedSvgPart[]>()
 	if (typeof html !== 'string' || html.length === 0) return out
-
-	// CSS codepoints (informational for font-file lookup; not required to produce a path here).
-	extractCssCodepoints([...inlineStyles(html), ...(opts.stylesheets || [])])
 
 	for (const desc of scanIcons(html)) {
 		if (out.has(desc.key)) continue
