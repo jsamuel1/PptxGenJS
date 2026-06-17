@@ -15,6 +15,7 @@
  */
 import type { GradientFillProps, GradientStop } from '../core-interfaces'
 import { cssNamedColorToHex } from './css-named-colors'
+import { parseHslString, parseHwbString, extractVarFallback } from './color-convert'
 
 /** Hex colour string (6-digit, no leading `#`). */
 type HexColor = string
@@ -60,7 +61,14 @@ function normalizeColor (raw: string): string {
 	// Named CSS colour lookup
 	const named = cssNamedColorToHex(v)
 	if (named) return named
-	// hsl()/unknown colours: pass through trimmed (documented limitation)
+	// hsl()/hwb() conversion
+	const hsl = parseHslString(raw)
+	if (hsl) return hsl
+	const hwb = parseHwbString(raw)
+	if (hwb) return hwb
+	// var() fallback extraction
+	const varFb = extractVarFallback(raw)
+	if (varFb) return normalizeColor(varFb)
 	return v
 }
 

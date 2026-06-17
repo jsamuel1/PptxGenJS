@@ -16,6 +16,7 @@
 
 import { relativeLuminance } from '../gen-utils'
 import { cssNamedColorToHex } from './css-named-colors'
+import { parseHslString, parseHwbString } from './color-convert'
 
 /** A resolved theme palette. All colours are 6-digit hex strings (no leading `#`). */
 export interface ThemePalette {
@@ -229,7 +230,11 @@ function normalizeColor (raw: string, parseRgb = true): string {
 	// Named CSS colour lookup
 	const named = cssNamedColorToHex(v)
 	if (named) return named
-	// hsl()/unknown colours are returned trimmed but unconverted (documented limitation)
+	// hsl()/hwb() conversion
+	const hsl = parseHslString(raw)
+	if (hsl) return hsl
+	const hwb = parseHwbString(raw)
+	if (hwb) return hwb
 	return v
 }
 
