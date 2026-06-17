@@ -286,12 +286,15 @@ export function elements (node: HNode, out: HNode[] = []): HNode[] {
 	return out
 }
 
-/** Internal recursive text gatherer (no filtering). */
-function _textOf (node: HNode): string {
+/** Tags whose content is not user-visible and must be excluded from parent text extraction. */
+const INVISIBLE_TAGS = new Set(['svg', 'script', 'style', 'noscript'])
+
+/** Internal recursive text gatherer. Skips invisible children unless they are the entry node. */
+function _textOf (node: HNode, isRoot: boolean): string {
 	if (node.tag === '#text') return node.text || ''
-	if (node.tag === 'svg') return ''
+	if (!isRoot && INVISIBLE_TAGS.has(node.tag)) return ''
 	let s = ''
-	for (const c of node.children) s += _textOf(c)
+	for (const c of node.children) s += _textOf(c, false)
 	return s
 }
 
@@ -301,7 +304,7 @@ const PUA_RE = /[\uE000-\uF8FF]|[\uDB80-\uDBFF][\uDC00-\uDFFF]/g
 /** Concatenated text of an element and its descendants (`<svg>` contributes nothing). */
 export function textOf (node: HNode, opts?: { keepPUA?: boolean }): string {
 	if (typeof node === 'string') throw new Error('textOf: expected HNode from parseHtml(), got a string')
-	const raw = _textOf(node)
+	const raw = _textOf(node, true)
 	if (opts?.keepPUA) return raw
 	const stripped = raw.replace(PUA_RE, '')
 	if (stripped.length === raw.length) return raw // no-op fast path
