@@ -141,8 +141,15 @@ export function encodeSlideMediaRels(layout: PresSlide | SlideLayout): Array<Pro
 		.forEach(rel => {
 			(async () => {
 				if (isNode && !fs) await loadNodeDeps()
-				if (isNode && fs) {
-					// console.log('Sorry, SVG is not supported in Node (more info: https://github.com/gitbrent/PptxGenJS/issues/401)')
+				// Rasterizing the SVG to a PNG preview needs a real browser canvas
+				// (`new Image()` + `document.createElement('canvas')`). Gate on that
+				// capability directly — NOT on `isNode`/`fs`. A non-browser sandbox
+				// (e.g. a VM context with no `process`) reports `isNode === false`,
+				// so the old `isNode && fs` test fell through to `createSvgPngPreview`
+				// and threw "Image is not defined". When no canvas is available, fall
+				// back to the broken-image placeholder instead of throwing.
+				const canRasterizeSvg = typeof Image !== 'undefined' && typeof document !== 'undefined'
+				if (!canRasterizeSvg) {
 					rel.data = IMG_BROKEN
 					imageProms.push(Promise.resolve('done'))
 				} else {

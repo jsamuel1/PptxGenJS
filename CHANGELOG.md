@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **SVG images in non-browser sandboxes** — writing a deck containing SVG images (e.g. `data:image/svg+xml`) inside a VM context without a `process` global (such as the QuickWork `run_javascript` sandbox) threw `Image is not defined`. The SVG→PNG preview path was gated on `isNode && fs`, but a non-browser sandbox reports `isNode === false`, so it fell through to the browser `new Image()` branch. It now gates on the actual presence of a browser canvas (`typeof Image !== 'undefined' && typeof document !== 'undefined'`) and falls back to the broken-image placeholder when none is available, instead of throwing.
+
 ## [5.0.0](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.0) - 2026-06-15
 
 ### Removed
