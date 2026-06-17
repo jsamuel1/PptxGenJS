@@ -321,6 +321,37 @@ export function textOf (node: HNode, opts?: { keepPUA?: boolean }): string {
 	return stripped.replace(/\s{2,}/g, ' ').trim()
 }
 
+/** Block-level elements that generate line breaks in innerText-style extraction. */
+const BLOCK_TAGS = new Set([
+	'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr',
+	'blockquote', 'section', 'article', 'header', 'footer', 'nav', 'main',
+	'aside', 'details', 'summary', 'figcaption', 'figure', 'dd', 'dt',
+	'dl', 'ol', 'ul', 'pre', 'hr', 'table', 'thead', 'tbody', 'tfoot',
+])
+
+/** Recursive walker that builds innerText-style output with block-boundary newlines. */
+function _innerTextOf (node: HNode): string {
+	if (node.tag === '#text') return node.text || ''
+	if (INVISIBLE_TAGS.has(node.tag)) return ''
+	if (node.tag === 'br') return '\n'
+	let inner = ''
+	for (const c of node.children) inner += _innerTextOf(c)
+	if (BLOCK_TAGS.has(node.tag)) return '\n' + inner + '\n'
+	return inner
+}
+
+/**
+ * Browser-like `innerText` extraction: block elements produce line breaks, `<br>` inserts `\n`,
+ * invisible tags are skipped, and whitespace runs collapse to a single space.
+ */
+export function innerTextOf (node: HNode, opts?: { keepPUA?: boolean }): string {
+	if (typeof node === 'string') throw new Error('innerTextOf: expected HNode from parseHtml(), got a string')
+	let raw = _innerTextOf(node)
+	if (!opts?.keepPUA) raw = raw.replace(PUA_RE, '')
+	// collapse whitespace: runs of spaces/tabs → single space, preserve explicit \n
+	return raw.replace(/[^\S\n]+/g, ' ').replace(/\n{2,}/g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim()
+}
+
 /** True when any class token of `el` matches `pat`. */
 export function classMatch (el: HNode, pat: RegExp): boolean {
 	return el.classes.some(c => pat.test(c))
