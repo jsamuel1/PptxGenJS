@@ -14,8 +14,7 @@
  * `@jsamuel1/pptxgenjs/utils`; it emits NO OOXML and touches no core code path.
  */
 import type { GradientFillProps, GradientStop } from '../core-interfaces'
-import { cssNamedColorToHex } from './css-named-colors'
-import { parseHslString, parseHwbString, extractVarFallback } from './color-convert'
+import { normalizeColor } from './color-convert'
 
 /** Hex colour string (6-digit, no leading `#`). */
 type HexColor = string
@@ -52,25 +51,6 @@ const KAPPA = 0.5522847498307936
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // Colour helpers
 // ──────────────────────────────────────────────────────────────────────────────────────────
-
-/** Normalise a colour value to 6-digit hex (no `#`). 3-digit hex expanded; non-hex returned trimmed. */
-function normalizeColor (raw: string): string {
-	let v = (raw || '').trim().replace(/^#/, '')
-	if (/^[0-9a-fA-F]{3}$/.test(v)) v = v.split('').map(c => c + c).join('')
-	if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v.slice(0, 6).toUpperCase()
-	// Named CSS colour lookup
-	const named = cssNamedColorToHex(v)
-	if (named) return named
-	// hsl()/hwb() conversion
-	const hsl = parseHslString(raw)
-	if (hsl) return hsl
-	const hwb = parseHwbString(raw)
-	if (hwb) return hwb
-	// var() fallback extraction
-	const varFb = extractVarFallback(raw)
-	if (varFb) return normalizeColor(varFb)
-	return v
-}
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // Path tokenisation

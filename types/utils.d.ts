@@ -573,6 +573,7 @@ export declare function hwbToHex(h: number, w: number, b: number): string;
 export declare function parseHslString(raw: string): string | null;
 export declare function parseHwbString(raw: string): string | null;
 export declare function extractVarFallback(raw: string): string | null;
+export declare function normalizeColor(raw: string): string;
 
 /** Returns 'FFFFFF' or '1F2937' for best contrast against fill */
 export function inkForFill(fillHex: string): string

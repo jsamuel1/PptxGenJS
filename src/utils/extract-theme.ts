@@ -15,8 +15,7 @@
  */
 
 import { relativeLuminance } from '../gen-utils'
-import { cssNamedColorToHex } from './css-named-colors'
-import { parseHslString, parseHwbString } from './color-convert'
+import { normalizeColor } from './color-convert'
 
 /** A resolved theme palette. All colours are 6-digit hex strings (no leading `#`). */
 export interface ThemePalette {
@@ -194,16 +193,6 @@ const COLOR_SLOTS = new Set<keyof ThemePalette>([
 	'neutral1', 'neutral2', 'neutral3',
 ])
 
-/** Parse an `rgb()`/`rgba()` value to a 6-digit hex (upper-case, no `#`). Returns null on non-match. */
-function rgbToHex (value: string): string | null {
-	const m = value.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
-	if (!m) return null
-	return [m[1], m[2], m[3]]
-		.map(n => Math.min(255, Math.max(0, parseInt(n, 10))).toString(16).padStart(2, '0'))
-		.join('')
-		.toUpperCase()
-}
-
 /** Resolve `var(--name)` references against the parsed vars map (bare-name keyed). Recursive with a depth cap (clamp-don't-crash on cyclic refs). */
 function resolveVar (value: string, vars: Record<string, string>, depth = 0): string {
 	if (typeof value !== 'string' || depth > 16 || value.indexOf('var(') === -1) return value
@@ -213,29 +202,6 @@ function resolveVar (value: string, vars: Record<string, string>, depth = 0): st
 	})
 	if (replaced === value) return replaced
 	return resolveVar(replaced, vars, depth + 1)
-}
-
-/** Normalise a colour value to a 6-digit hex (no `#`). 3-digit hex expanded; `rgb()/rgba()` parsed when enabled; otherwise returned trimmed. */
-function normalizeColor (raw: string, parseRgb = true): string {
-	let v = raw.trim().replace(/^#/, '')
-	// Expand 3-digit shorthand (#abc -> AABBCC)
-	if (/^[0-9a-fA-F]{3}$/.test(v)) v = v.split('').map(c => c + c).join('')
-	// Uppercase 6/8-digit hex for consistency with the rest of the library
-	if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v.toUpperCase()
-	// rgb()/rgba() → hex (converter-equivalence)
-	if (parseRgb) {
-		const hex = rgbToHex(raw)
-		if (hex) return hex
-	}
-	// Named CSS colour lookup
-	const named = cssNamedColorToHex(v)
-	if (named) return named
-	// hsl()/hwb() conversion
-	const hsl = parseHslString(raw)
-	if (hsl) return hsl
-	const hwb = parseHwbString(raw)
-	if (hwb) return hwb
-	return v
 }
 
 /** Mix two hex colours per channel: `round(a*(1-weight) + b*weight)` (weight is the SECOND colour's weight). Mirrors the converter's `mix`. */
@@ -266,7 +232,7 @@ function deriveBarStops (vars: Record<string, string>, palette: ThemePalette, ba
 			.map(name => {
 				let val = vars[String(name).trim().toLowerCase()] || ''
 				if (resolveVarRefs) val = resolveVar(val, vars)
-				return val ? normalizeColor(val, parseRgb) : ''
+				return val ? normalizeColor(val).slice(0, 6) : ''
 			})
 			.filter(Boolean)
 		if (stops.length >= 2) return stops
@@ -453,7 +419,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 			extractedSlots.add(slot as string)
 			let value = vars[name]
 			if (resolveVarRefs) value = resolveVar(value, vars)
-			theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value, parseRgb)
+			theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value).slice(0, 6)
 		})
 
 		// 5b: Fallback chain — scan body{}/html{} for background/color when bg/text not from vars
@@ -465,7 +431,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 				if (!extractedSlots.has('bg')) {
 					const bgMatch = block.match(/(?:background-color|background)\s*:\s*([^;]+)/i)
 					if (bgMatch) {
-						const val = normalizeColor(bgMatch[1].trim(), parseRgb)
+						const val = normalizeColor(bgMatch[1].trim())
 						if (/^[0-9A-F]{6}$/.test(val)) {
 							theme.bg = val
 							extractedSlots.add('bg')
@@ -476,7 +442,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 				if (!extractedSlots.has('text')) {
 					const colorMatch = block.match(/(?:^|[^-\w])color\s*:\s*([^;]+)/i)
 					if (colorMatch) {
-						const val = normalizeColor(colorMatch[1].trim(), parseRgb)
+						const val = normalizeColor(colorMatch[1].trim())
 						if (/^[0-9A-F]{6}$/.test(val)) {
 							theme.text = val
 							extractedSlots.add('text')
