@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.5](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.5) - 2026-06-18
+
 ### Added
 - `BorderProps.transparency` — set border transparency (0–100%) on table cells, chart plot/chart areas, and data borders
 
