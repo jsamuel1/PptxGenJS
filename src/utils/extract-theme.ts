@@ -379,8 +379,13 @@ function parseCssVars (css: string): ParsedCssVars {
  * @param {ExtractThemeOptions} [options] - presets, fallback, and the v2 converter-equivalence flags
  * @returns {ThemePalette} the resolved palette (always complete — preset fills the gaps)
  * @example
- * const theme = extractThemeFromCSS(':root{ --bg:#121218; --purple:#7C3AED; }')
+ * const theme = extractThemeFromCSS(':root{ --bg:#121218; --accent:#7C3AED; }')
  * // => { bg: '121218', accent: '7C3AED', cardLine: '301D54', barStops: [...], presetName: 'extracted', ... }
+ *
+ * // Deck-specific hue-named vars (e.g. --purple) are NOT auto-mapped to accent — only abstract
+ * // role names (accent/primary/brand/…) are. Route a hue-named var explicitly via varAliases:
+ * const t2 = extractThemeFromCSS(':root{ --bg:#121218; --purple:#7C3AED; }', { varAliases: { purple: 'accent' } })
+ * // => { bg: '121218', accent: '7C3AED', ... }
  */
 export function extractThemeFromCSS (css: string, options: ExtractThemeOptions = {}): ThemePalette {
 	const presets: Record<string, Partial<ThemePalette>> = { dark: DARK_PRESET, light: LIGHT_PRESET, ...(options.presets || {}) }
