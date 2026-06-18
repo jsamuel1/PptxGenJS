@@ -347,4 +347,71 @@ module.exports = [
 			assert(without.accent !== '7C3AED', 'without varAliases, purple should not map to accent; got: ' + without.accent)
 		},
 	},
+
+	// --- SAU-62 / SAU-37: rank accents by APPLIED usage prominence (not name) + multi-role palette ---
+	{
+		name: 'extractTheme SAU-37: orange-lead multi-accent deck → accent===FF9900 and accents[0]===FF9900',
+		fn: async () => {
+			// msx-style deck: both --purple and --orange are declared (name-probing cannot tell them
+			// apart), but --orange is APPLIED far more prominently (labels/headings/card-titles), so
+			// usage must promote it to the lead accent over the secondary --purple.
+			const css = ':root{ --bg:#16131E; --text:#E4E4ED;'
+				+ ' --orange:#FF9900; --purple:#7C3AED; --sky:#38BDF8; --green:#10B981; }'
+				+ '.label{ color: var(--orange); } h1,h2,h3{ color: var(--orange); }'
+				+ '.card-title{ color: var(--orange); } .kicker{ color: var(--orange); }'
+				+ '.highlight{ color: var(--orange); border-color: var(--orange); }'
+				+ '.badge{ background: var(--purple); } .chip{ color: var(--purple); }'
+				+ '.ok{ color: var(--green); } .info{ color: var(--sky); }'
+			const t = extractThemeFromCSS(css)
+			assertEqual(t.accent, 'FF9900', 'lead accent is the most-applied hue (orange)')
+			assert(Array.isArray(t.accents) && t.accents.length > 0, 'accents[] populated')
+			assertEqual(t.accents[0], 'FF9900', 'accents[0] === lead accent')
+			assertEqual(t.slotSource.accent, 'extracted', 'promoted accent tagged extracted (from CSS usage)')
+			// purple must still appear in the ranked palette, just not as the lead
+			assert(t.accents.includes('7C3AED'), 'secondary --purple still present in accents[]; got: ' + t.accents.join(','))
+		},
+	},
+	{
+		name: 'extractTheme SAU-37: purple-lead reference-style deck → --purple stays accent (no abstract --accent)',
+		fn: async () => {
+			// Reference deck declares --purple as its lead and uses it most; with no abstract --accent,
+			// prominence must keep purple as the accent (the no-regression case).
+			const css = ':root{ --bg:#121218; --text:#E4E4ED; --purple:#7C3AED; --sky:#38BDF8; }'
+				+ '.label{ color: var(--purple); } h1,h2{ color: var(--purple); }'
+				+ '.card-title{ color: var(--purple); } .info{ color: var(--sky); }'
+			const t = extractThemeFromCSS(css)
+			assertEqual(t.accent, '7C3AED', '--purple stays accent when it is the most-applied hue')
+			assertEqual(t.accents[0], '7C3AED', 'accents[0] === purple')
+		},
+	},
+	{
+		name: 'extractTheme SAU-62: hue-only deck (no abstract accent) gets the prominent hue, NOT the indigo preset',
+		fn: async () => {
+			const css = ':root{ --bg:#111111; --text:#EEEEEE; --orange:#FF9900; }'
+				+ '.label{ color: var(--orange); } h1{ color: var(--orange); }'
+			const t = extractThemeFromCSS(css)
+			assertEqual(t.accent, 'FF9900', 'prominent hue promoted to accent')
+			assert(t.accent !== '6366f1' && t.accent.toLowerCase() !== '6366f1', 'must NOT be the indigo preset; got: ' + t.accent)
+			assertEqual(t.slotSource.accent, 'extracted', 'slotSource tags the promoted hue as extracted')
+		},
+	},
+	{
+		name: 'extractTheme SAU-62: abstract --accent still wins over a more-applied hue (back-compat)',
+		fn: async () => {
+			const css = ':root{ --bg:#111111; --accent:#00AAFF; --orange:#FF9900; }'
+				+ '.x{ color: var(--orange); } .y{ color: var(--orange); } .z{ color: var(--orange); }'
+			const t = extractThemeFromCSS(css)
+			assertEqual(t.accent, '00AAFF', 'declared abstract --accent is authoritative regardless of hue usage')
+			assertEqual(t.accents[0], '00AAFF', 'accents[0] === abstract accent')
+		},
+	},
+	{
+		name: 'extractTheme SAU-62: ADR-0006 — a deck with NO applied hues keeps the preset accent (no spurious promotion)',
+		fn: async () => {
+			// Hue vars declared but never applied anywhere → zero prominence → preset is kept.
+			const css = ':root{ --bg:#111111; --text:#EEEEEE; --orange:#FF9900; }'
+			const t = extractThemeFromCSS(css)
+			assertEqual(t.slotSource.accent, 'preset', 'unused hue must not hijack the accent slot')
+		},
+	},
 ]

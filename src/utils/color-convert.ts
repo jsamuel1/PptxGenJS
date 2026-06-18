@@ -107,6 +107,47 @@ export function parseOklchString(raw: string): { hex: string, alpha: number } | 
 	return { hex: oklchToHex(l, c, h), alpha }
 }
 
+/** Convert CIELAB (D65) to 6-digit uppercase hex (no #). l: 0-100, a/b: roughly -128..127. */
+export function labToHex(l: number, a: number, b: number): string {
+	// CIELAB → XYZ (D65 reference white)
+	const fy = (l + 16) / 116
+	const fx = fy + a / 500
+	const fz = fy - b / 200
+	const delta = 6 / 29
+	const finv = (t: number) => (t > delta ? t * t * t : 3 * delta * delta * (t - 4 / 29))
+	// D65 reference white (Xn, Yn, Zn)
+	const Xn = 0.95047
+	const Yn = 1.0
+	const Zn = 1.08883
+	const X = Xn * finv(fx)
+	const Y = Yn * finv(fy)
+	const Z = Zn * finv(fz)
+	// XYZ → linear sRGB
+	let r = +3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z
+	let g = -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z
+	let bl = +0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z
+	// linear sRGB → sRGB gamma
+	const gamma = (x: number) => (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055)
+	r = Math.min(1, Math.max(0, gamma(r)))
+	g = Math.min(1, Math.max(0, gamma(g)))
+	bl = Math.min(1, Math.max(0, gamma(bl)))
+	return [r, g, bl].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+/** Parse `lab(L% a b)` or `lab(L a b / A)` → hex + alpha, or null. L may be `%` (0-100) or a 0-100 number. */
+export function parseLabString(raw: string): { hex: string, alpha: number } | null {
+	const m = raw.trim().match(/^lab\(\s*([\d.]+)(%?)\s+(-?[\d.]+)\s+(-?[\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/i)
+	if (!m) return null
+	const l = parseFloat(m[1]) // L is 0-100 whether or not a % sign is present
+	const a = parseFloat(m[3])
+	const b = parseFloat(m[4])
+	let alpha = 1
+	if (m[5] != null) {
+		alpha = m[5].endsWith('%') ? parseFloat(m[5]) / 100 : parseFloat(m[5])
+	}
+	return { hex: labToHex(l, a, b), alpha }
+}
+
 /** Extract alpha from hsl/hwb raw string (the `/ A` or `, A` portion after the main values). */
 function extractAlphaFromColorFunc(raw: string): number {
 	const m = raw.match(/[/,]\s*([\d.]+)(%?)\s*\)\s*$/)
@@ -170,6 +211,14 @@ export function normalizeColor(raw: string): string {
 		return oklch.alpha < 1
 			? oklch.hex + Math.round(oklch.alpha * 255).toString(16).padStart(2, '0').toUpperCase()
 			: oklch.hex
+	}
+
+	// lab()
+	const lab = parseLabString(raw)
+	if (lab) {
+		return lab.alpha < 1
+			? lab.hex + Math.round(lab.alpha * 255).toString(16).padStart(2, '0').toUpperCase()
+			: lab.hex
 	}
 
 	// var() fallback → recurse

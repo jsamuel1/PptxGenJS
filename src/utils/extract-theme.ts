@@ -197,12 +197,84 @@ const COLOR_SLOTS = new Set<keyof ThemePalette>([
 	'neutral1', 'neutral2', 'neutral3',
 ])
 
+/** HSL saturation (0-1) of a 6-hex colour. Returns 0 for greys / invalid input. */
+function hexSaturation (hex: string): number {
+	if (!/^[0-9A-F]{6}$/i.test(hex)) return 0
+	const [r, g, b] = (hex.match(/.{2}/g) as string[]).map(p => parseInt(p, 16) / 255)
+	const max = Math.max(r, g, b)
+	const min = Math.min(r, g, b)
+	if (max === min) return 0
+	const l = (max + min) / 2
+	const d = max - min
+	return l > 0.5 ? d / (2 - max - min) : d / (max + min)
+}
+
+/**
+ * Tally how PROMINENTLY each candidate colour is APPLIED across the parsed CSS.
+ *
+ * SAU-62/SAU-37: name-matching alone cannot distinguish a deck that leads with `--orange`
+ * from one that leads with `--purple` when both literally declare `--purple`. Only usage
+ * tells them apart. We scan every CSS declaration and award a weight per occurrence:
+ *  - role-bearing text properties (`color`, `fill`, `text-…color`) and the var that backs them
+ *    weigh more than incidental ones (`border-color`, `background`, gradients).
+ *
+ * Both literal colour values (`color:#FF9900`) and `var(--name)` references are counted; a
+ * `var(--name)` reference credits the colour that `--name` resolves to. Returns a map of
+ * 6-hex (uppercase) → accumulated weight. Pure regex scan — no DOM.
+ */
+function tallyColorProminence (css: string, vars: Record<string, string>, resolveVarRefs: boolean): Map<string, number> {
+	const scores = new Map<string, number>()
+	if (typeof css !== 'string' || css.length === 0) return scores
+	const add = (hexRaw: string, weight: number): void => {
+		const hex = (hexRaw || '').toUpperCase()
+		if (!/^[0-9A-F]{6}$/.test(hex)) return
+		scores.set(hex, (scores.get(hex) || 0) + weight)
+	}
+	// Resolve a var name (bare, lower-cased) to a 6-hex value, if it maps to a colour.
+	const varToHex = (name: string): string => {
+		let val = vars[name]
+		if (val === undefined) return ''
+		if (resolveVarRefs) val = resolveVar(val, vars)
+		return normalizeColor(val).slice(0, 6)
+	}
+	// Walk each `property: value;` declaration. We deliberately ignore custom-prop declarations
+	// (`--x:`) — those define the palette; we want where colours are CONSUMED.
+	const declRe = /(^|[;{])\s*(-?[a-z][\w-]*)\s*:\s*([^;{}]+)/gi
+	let m: RegExpExecArray | null
+	while ((m = declRe.exec(css)) !== null) {
+		const prop = m[2].toLowerCase()
+		if (prop.startsWith('--')) continue
+		const val = m[3]
+		// Role weight: text/heading/label-ish colour application weighs most.
+		let weight = 1
+		if (prop === 'color' || prop === 'fill' || prop === 'stroke' || /(^|-)text-.*color$/.test(prop) || prop === '-webkit-text-fill-color') weight = 4
+		else if (prop === 'border-color' || /(^|-)border(-\w+)?-color$/.test(prop) || prop === 'outline-color' || prop === 'text-decoration-color' || prop === 'caret-color') weight = 2
+		else if (prop === 'background' || prop === 'background-color' || prop === 'background-image' || /gradient/.test(val)) weight = 1
+		// (a) var(--name) references inside the value
+		const varRe = /var\(\s*--([\w-]+)\s*(?:,[^)]*)?\)/g
+		let vm: RegExpExecArray | null
+		while ((vm = varRe.exec(val)) !== null) {
+			add(varToHex(vm[1].trim().toLowerCase()), weight)
+		}
+		// (b) literal colour tokens inside the value (hex / rgb / hsl / named etc.)
+		const litRe = /#[0-9a-fA-F]{3,8}\b|(?:rgin?|rgba|rgb|hsla|hsl|hwb|oklch|lab)\([^)]*\)/g
+		let lm: RegExpExecArray | null
+		while ((lm = litRe.exec(val)) !== null) {
+			add(normalizeColor(lm[0]).slice(0, 6), weight)
+		}
+	}
+	return scores
+}
+
 /** Resolve `var(--name)` references against the parsed vars map (bare-name keyed). Recursive with a depth cap (clamp-don't-crash on cyclic refs). */
 function resolveVar (value: string, vars: Record<string, string>, depth = 0): string {
 	if (typeof value !== 'string' || depth > 16 || value.indexOf('var(') === -1) return value
-	const replaced = value.replace(/var\(\s*--([\w-]+)\s*(?:,[^)]*)?\)/g, (_match, name: string) => {
+	const replaced = value.replace(/var\(\s*--([\w-]+)\s*(?:,([^)]*))?\)/g, (_match, name: string, fallback?: string) => {
 		const v = vars[String(name).trim().toLowerCase()]
-		return v !== undefined && v !== null ? v : ''
+		if (v !== undefined && v !== null) return v
+		// SAU-46: honour the var() fallback (e.g. `var(--undefined, #FF9900)` → `#FF9900`)
+		// when the referenced var is not declared, instead of collapsing to ''.
+		return fallback !== undefined ? fallback.trim() : ''
 	})
 	if (replaced === value) return replaced
 	return resolveVar(replaced, vars, depth + 1)
@@ -455,12 +527,24 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 				}
 			}
 			if (!slot) return
-			matched++
-			if (slot === 'font') fontFromVar = true
-			extractedSlots.add(slot as string)
 			let value = vars[name]
 			if (resolveVarRefs) value = resolveVar(value, vars)
-			theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value).slice(0, 6)
+			if (slot === 'font' || !COLOR_SLOTS.has(slot)) {
+				matched++
+				if (slot === 'font') fontFromVar = true
+				extractedSlots.add(slot as string)
+				theme[slot] = normalizeFont(value)
+			} else {
+				// SAU-46: only adopt a colour slot when the value normalises to valid 6-hex.
+				// Unparseable functions (e.g. malformed lab()/color()) are left for the preset
+				// to repair rather than polluting the slot with verbatim text.
+				const hex = normalizeColor(value).slice(0, 6)
+				if (/^[0-9A-F]{6}$/i.test(hex)) {
+					matched++
+					extractedSlots.add(slot as string)
+					theme[slot] = hex
+				}
+			}
 		})
 
 		// 5b: Fallback chain — scan body{}/html{} for background/color when bg/text not from vars
@@ -567,25 +651,64 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 					}
 				}
 				if (!slot) return
-				extractedSlots.add(slot as string)
 				let value = mediaVars[name]
 				if (resolveVarRefs) value = resolveVar(value, { ...vars, ...mediaVars })
-				theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value).slice(0, 6)
+				if (slot === 'font' || !COLOR_SLOTS.has(slot)) {
+					extractedSlots.add(slot as string)
+					theme[slot] = normalizeFont(value)
+				} else {
+					// SAU-46: only adopt valid 6-hex (see base-pass guard above).
+					const hex = normalizeColor(value).slice(0, 6)
+					if (/^[0-9A-F]{6}$/i.test(hex)) {
+						extractedSlots.add(slot as string)
+						theme[slot] = hex
+					}
+				}
 			})
 		}
 	}
 
 	// ── Accent palette extraction ──────────────────────────────────────────────────
+	// SAU-62/SAU-37: rank candidate hues by APPLIED usage prominence, not name alone. A
+	// hue-named var (`--orange`) or a literal can lead when it is used more prominently than
+	// the abstract/secondary palette. `count` carries the prominence weight; `ordinal` still
+	// pins explicitly-named accent vars (accent-1, secondary, …) ahead of unranked hues.
 	const ACCENT_NUMBERED_RE = /^(?:accent|color-accent|brand|primary)[-_]?(\d)$/
 	interface AccentCandidate { hex: string; ordinal?: number; count: number }
-	const accentCandidates: AccentCandidate[] = []
 	const accentVarNames = Object.keys(vars)
+	// Prominence: how each colour is actually applied across the CSS (var refs + literals).
+	const prominence = tallyColorProminence(css, vars, resolveVarRefs)
+	// Did the deck declare an ABSTRACT accent (role-generic name → accent slot), as opposed to
+	// only hue-named vars? When it did, the abstract accent wins (back-compat); when it did not,
+	// the most-prominent saturated hue is promoted to the accent slot.
+	let abstractAccentDeclared = false
+	for (const name of accentVarNames) {
+		const lcName = name.toLowerCase()
+		if (varAliases[lcName] === 'accent') { abstractAccentDeclared = true; break }
+		let mapped = false
+		for (const cand of canonicalVarName(name)) {
+			if (VAR_TO_SLOT[cand] === 'accent') { mapped = true; break }
+		}
+		if (!mapped && ACCENT_NUMBERED_RE.test(lcName)) mapped = true
+		if (mapped) { abstractAccentDeclared = true; break }
+	}
+	// Background / text hexes are excluded from accent promotion (an accent is neither).
+	const bgHex = (theme.bg || '').toUpperCase()
+	const textHex = (theme.text || '').toUpperCase()
+	const surfaceHex = (theme.surface || '').toUpperCase()
+	// Prominence weight for a var, crediting any var that aliases to the same hex.
+	const promForHex = (hex: string): number => prominence.get(hex.toUpperCase()) || 0
+
+	const accentCandidates: AccentCandidate[] = []
+	const pushHexCandidate = (hex: string, ordinal: number | undefined): void => {
+		if (!/^[0-9A-F]{6}$/i.test(hex)) return
+		accentCandidates.push({ hex: hex.toUpperCase(), ordinal, count: promForHex(hex) })
+	}
+	// 1) Explicitly-named accent vars keep their ordinal (abstract accent / accent-N / secondary / tertiary).
 	for (const name of accentVarNames) {
 		const lcName = name.toLowerCase()
 		let ordinal: number | undefined
-		// Check if this var was already mapped to the `accent` slot → ordinal 1
 		if (extractedSlots.has('accent')) {
-			// Find if this var name resolves to the accent slot
 			let mappedSlot: string | undefined
 			if (varAliases[lcName]) mappedSlot = varAliases[lcName]
 			else {
@@ -596,60 +719,59 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 			if (mappedSlot === 'accent') ordinal = 1
 		}
 		if (ordinal === undefined) {
-			const m = ACCENT_NUMBERED_RE.exec(lcName)
-			if (m) ordinal = parseInt(m[1], 10)
+			const mm = ACCENT_NUMBERED_RE.exec(lcName)
+			if (mm) ordinal = parseInt(mm[1], 10)
 			else if (lcName === 'secondary') ordinal = 2
 			else if (lcName === 'tertiary') ordinal = 3
-			else continue // not an accent candidate
+			else if (/^(?:accent|color-accent|brand|primary)$/i.test(lcName)) ordinal = undefined
+			else continue // handled in pass 2 (prominence)
 		}
 		let value = vars[name]
 		if (resolveVarRefs) value = resolveVar(value, vars)
-		const hex = normalizeColor(value).slice(0, 6)
-		if (!/^[0-9A-F]{6}$/i.test(hex)) continue
-		const refCount = (css.match(new RegExp(`var\\(\\s*--${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,)]`, 'g')) || []).length
-		accentCandidates.push({ hex, ordinal, count: refCount })
+		pushHexCandidate(normalizeColor(value).slice(0, 6), ordinal)
 	}
-	// Also pick up accent candidates without explicit ordinal (ranked by var() reference count)
-	for (const name of accentVarNames) {
-		const lcName = name.toLowerCase()
-		if (ACCENT_NUMBERED_RE.test(lcName) || lcName === 'secondary' || lcName === 'tertiary') continue
-		// Check if already added as ordinal 1 (accent slot)
-		let isAccentSlot = false
-		if (varAliases[lcName] === 'accent') isAccentSlot = true
-		else {
-			for (const cand of canonicalVarName(name)) {
-				if (VAR_TO_SLOT[cand] === 'accent') { isAccentSlot = true; break }
-			}
-		}
-		if (isAccentSlot) continue // already handled above
-		// Check if this looks like an accent-family var (matches the prefix pattern without a digit)
-		if (!/^(?:accent|color-accent|brand|primary)$/i.test(lcName)) continue
-		let value = vars[name]
-		if (resolveVarRefs) value = resolveVar(value, vars)
-		const hex = normalizeColor(value).slice(0, 6)
-		if (!/^[0-9A-F]{6}$/i.test(hex)) continue
-		const refCount = (css.match(new RegExp(`var\\(\\s*--${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,)]`, 'g')) || []).length
-		accentCandidates.push({ hex, ordinal: undefined, count: refCount })
+	// 2) Prominence pass — EVERY saturated, non-bg/non-text colour applied in the CSS is a
+	//    candidate, whether it came from a hue-named var (`--orange`) or a literal. Ranked by
+	//    applied weight so the deck's lead accent surfaces over an incidental/secondary hue.
+	const SATURATION_MIN = 0.25
+	for (const [hex, weight] of prominence) {
+		if (hex === bgHex || hex === textHex || hex === surfaceHex) continue
+		if (hexSaturation(hex) < SATURATION_MIN) continue
+		if (weight <= 0) continue
+		accentCandidates.push({ hex, ordinal: undefined, count: weight })
 	}
-	// Deduplicate by normalized hex (keep lower ordinal or higher count)
+	// Deduplicate by normalized hex (keep lower ordinal; else higher prominence count).
 	const seenHex = new Map<string, AccentCandidate>()
 	for (const c of accentCandidates) {
 		const existing = seenHex.get(c.hex)
 		if (!existing) { seenHex.set(c.hex, c); continue }
 		if (c.ordinal !== undefined && (existing.ordinal === undefined || c.ordinal < existing.ordinal)) {
-			seenHex.set(c.hex, c)
-		} else if (c.ordinal === undefined && existing.ordinal === undefined && c.count > existing.count) {
-			seenHex.set(c.hex, c)
+			seenHex.set(c.hex, { ...existing, ordinal: c.ordinal, count: Math.max(existing.count, c.count) })
+		} else if (c.count > existing.count) {
+			seenHex.set(c.hex, { ...existing, count: c.count })
 		}
 	}
 	const deduped = [...seenHex.values()]
-	// Sort: explicit ordinal first (ascending), then by reference count descending
+	// Sort: explicit ordinal first (ascending), then by applied prominence descending, then hex
+	// for determinism. When no abstract accent was declared, ordinals are absent so prominence
+	// alone decides the lead — this is what makes `--orange` (17 uses) beat `--purple` (8 uses).
 	deduped.sort((a, b) => {
 		if (a.ordinal !== undefined && b.ordinal !== undefined) return a.ordinal - b.ordinal
 		if (a.ordinal !== undefined) return -1
 		if (b.ordinal !== undefined) return 1
-		return b.count - a.count
+		if (b.count !== a.count) return b.count - a.count
+		return a.hex < b.hex ? -1 : a.hex > b.hex ? 1 : 0
 	})
+	// Promote the most-prominent saturated hue to the accent slot when the deck declared NO
+	// abstract accent var (the load-bearing SAU-37 fix). When an abstract accent IS declared it
+	// already filled the slot, so we leave it (back-compat).
+	if (!abstractAccentDeclared && !extractedSlots.has('accent') && deduped.length > 0) {
+		const lead = deduped[0].hex
+		if (/^[0-9A-F]{6}$/i.test(lead)) {
+			theme.accent = lead
+			extractedSlots.add('accent')
+		}
+	}
 	if (deduped.length > 0) {
 		theme.accents = deduped.slice(0, 6).map(c => c.hex)
 		// Ensure accent === accents[0] invariant: accents[0] must match the resolved theme.accent
