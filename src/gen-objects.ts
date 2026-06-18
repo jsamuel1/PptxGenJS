@@ -1512,6 +1512,7 @@ export function addTableDefinition(
 						type: newCell.options.border[idx].type || DEF_CELL_BORDER.type,
 						color: newCell.options.border[idx].color || DEF_CELL_BORDER.color,
 						pt: typeof newCell.options.border[idx].pt === 'number' ? newCell.options.border[idx].pt : DEF_CELL_BORDER.pt,
+						transparency: newCell.options.border[idx].transparency,
 					}
 				})
 
@@ -1547,7 +1548,7 @@ export function addTableDefinition(
 	} else if (Array.isArray(opt.border)) {
 		[0, 1, 2, 3].forEach(idx => {
 			opt.border[idx] = opt.border[idx]
-				? { type: opt.border[idx].type || DEF_CELL_BORDER.type, color: opt.border[idx].color || DEF_CELL_BORDER.color, pt: opt.border[idx].pt || DEF_CELL_BORDER.pt }
+				? { type: opt.border[idx].type || DEF_CELL_BORDER.type, color: opt.border[idx].color || DEF_CELL_BORDER.color, pt: opt.border[idx].pt || DEF_CELL_BORDER.pt, transparency: opt.border[idx].transparency }
 				: { type: 'none' }
 		})
 	}

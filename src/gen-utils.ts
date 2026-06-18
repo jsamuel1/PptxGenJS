@@ -135,6 +135,18 @@ export function rgbToHex (r: number, g: number, b: number): string {
  * @param {string} innerElements - additional elements that adjust the color and are enclosed by the color element
  * @returns {string} XML string
  */
+/**
+ * Generate `<a:alpha>` XML for border transparency.
+ * @param transparency 0–100 (clamped)
+ * @returns XML string or empty string if no transparency
+ */
+export function borderAlphaXml (transparency?: number): string {
+	if (!transparency) return ''
+	const clamped = Math.max(0, Math.min(100, transparency))
+	if (clamped === 0) return ''
+	return `<a:alpha val="${Math.round((100 - clamped) * 1000)}"/>`
+}
+
 export function createColorElement (colorStr: string | SCHEME_COLORS, innerElements?: string): string {
 	let colorVal = (colorStr || '').replace('#', '')
 

@@ -239,7 +239,13 @@ export interface BorderProps {
 	 */
 	color?: HexColor
 
-	// TODO: add `transparency` prop to Borders (0-100%)
+	/**
+	 * Border transparency (percent)
+	 * - 0 = fully opaque (default)
+	 * - 100 = fully transparent
+	 * @default 0
+	 */
+	transparency?: number
 
 	// TODO: add `width` - deprecate `pt`
 	/**

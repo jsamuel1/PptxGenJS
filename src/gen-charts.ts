@@ -20,7 +20,7 @@ import {
 	ONEPT,
 } from './core-enums'
 import { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, ChartLineCap } from './core-interfaces'
-import { createColorElement, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils'
+import { createColorElement, borderAlphaXml, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils'
 import JSZip from 'jszip'
 
 /**
@@ -707,7 +707,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 
 		// OPTION: Border
 		strXml += rel.opts.plotArea.border
-			? `<a:ln w="${valToPts(rel.opts.plotArea.border.pt)}" cap="flat">${genXmlColorSelection(rel.opts.plotArea.border.color)}</a:ln>`
+			? `<a:ln w="${valToPts(rel.opts.plotArea.border.pt)}" cap="flat">${genXmlColorSelection({ color: rel.opts.plotArea.border.color, transparency: rel.opts.plotArea.border.transparency })}</a:ln>`
 			: '<a:ln><a:noFill/></a:ln>'
 
 		// Close shapeProp/plotArea before Legend
@@ -752,7 +752,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 	strXml += '<c:spPr>'
 	strXml += rel.opts.chartArea.fill?.color ? genXmlColorSelection(rel.opts.chartArea.fill) : '<a:noFill/>'
 	strXml += rel.opts.chartArea.border
-		? `<a:ln w="${valToPts(rel.opts.chartArea.border.pt)}" cap="flat">${genXmlColorSelection(rel.opts.chartArea.border.color)}</a:ln>`
+		? `<a:ln w="${valToPts(rel.opts.chartArea.border.pt)}" cap="flat">${genXmlColorSelection({ color: rel.opts.chartArea.border.color, transparency: rel.opts.chartArea.border.transparency })}</a:ln>`
 		: '<a:ln><a:noFill/></a:ln>'
 	strXml += '  <a:effectLst/>'
 	strXml += '</c:spPr>'
@@ -883,7 +883,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '<a:prstDash val="' + (opts.lineDash || 'solid') + '"/><a:round/></a:ln>'
 					}
 				} else if (opts.dataBorder) {
-					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(opts.dataBorder.color)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(opts.dataBorder.color, borderAlphaXml(opts.dataBorder.transparency))}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
 				}
 
 				strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
@@ -1404,7 +1404,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					if (opts.lineSize === 0) {
 						strXml += '<a:ln><a:noFill/></a:ln>'
 					} else if (opts.dataBorder) {
-						strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="flat"><a:solidFill>${createColorElement(opts.dataBorder.color)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+						strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="flat"><a:solidFill>${createColorElement(opts.dataBorder.color, borderAlphaXml(opts.dataBorder.transparency))}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
 					} else {
 						strXml += `<a:ln w="${valToPts(opts.lineSize)}" cap="flat"><a:solidFill>${createColorElement(tmpSerColor)}</a:solidFill>`
 						strXml += `<a:prstDash val="${opts.lineDash || 'solid'}"/><a:round/></a:ln>`
@@ -1561,7 +1561,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				)}</a:solidFill>`
 				if (opts.dataBorder) {
 					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="flat"><a:solidFill>${createColorElement(
-						opts.dataBorder.color
+						opts.dataBorder.color, borderAlphaXml(opts.dataBorder.transparency)
 					)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
 				}
 				strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)

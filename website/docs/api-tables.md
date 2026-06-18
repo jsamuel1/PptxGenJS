@@ -100,6 +100,7 @@ slide.addTable(rows, { w: 9, rowH: 1, align: "left", fontFace: "Arial" });
 | `type`  | string | `solid` | border type      | `none` or `solid` or `dash`                                                       |
 | `pt`    | string | `1`     | border thickness | any positive number                                                               |
 | `color` | string | `black` | cell border      | hex color code or [scheme color constant](#scheme-colors). Ex: `{color:'0088CC'}` |
+| `transparency` | number | `0` | border transparency | `0` (opaque) to `100` (fully transparent) |
 
 ## Table Auto-Paging
 

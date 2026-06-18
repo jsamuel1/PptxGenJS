@@ -41,6 +41,7 @@ import {
 import {
 	convertRotationDegrees,
 	createColorElement,
+	borderAlphaXml,
 	createGlowElement,
 	createReflectionElement,
 	createSoftEdgeElement,
@@ -577,7 +578,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 							].forEach(obj => {
 								if (cellOpts.border[obj.idx].type !== 'none') {
 									strXml += `<a:${obj.name} w="${valToPts(cellOpts.border[obj.idx].pt)}" cap="flat" cmpd="sng" algn="ctr">`
-									strXml += `<a:solidFill>${createColorElement(cellOpts.border[obj.idx].color)}</a:solidFill>`
+									strXml += `<a:solidFill>${createColorElement(cellOpts.border[obj.idx].color, borderAlphaXml(cellOpts.border[obj.idx].transparency))}</a:solidFill>`
 									strXml += `<a:prstDash val="${cellOpts.border[obj.idx].type === 'dash' ? 'sysDash' : 'solid'
 									}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
 									strXml += `</a:${obj.name}>`

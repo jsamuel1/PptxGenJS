@@ -108,7 +108,7 @@ The `🚫 Out of scope (authoring)` label below therefore means "no builder API,
 | No fill | `a:noFill` | ✅ Done | |
 | Pattern fill | `a:pattFill` | ✅ Done | preset hatch patterns (54 `ST_PresetPatternVal`) on shapes |
 | Picture/blip fill (shapes) | `a:blipFill` on `p:sp` | ✅ Done | image-fill a shape (`type:'image'`, stretch/tile, transparency) |
-| Line / border | `a:ln` | ✅ Done | width, dash, cap, color |
+| Line / border | `a:ln` | ✅ Done | width, dash, cap, color, transparency |
 | Outer shadow | `a:outerShdw` | ✅ Done | `shadow` option |
 | Glow | `a:glow` | ✅ Done | `glow` option |
 | Reflection | `a:reflection` | ✅ Done | `reflection` option |

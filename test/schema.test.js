@@ -1891,5 +1891,15 @@ module.exports = [
 			})
 			await expectNoSchemaErrors(buf, 'parseCards-sibling-adoption')
 		}
+	},
+	{
+		name: 'table border with transparency → valid OOXML',
+		fn: async () => {
+			const { buf } = await build(p => {
+				const slide = p.addSlide()
+				slide.addTable([[{ text: 'Cell', options: { border: { type: 'solid', color: 'FF0000', transparency: 50 } } }]])
+			})
+			await expectNoSchemaErrors(buf, 'table-border-transparency')
+		}
 	}
 ]

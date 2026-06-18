@@ -174,7 +174,7 @@ slide.addChart(pres.ChartType.line, dataChartAreaLine, { x: 1, y: 1, w: 8, h: 4 
 | `barGrouping`             | string      | `clustered` | bar grouping                                 | (_Bar Chart_) `clustered` or `stacked` or `percentStacked`.                              |
 | `barOverlapPct`           | number      | `0`         | overlap (percent)                            | (_Bar Chart_) `-100`-`100`. Ex: `{ barOverlapPct:50 }`                                   |
 | `catLabelFormatCode`      | string      |             | format to show data value                    | format string. Ex: `{ catLabelFormatCode:'#,##0' }`                                      |
-| `dataBorder`              | object      |             | data border                                  | object with `pt` and `color` values. Ex: `border:{pt:'1', color:'f1f1f1'}`               |
+| `dataBorder`              | object      |             | data border                                  | object with `pt`, `color`, and `transparency` values. Ex: `dataBorder:{pt:'1', color:'f1f1f1', transparency:50}` |
 | `dataLabelColor`          | string      | `000000`    | data label color                             | hex color code. Ex: `{ dataLabelColor:'0088CC' }`                                        |
 | `dataLabelFormatCode`     | string      |             | format to show data value                    | format string. Ex: `{ dataLabelFormatCode:'#,##0' }`                                     |
 | `dataLabelFormatScatter`  | string      | `custom`    | label format                                 | (_Scatter Chart_) `custom`,`customXY`,`XY`                                               |
