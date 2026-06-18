@@ -53,6 +53,8 @@ export interface ThemePalette {
 	cardLine?: string
 	/** Derived colour — card background blend: `mix(surfaceRaised, bg, 0.4)`. Present when `derivedColors`. */
 	cardFill?: string
+	/** Multi-role accent colours ranked by usage prominence (max 6, OOXML-aligned). accents[0] === accent. */
+	accents?: string[]
 	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, info]`. */
 	barStops?: string[]
 	/** Which preset/source produced the palette (`'extracted'`, a preset name, or the fallback). */
@@ -121,6 +123,7 @@ const DARK_PRESET: ThemePalette = {
 	neutral1: 'e8e8f0',
 	neutral2: 'a0a0b8',
 	neutral3: '606078',
+	accents: ['6366f1', '818cf8', '38bdf8', '34d399', 'fbbf24', 'f87171'],
 }
 
 /** Built-in light preset (neutral, unbranded defaults). */
@@ -140,6 +143,7 @@ const LIGHT_PRESET: ThemePalette = {
 	neutral1: '2a2a3a',
 	neutral2: '5a5a72',
 	neutral3: '8a8aa2',
+	accents: ['6366f1', '818cf8', '0ea5e9', '059669', 'd97706', 'dc2626'],
 }
 
 /**
@@ -564,6 +568,107 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 				theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value).slice(0, 6)
 			})
 		}
+	}
+
+	// ── Accent palette extraction ──────────────────────────────────────────────────
+	const ACCENT_NUMBERED_RE = /^(?:accent|color-accent|brand|primary)[-_]?(\d)$/
+	interface AccentCandidate { hex: string; ordinal?: number; count: number }
+	const accentCandidates: AccentCandidate[] = []
+	const accentVarNames = Object.keys(vars)
+	for (const name of accentVarNames) {
+		const lcName = name.toLowerCase()
+		let ordinal: number | undefined
+		// Check if this var was already mapped to the `accent` slot → ordinal 1
+		if (extractedSlots.has('accent')) {
+			// Find if this var name resolves to the accent slot
+			let mappedSlot: string | undefined
+			if (varAliases[lcName]) mappedSlot = varAliases[lcName]
+			else {
+				for (const cand of canonicalVarName(name)) {
+					if (VAR_TO_SLOT[cand] === 'accent') { mappedSlot = 'accent'; break }
+				}
+			}
+			if (mappedSlot === 'accent') ordinal = 1
+		}
+		if (ordinal === undefined) {
+			const m = ACCENT_NUMBERED_RE.exec(lcName)
+			if (m) ordinal = parseInt(m[1], 10)
+			else if (lcName === 'secondary') ordinal = 2
+			else if (lcName === 'tertiary') ordinal = 3
+			else continue // not an accent candidate
+		}
+		let value = vars[name]
+		if (resolveVarRefs) value = resolveVar(value, vars)
+		const hex = normalizeColor(value).slice(0, 6)
+		if (!/^[0-9A-F]{6}$/i.test(hex)) continue
+		const refCount = (css.match(new RegExp(`var\\(\\s*--${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,)]`, 'g')) || []).length
+		accentCandidates.push({ hex, ordinal, count: refCount })
+	}
+	// Also pick up accent candidates without explicit ordinal (ranked by var() reference count)
+	for (const name of accentVarNames) {
+		const lcName = name.toLowerCase()
+		if (ACCENT_NUMBERED_RE.test(lcName) || lcName === 'secondary' || lcName === 'tertiary') continue
+		// Check if already added as ordinal 1 (accent slot)
+		let isAccentSlot = false
+		if (varAliases[lcName] === 'accent') isAccentSlot = true
+		else {
+			for (const cand of canonicalVarName(name)) {
+				if (VAR_TO_SLOT[cand] === 'accent') { isAccentSlot = true; break }
+			}
+		}
+		if (isAccentSlot) continue // already handled above
+		// Check if this looks like an accent-family var (matches the prefix pattern without a digit)
+		if (!/^(?:accent|color-accent|brand|primary)$/i.test(lcName)) continue
+		let value = vars[name]
+		if (resolveVarRefs) value = resolveVar(value, vars)
+		const hex = normalizeColor(value).slice(0, 6)
+		if (!/^[0-9A-F]{6}$/i.test(hex)) continue
+		const refCount = (css.match(new RegExp(`var\\(\\s*--${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,)]`, 'g')) || []).length
+		accentCandidates.push({ hex, ordinal: undefined, count: refCount })
+	}
+	// Deduplicate by normalized hex (keep lower ordinal or higher count)
+	const seenHex = new Map<string, AccentCandidate>()
+	for (const c of accentCandidates) {
+		const existing = seenHex.get(c.hex)
+		if (!existing) { seenHex.set(c.hex, c); continue }
+		if (c.ordinal !== undefined && (existing.ordinal === undefined || c.ordinal < existing.ordinal)) {
+			seenHex.set(c.hex, c)
+		} else if (c.ordinal === undefined && existing.ordinal === undefined && c.count > existing.count) {
+			seenHex.set(c.hex, c)
+		}
+	}
+	const deduped = [...seenHex.values()]
+	// Sort: explicit ordinal first (ascending), then by reference count descending
+	deduped.sort((a, b) => {
+		if (a.ordinal !== undefined && b.ordinal !== undefined) return a.ordinal - b.ordinal
+		if (a.ordinal !== undefined) return -1
+		if (b.ordinal !== undefined) return 1
+		return b.count - a.count
+	})
+	if (deduped.length > 0) {
+		theme.accents = deduped.slice(0, 6).map(c => c.hex)
+		// Ensure accent === accents[0] invariant: accents[0] must match the resolved theme.accent
+		const accentUpper = theme.accent.toUpperCase()
+		const arr0Upper = theme.accents[0].toUpperCase()
+		if (arr0Upper !== accentUpper) {
+			// Move the matching entry to front, or prepend theme.accent
+			const idx = theme.accents.findIndex(h => h.toUpperCase() === accentUpper)
+			if (idx > 0) {
+				theme.accents.splice(idx, 1)
+				theme.accents.unshift(theme.accent)
+			} else if (idx === -1) {
+				theme.accents.unshift(theme.accent)
+			}
+			theme.accents = theme.accents.slice(0, 6)
+		} else if (theme.accents[0] !== theme.accent) {
+			// Case matches semantically but not literally — replace with exact value
+			theme.accents[0] = theme.accent
+		}
+		extractedSlots.add('accents')
+	} else {
+		// Use preset default
+		const base = presets[fallbackName] || DARK_PRESET
+		theme.accents = (base as ThemePalette).accents || DARK_PRESET.accents
 	}
 
 	if (derivedColors) {

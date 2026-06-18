@@ -37,6 +37,8 @@ export interface ThemePalette {
 	cardLine?: string
 	/** Derived colour — card background blend: `mix(surfaceRaised, bg, 0.4)`. Present when `derivedColors`. */
 	cardFill?: string
+	/** Multi-role accent colours ranked by usage prominence (max 6, OOXML-aligned). accents[0] === accent. */
+	accents?: string[]
 	/** Derived gradient-bar stops: from `--bar-gradient` var() refs, else `[accent, accentSoft, info]`. */
 	barStops?: string[]
 	/** Which preset/source produced the palette (`'extracted'`, a preset name, or the fallback). */
