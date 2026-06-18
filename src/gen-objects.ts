@@ -975,7 +975,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps, pale
 			w,
 			h,
 			fill: typeof fill === 'string' ? { color: fill } : fill,
-			color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
+			color: options.fontColor !== undefined ? options.fontColor : inkForFill(typeof fill === 'string' ? fill : 'FFFFFF'),
 			fontSize: options.fontSize !== undefined ? options.fontSize : 12,
 			bold: options.fontBold !== undefined ? options.fontBold : true,
 			align: options.align || 'center',
@@ -1031,7 +1031,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps, pale
 	const bodyH = Math.max(0.1, h - padT - padB - attrH)
 	group.addText(bodyText, {
 		x: bodyX, y: bodyY, w: bodyW, h: bodyH,
-		color: options.fontColor !== undefined ? options.fontColor : 'FFFFFF',
+		color: options.fontColor !== undefined ? options.fontColor : inkForFill(typeof fill === 'string' ? fill : 'FFFFFF'),
 		fontSize: options.fontSize !== undefined ? options.fontSize : 12,
 		bold: options.fontBold !== undefined ? options.fontBold : false,
 		italic: options.fontItalic,

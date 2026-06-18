@@ -11,8 +11,11 @@ module.exports = [
 		const ink = inkForFill('FFFFFF')
 		assert.ok(contrastRatio('FFFFFF', ink) >= 4.5, `contrast ${contrastRatio('FFFFFF', ink)} < 4.5`)
 	}},
-	{ name: 'addCallout default fill gives ≥4.5:1 contrast (white text on 6366F1)', fn: () => {
-		assert.ok(contrastRatio('6366F1', 'FFFFFF') >= 4.4, `contrast ${contrastRatio('6366F1', 'FFFFFF')} < 4.4`)
+	{ name: 'addCallout body text default is luminance-derived ink (≥4.5:1 on pale fill FFF3CD)', fn: () => {
+		// Spec case: addCallout({fill:'FFF3CD'}) must NOT default to hardcoded white
+		// (which gives 1.108:1). The default body ink is inkForFill(fill).
+		const ink = inkForFill('FFF3CD')
+		assert.ok(contrastRatio('FFF3CD', ink) >= 4.5, `contrast ${contrastRatio('FFF3CD', ink)} < 4.5`)
 	}},
 	{ name: 'addCard default dark fill gives ≥4.5:1 contrast', fn: () => {
 		const ink = inkForFill('1E293B')
