@@ -123,6 +123,20 @@ async function buildShowcaseDeck (outPath) {
 	s.addText('fadeIn', { x: 3.5, y: 1.5, w: 2.5, h: 0.8, fill: '38BDF8', color: 'FFFFFF', align: 'center', animation: { type: 'fadeIn' } })
 	s.addText('flyIn', { x: 6.5, y: 1.5, w: 2.5, h: 0.8, fill: '1A1A24', color: 'FFFFFF', align: 'center', animation: { type: 'flyIn', direction: 'left' } })
 
+	// 9. Semi-transparent borders (SAU-64). Each tile uses BorderProps.transparency so the
+	//    edge renders translucent; the deck must open in PowerPoint WITHOUT a repair prompt.
+	s = slide('FFFFFF')
+	s.addText('Semi-transparent borders', { x: 0.5, y: 0.4, w: 9, h: 0.6, fontSize: 24, bold: true, color: '1A1A24' })
+	// Shape line transparency (genXmlColorSelection path)
+	s.addShape(pres.shapes.RECTANGLE, { x: 0.5, y: 1.4, w: 2.6, h: 2.2, fill: 'F4F4F8', line: { color: '7C3AED', width: 4, transparency: 60 } })
+	s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: 3.4, y: 1.4, w: 2.6, h: 2.2, fill: 'F4F4F8', line: { color: '38BDF8', width: 4, transparency: 30 } })
+	// Opaque control (no transparency → identical to today)
+	s.addShape(pres.shapes.RECTANGLE, { x: 6.3, y: 1.4, w: 2.6, h: 2.2, fill: 'F4F4F8', line: { color: '1A1A24', width: 4 } })
+	// Table cell border transparency (borderAlphaXml path)
+	s.addTable([
+		[{ text: 'translucent edge', options: { border: { type: 'solid', pt: 3, color: '7C3AED', transparency: 50 } } }],
+	], { x: 0.5, y: 3.9, w: 9, h: 1 })
+
 	await pres.writeFile({ fileName: outPath })
 	return authored
 }

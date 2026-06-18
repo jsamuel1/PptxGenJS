@@ -298,7 +298,9 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		} else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
-			if (props.transparency) internalElements += `<a:alpha val="${Math.round((100 - props.transparency) * 1000)}"/>`
+			// Clamp transparency into [0,100] before scaling so out-of-range input stays schema-valid
+				// (ADR-0005 clamp-don't-crash); reuse borderAlphaXml so line/border alpha share one code path.
+				if (props.transparency) internalElements += borderAlphaXml(props.transparency)
 		}
 
 		switch (fillType) {
