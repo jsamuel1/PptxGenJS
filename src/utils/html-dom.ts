@@ -41,6 +41,20 @@ export interface HNode {
 /** Void (self-terminating) HTML elements that never push onto the open-element stack. */
 const VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
 
+/**
+ * Raw-text / RCDATA elements whose content is NOT parsed as markup: once opened, the lexer scans
+ * forward to the literal case-insensitive `</tag>` and emits everything between as one `#text`
+ * child, so a `<` inside (`if(a<b)`, `<div>` in a textarea) is never mis-tokenized as a start tag.
+ */
+const RAW_TEXT_TAGS = new Set(['script', 'style', 'textarea', 'title'])
+
+/**
+ * The verbatim subset of {@link RAW_TEXT_TAGS}: `script`/`style` content is CSS/JS source and must
+ * survive byte-for-byte (no entity decoding). `textarea`/`title` are RCDATA/escapable-raw-text and
+ * are entity-decoded like ordinary text (handled in `parseHtml`'s `addText`).
+ */
+const VERBATIM_TEXT_TAGS = new Set(['script', 'style'])
+
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // Tree builder (stack-based, error-tolerant)
 // ──────────────────────────────────────────────────────────────────────────────────────────
@@ -217,10 +231,11 @@ export function parseHtml (html: string): HNode {
 	const stack: HNode[] = [root]
 	const top = (): HNode => stack[stack.length - 1]
 	const addChild = (node: HNode): void => { node.parent = top(); top().children.push(node) }
-	const RAW_TEXT_TAGS = new Set(['script', 'style'])
 	const addText = (raw: string): void => {
 		if (raw.length === 0) return
-		const text = RAW_TEXT_TAGS.has(top().tag) ? raw : decodeHtmlEntities(raw)
+		// Verbatim raw-text (script/style) keeps its content byte-for-byte; RCDATA/escapable-raw-text
+		// (textarea/title) is still scanned to its literal close tag but its content IS entity-decoded.
+		const text = VERBATIM_TEXT_TAGS.has(top().tag) ? raw : decodeHtmlEntities(raw)
 		addChild({ tag: '#text', attrs: {}, classes: [], style: {}, children: [], parent: null, text })
 	}
 
@@ -297,7 +312,7 @@ export function elements (node: HNode, out: HNode[] = []): HNode[] {
 }
 
 /** Tags whose content is not user-visible and must be excluded from parent text extraction. */
-const INVISIBLE_TAGS = new Set(['svg', 'script', 'style', 'noscript'])
+const INVISIBLE_TAGS = new Set(['svg', 'script', 'style', 'noscript', 'template'])
 
 /** Internal recursive text gatherer. Skips invisible children unless they are the entry node. */
 function _textOf (node: HNode, isRoot: boolean): string {
@@ -415,19 +430,21 @@ export function outerHtml (node: HNode): string {
 //
 // Grammar (the ENTIRE supported subset — anything else throws `unsupported selector`):
 //   universal `*` · type `div` · class `.x` · id `#x` · `[attr]` · `[attr="v"]` · `[attr*="v"]`
-//   `[attr^="v"]` · `[attr$="v"]`
+//   `[attr^="v"]` · `[attr$="v"]` · `[attr~="v"]` (whitespace word/class-membership)
+//   · `[attr|="v"]` (dash-match: exact `v` or `v-…`)
 //   compound (type+class/attr, no space) · descendant (space) · child (`>`) · adjacent (`+`)
 //   · general sibling (`~`) · list (comma)
-//   pseudo-classes: `:first-child` · `:last-child` · `:nth-child(n)` · `:not(sel)`
-// Explicitly unsupported (throws): pseudo-elements (`::before` etc.), `~=`/`|=` attribute
-// operators, namespaces, `@media`, specificity.
+//   pseudo-classes: `:first-child` · `:last-child` · `:only-child` · `:nth-child(An+B)`
+//   (also `even`/`odd`/`n`/bare integer) · `:not(sel)`
+// Explicitly unsupported (throws): pseudo-elements (`::before` etc.), namespaces, `@media`,
+// specificity.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
 /** A single attribute condition within a compound selector. */
-interface AttrCond { name: string, op: 'present' | 'exact' | 'substring' | 'starts' | 'ends', value: string }
+interface AttrCond { name: string, op: 'present' | 'exact' | 'substring' | 'starts' | 'ends' | 'word' | 'dash', value: string }
 
 /** A parsed pseudo-class condition. */
-interface Pseudo { name: 'first-child' | 'last-child' | 'nth-child' | 'not', arg?: string }
+interface Pseudo { name: 'first-child' | 'last-child' | 'only-child' | 'nth-child' | 'not', arg?: string }
 
 /** A compound selector (simple selectors with no combinator between them). */
 interface Compound { universal: boolean, type?: string, id?: string, classes: string[], attrs: AttrCond[], pseudos: Pseudo[] }
@@ -470,7 +487,8 @@ function parseAttrCond (body: string, selector: string): AttrCond {
 	if (m[2] === '*=') return { name, op: 'substring', value: unquote(m[3] ?? '') }
 	if (m[2] === '^=') return { name, op: 'starts', value: unquote(m[3] ?? '') }
 	if (m[2] === '$=') return { name, op: 'ends', value: unquote(m[3] ?? '') }
-	// ~=, |= are out of the bounded grammar
+	if (m[2] === '~=') return { name, op: 'word', value: unquote(m[3] ?? '') }
+	if (m[2] === '|=') return { name, op: 'dash', value: unquote(m[3] ?? '') }
 	return unsupported(selector)
 }
 
@@ -516,7 +534,7 @@ function parseCompound (token: string, selector: string): Compound {
 			if (!nameMatch) unsupported(selector)
 			const pName = nameMatch[0]
 			i += pName.length
-			if (pName === 'first-child' || pName === 'last-child') {
+			if (pName === 'first-child' || pName === 'last-child' || pName === 'only-child') {
 				compound.pseudos.push({ name: pName })
 			} else if (pName === 'nth-child' || pName === 'not') {
 				if (token[i] !== '(') unsupported(selector)
@@ -587,9 +605,12 @@ function parseComplex (selector: string, original: string): Segment[] {
 		}
 		if (sawWs && !first && pendingCombinator === null) pendingCombinator = 'descendant'
 
-		// read a compound token: up to the next top-level whitespace or `>`
+		// read a compound token: up to the next top-level whitespace or combinator. `[` and `(`
+		// nesting (the latter for pseudo args like `:nth-child(2n+1)` / `:not(a + b)`) is tracked
+		// so a `+`/`~`/space INSIDE them is not mistaken for a combinator.
 		const start = i
 		let depth = 0
+		let paren = 0
 		let q: string | null = null
 		while (i < n) {
 			const c = selector[i]
@@ -597,7 +618,9 @@ function parseComplex (selector: string, original: string): Segment[] {
 			if (c === '"' || c === "'") { q = c; i++; continue }
 			if (c === '[') { depth++; i++; continue }
 			if (c === ']') { depth = Math.max(0, depth - 1); i++; continue }
-			if (depth === 0 && (/\s/.test(c) || c === '>' || c === '+' || c === '~')) break
+			if (c === '(') { paren++; i++; continue }
+			if (c === ')') { paren = Math.max(0, paren - 1); i++; continue }
+			if (depth === 0 && paren === 0 && (/\s/.test(c) || c === '>' || c === '+' || c === '~')) break
 			i++
 		}
 		const token = selector.slice(start, i)
@@ -619,6 +642,33 @@ function parseSelector (selector: string): Segment[][] {
 	return groups.map(g => parseComplex(g, selector))
 }
 
+/**
+ * Parse a CSS `:nth-child` argument into its `An+B` coefficients. Accepts `even`, `odd`, a bare
+ * integer (`3`), `n`, `An`, `An+B`, `An-B`, `-n+B`, etc. Returns `null` when the argument is not a
+ * valid An+B microsyntax (so the caller can match nothing rather than guess).
+ */
+function parseNthArg (arg: string): { a: number, b: number } | null {
+	const s = arg.trim().toLowerCase()
+	if (s === 'even') return { a: 2, b: 0 }
+	if (s === 'odd') return { a: 2, b: 1 }
+	// bare integer: matches exactly the B-th child
+	if (/^[+-]?\d+$/.test(s)) return { a: 0, b: parseInt(s, 10) }
+	// An+B microsyntax (the `n` term is required here; bare integers handled above)
+	const m = s.match(/^([+-]?\d*)n\s*([+-]\s*\d+)?$/)
+	if (!m) return null
+	const aRaw = m[1]
+	const a = aRaw === '' || aRaw === '+' ? 1 : (aRaw === '-' ? -1 : parseInt(aRaw, 10))
+	const b = m[2] ? parseInt(m[2].replace(/\s+/g, ''), 10) : 0
+	return { a, b }
+}
+
+/** True when a 1-based index satisfies the `An+B` formula (some non-negative integer `k` exists). */
+function nthMatches (a: number, b: number, oneBasedIdx: number): boolean {
+	if (a === 0) return oneBasedIdx === b
+	const k = (oneBasedIdx - b) / a
+	return Number.isInteger(k) && k >= 0
+}
+
 /** True when an element node satisfies a single pseudo-class condition. */
 function matchPseudo (node: HNode, pseudo: Pseudo): boolean {
 	if (!node.parent) return false
@@ -627,10 +677,11 @@ function matchPseudo (node: HNode, pseudo: Pseudo): boolean {
 	switch (pseudo.name) {
 		case 'first-child': return idx === 0
 		case 'last-child': return idx === siblings.length - 1
+		case 'only-child': return siblings.length === 1
 		case 'nth-child': {
-			const n = parseInt(pseudo.arg ?? '', 10)
-			if (isNaN(n) || n < 1) return false
-			return idx === n - 1
+			const nb = parseNthArg(pseudo.arg ?? '')
+			if (!nb) return false
+			return nthMatches(nb.a, nb.b, idx + 1)
 		}
 		case 'not': {
 			const groups = parseSelector(pseudo.arg ?? '')
@@ -652,6 +703,15 @@ function matchCompound (node: HNode, c: Compound): boolean {
 		else if (a.op === 'substring') { if (v === undefined || v.indexOf(a.value) === -1) return false }
 		else if (a.op === 'starts') { if (v === undefined || !v.startsWith(a.value)) return false }
 		else if (a.op === 'ends') { if (v === undefined || !v.endsWith(a.value)) return false }
+		else if (a.op === 'word') {
+			// `[attr~="v"]` — `v` is one of the whitespace-separated words of `attr` (class membership).
+			// Per spec an empty/whitespace-containing `v` never matches.
+			if (v === undefined || a.value === '' || /\s/.test(a.value)) return false
+			if (!v.split(/\s+/).includes(a.value)) return false
+		} else if (a.op === 'dash') {
+			// `[attr|="v"]` — `attr` equals `v` exactly, or begins with `v` immediately followed by `-`.
+			if (v === undefined || (v !== a.value && !v.startsWith(a.value + '-'))) return false
+		}
 	}
 	for (const p of c.pseudos) if (!matchPseudo(node, p)) return false
 	return true

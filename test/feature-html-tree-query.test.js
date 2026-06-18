@@ -136,8 +136,8 @@ module.exports = [
 			// guard regressed (e.g. a pseudo-class were silently ignored), these would not throw.
 			const bad = [
 				'p::before',         // pseudo-element
-				'[lang|="en"]',      // dash-match attr operator
-				'[class~="x"]',      // include attr operator
+				'div:hover',         // unsupported pseudo-class
+				'@media',            // at-rule
 			]
 			for (const sel of bad) {
 				let threw = false
@@ -300,6 +300,73 @@ module.exports = [
 		fn: async () => {
 			const root = parseHtml('<p>&amp; &lt; &gt;</p>')
 			assert(textOf(query(root, 'p')[0]) === '& < >', 'normal text must decode; got: ' + textOf(query(root, 'p')[0]))
+		},
+	},
+	{
+		name: 'selector: :first-child / :last-child / :only-child',
+		fn: async () => {
+			const root = parseHtml('<ul><li>a</li><li>b</li><li>c</li></ul><div><span>solo</span></div>')
+			assert(textOf(query(root, 'li:first-child')[0]) === 'a', ':first-child should pick first li')
+			assert(textOf(query(root, 'li:last-child')[0]) === 'c', ':last-child should pick last li')
+			assert(query(root, 'li:only-child').length === 0, ':only-child must not match li (3 siblings)')
+			assert(textOf(query(root, 'span:only-child')[0]) === 'solo', ':only-child should match the sole span child')
+		},
+	},
+	{
+		name: 'selector: :nth-child(An+B) — bare integer, even/odd, formula',
+		fn: async () => {
+			const root = parseHtml('<ul>' + [1, 2, 3, 4, 5, 6].map(i => '<li>' + i + '</li>').join('') + '</ul>')
+			assert(textOf(query(root, 'li:nth-child(2)')[0]) === '2', 'nth-child(2) → 2nd li')
+			assert(query(root, 'li:nth-child(odd)').map(textOf).join('') === '135', 'nth-child(odd) → 1,3,5')
+			assert(query(root, 'li:nth-child(even)').map(textOf).join('') === '246', 'nth-child(even) → 2,4,6')
+			assert(query(root, 'li:nth-child(2n)').map(textOf).join('') === '246', 'nth-child(2n) → 2,4,6')
+			assert(query(root, 'li:nth-child(2n+1)').map(textOf).join('') === '135', 'nth-child(2n+1) → 1,3,5')
+			assert(query(root, 'li:nth-child(n)').length === 6, 'nth-child(n) → all')
+			assert(query(root, 'li:nth-child(n+3)').map(textOf).join('') === '3456', 'nth-child(n+3) → 3..6')
+		},
+	},
+	{
+		name: 'selector: :not(compound)',
+		fn: async () => {
+			const root = parseHtml('<ul><li class="x">a</li><li>b</li><li class="x">c</li></ul>')
+			assert(query(root, 'li:not(.x)').map(textOf).join('') === 'b', ':not(.x) → only b')
+		},
+	},
+	{
+		name: 'selector: + (adjacent) and ~ (general sibling) combinators',
+		fn: async () => {
+			const root = parseHtml('<div><h2>t</h2><p>first</p><p>second</p></div>')
+			assert(textOf(query(root, 'h2 + p')[0]) === 'first', 'h2 + p → first paragraph only')
+			assert(query(root, 'h2 + p').length === 1, 'adjacent matches exactly one')
+			assert(query(root, 'h2 ~ p').map(textOf).join('') === 'firstsecond', 'h2 ~ p → both paragraphs')
+		},
+	},
+	{
+		name: 'selector: ^= / $= / *= attribute operators',
+		fn: async () => {
+			const root = parseHtml('<div class="col-6">a</div><div class="row-x">b</div><img src="pic.png"><img src="pic.svg">')
+			assert(textOf(query(root, '[class^="col-"]')[0]) === 'a', '^= prefix match')
+			assert(query(root, '[src$=".png"]').length === 1, '$= suffix match')
+			assert(query(root, '[class*="ow"]').length === 1, '*= substring match')
+		},
+	},
+	{
+		name: 'selector: ~= class-membership operator (SAU-45 DoD)',
+		fn: async () => {
+			const root = parseHtml('<span class="a x b">hit</span><span class="ax">miss</span>')
+			const hits = query(root, '[class~="x"]')
+			assert(hits.length === 1, '~= must match only the whitespace-word "x"; got ' + hits.length)
+			assert(textOf(hits[0]) === 'hit', '~= matched the wrong element')
+			// a value containing whitespace can never match
+			assert(query(root, '[class~="a x"]').length === 0, '~= with whitespace value never matches')
+		},
+	},
+	{
+		name: 'selector: |= dash-match operator',
+		fn: async () => {
+			const root = parseHtml('<p lang="en">a</p><p lang="en-US">b</p><p lang="fr-en">c</p>')
+			const hits = query(root, '[lang|="en"]')
+			assert(hits.map(textOf).join('') === 'ab', '|= matches exact "en" and "en-…" only; got ' + hits.map(textOf).join(''))
 		},
 	},
 ]

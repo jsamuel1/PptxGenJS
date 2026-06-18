@@ -33,6 +33,13 @@ module.exports = [
 		},
 	},
 	{
+		name: 'textOf: skips <template> content (SAU-43)',
+		fn: async () => {
+			assert(text('<div><template><p>hidden tmpl text</p></template><p>Shown</p></div>') === 'Shown',
+				'template content must not leak')
+		},
+	},
+	{
 		name: 'textOf: still skips <svg> (regression)',
 		fn: async () => {
 			assert(text('<div>a<svg><text>b</text></svg>c</div>') === 'ac',
