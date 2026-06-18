@@ -315,14 +315,24 @@ function canonicalVarName (name: string): string[] {
 /** Known CSS framework prefixes to strip before VAR_TO_SLOT lookup. */
 const KNOWN_PREFIXES = ['bs-', 'md-sys-color-', 'mui-', 'tw-', 'chakra-', 'mantine-', 'sl-']
 
+/** Return type for {@link parseCssVars}: base vars plus media-query scoped vars. */
+interface ParsedCssVars {
+	vars: Record<string, string>
+	darkVars: Record<string, string>
+	lightVars: Record<string, string>
+}
+
 /**
  * Extract `--name: value;` custom-property declarations from CSS text.
  * Prefers declarations inside `:root { … }` blocks; if none are found, falls back to scanning
  * the entire string (covers inline/style-block custom props without a `:root` selector).
- * @returns map of bare variable name (no leading `--`) -> value
+ * Also extracts vars declared inside `@media (prefers-color-scheme: dark|light)` blocks.
+ * @returns base vars, dark media-query vars, and light media-query vars
  */
-function parseCssVars (css: string): Record<string, string> {
+function parseCssVars (css: string): ParsedCssVars {
 	const out: Record<string, string> = {}
+	const darkVars: Record<string, string> = {}
+	const lightVars: Record<string, string> = {}
 	const declRegex = /--([\w-]+)\s*:\s*([^;}\n]+)/g
 
 	const collect = (text: string, target: Record<string, string>): void => {
@@ -344,7 +354,17 @@ function parseCssVars (css: string): Record<string, string> {
 		collect(rootMatch[1], out)
 	}
 
-	return out
+	// 3) @media (prefers-color-scheme: dark|light) blocks
+	const mediaRegex = /@media\s*\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)\s*\{([\s\S]*?)\n\}/g
+	let mediaMatch: RegExpExecArray | null
+	while ((mediaMatch = mediaRegex.exec(css)) !== null) {
+		const scheme = mediaMatch[1]
+		const target = scheme === 'dark' ? darkVars : lightVars
+		declRegex.lastIndex = 0
+		collect(mediaMatch[2], target)
+	}
+
+	return { vars: out, darkVars, lightVars }
 }
 
 /**
@@ -368,7 +388,9 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 	const scanFontFamily = options.scanFontFamily !== false
 	const fontFamilySelectors = options.fontFamilySelectors || DEFAULT_FONT_SELECTORS
 
-	const vars: Record<string, string> = (typeof css === 'string' && css.length > 0) ? parseCssVars(css) : {}
+	const parsed = (typeof css === 'string' && css.length > 0) ? parseCssVars(css) : { vars: {}, darkVars: {}, lightVars: {} }
+	const vars: Record<string, string> = parsed.vars
+	const { darkVars, lightVars } = parsed
 	const varAliases = options.varAliases || {}
 	// Track which slots were explicitly extracted from CSS (not preset)
 	const extractedSlots = new Set<string>()
@@ -409,6 +431,16 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 								if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
 							}
 							if (slot) break
+						}
+					}
+				}
+				if (!slot) {
+					// Generic fallback: strip the first word-segment as a potential prefix
+					const dashIdx = lcName.indexOf('-')
+					if (dashIdx > 0) {
+						const afterPrefix = lcName.slice(dashIdx + 1)
+						for (const cand of canonicalVarName(afterPrefix)) {
+							if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
 						}
 					}
 				}
@@ -485,6 +517,52 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		if (extractedSlots.has('bg') && extractedSlots.has('text') && !extractedSlots.has('surfaceRaised')) {
 			theme.surfaceRaised = mixColors(theme.bg, theme.text, 0.07)
 			derivedSlots.add('surfaceRaised')
+		}
+
+		// 5f: Media-query overlay — apply prefers-color-scheme vars matching detected mode
+		const inferredMode = (() => {
+			if (options.defaultPreset === 'light' || options.defaultPreset === 'dark') return options.defaultPreset
+			if (extractedSlots.has('bg')) return relativeLuminance(theme.bg) > 0.5 ? 'light' : 'dark'
+			return 'dark'
+		})()
+		const mediaVars = inferredMode === 'dark' ? darkVars : lightVars
+		if (Object.keys(mediaVars).length > 0) {
+			Object.keys(mediaVars).forEach(name => {
+				let slot: keyof ThemePalette | undefined
+				const lcName = name.toLowerCase()
+				if (varAliases[lcName]) {
+					slot = varAliases[lcName] as keyof ThemePalette
+				} else {
+					for (const cand of canonicalVarName(name)) {
+						if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+					}
+					if (!slot) {
+						for (const prefix of KNOWN_PREFIXES) {
+							if (lcName.startsWith(prefix)) {
+								const stripped = lcName.slice(prefix.length)
+								for (const cand of canonicalVarName(stripped)) {
+									if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+								}
+								if (slot) break
+							}
+						}
+					}
+					if (!slot) {
+						const dashIdx = lcName.indexOf('-')
+						if (dashIdx > 0) {
+							const afterPrefix = lcName.slice(dashIdx + 1)
+							for (const cand of canonicalVarName(afterPrefix)) {
+								if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
+							}
+						}
+					}
+				}
+				if (!slot) return
+				extractedSlots.add(slot as string)
+				let value = mediaVars[name]
+				if (resolveVarRefs) value = resolveVar(value, { ...vars, ...mediaVars })
+				theme[slot] = slot === 'font' || !COLOR_SLOTS.has(slot) ? normalizeFont(value) : normalizeColor(value).slice(0, 6)
+			})
 		}
 	}
 
