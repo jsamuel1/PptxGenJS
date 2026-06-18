@@ -71,6 +71,12 @@ Any factual claim you discover to be stale — in `PROMPT.md`, a spec, or a prog
 as your change. *(Incident: a "Failed: 8" claim outlived its fix and sent a loop
 investigating tests that had been green for days.)*
 
+## Balanced workarounds
+
+Every workaround or default must solve the general case or be gated behind an
+option with a neutral default — never overfit to one consumer's specific input
+shape. See [ADR-0010](./docs/architecture/decisions/0010-balanced-workaround.md).
+
 ## Documentation
 
 Every behaviour change updates, in the same commit (not as an afterthought):

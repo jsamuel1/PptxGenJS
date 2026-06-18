@@ -22,3 +22,6 @@ what it forbids).
 | [0005](./0005-schema-validate-clamp.md) | Every emit is schema-validated; out-of-range inputs clamp, never crash | Accepted |
 | [0006](./0006-default-off-invariant.md) | New features are default-off; non-participating decks emit byte-identical XML | Accepted |
 | [0007](./0007-automated-gated-releases.md) | Releases are CI-automated behind hard gates; never local, never same-iteration | Accepted |
+| [0008](./0008-remove-icons-fa-pack.md) | Icon packs removed; icon data is the consumer's job (fetch-not-bundle) | Accepted |
+| [0009](./0009-neutral-defaults.md) | Neutral defaults: no consumer aesthetics in the library surface | Accepted |
+| [0010](./0010-balanced-workaround.md) | Balanced workarounds: fixes must solve the general case | Accepted |
