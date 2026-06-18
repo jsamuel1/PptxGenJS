@@ -157,7 +157,7 @@ async function resolveOne (desc: IconDescriptor, opts: IconResolveOptions): Prom
  * Resolve every icon-font element in an HTML string to normalised vector path data.
  *
  * @param html - a raw HTML string
- * @param opts - optional stylesheets / font files / CDN + cache / customResolver / defaultFill
+ * @param opts - optional CDN + cache / customResolver / defaultFill
  * @returns a `Map` keyed by the icon element's class string (`family|glyph` for ligature fonts);
  *          each value is a `ResolvedSvgPart[]`. Unresolvable icons are omitted (never throws).
  */
