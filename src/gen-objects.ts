@@ -62,6 +62,7 @@ import {
 import { getSlidesForTableRows } from './gen-tables'
 import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, inkForFill } from './gen-utils'
 import { measureTextWidth } from './utils/measure-text-width'
+import type { ThemePalette } from './utils/extract-theme'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -969,7 +970,7 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
  * @param {PresSlide} target slide object that the callout should be added to
  * @param {CalloutProps} opts callout options
  */
-export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): void {
+export function addCalloutDefinition(target: PresSlide, opts: CalloutProps, palette?: ThemePalette): void {
 	const options = typeof opts === 'object' ? opts : ({} as CalloutProps)
 	const h = options.h !== undefined ? Number(options.h) : 0.4
 	const w = options.w !== undefined ? Number(options.w) : 1.5
@@ -1031,7 +1032,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
 	let barW = 0
 	if (options.accentBar) {
 		barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03
-		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '6366F1'
+		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : (palette?.accents?.[0] ?? '6366F1')
 		group.addShape(SHAPE_TYPE.RECTANGLE, {
 			x: 0, y: cornerRadius, w: barW, h: Math.max(0, h - 2 * cornerRadius),
 			fill: typeof barColor === 'string' ? { color: barColor } : barColor,
@@ -1080,7 +1081,7 @@ export function addCalloutDefinition(target: PresSlide, opts: CalloutProps): voi
  * @param {PresSlide} target slide the card should be added to
  * @param {CardProps} opts card options
  */
-export function addCardDefinition(target: PresSlide, opts: CardProps): void {
+export function addCardDefinition(target: PresSlide, opts: CardProps, palette?: ThemePalette): void {
 	const options = typeof opts === 'object' ? opts : ({} as CardProps)
 	const x = options.x !== undefined ? Number(options.x) : 1
 	const y = options.y !== undefined ? Number(options.y) : 1
@@ -1118,7 +1119,7 @@ export function addCardDefinition(target: PresSlide, opts: CardProps): void {
 	//     square bar corners stay within the card's rounded outline.
 	if (options.accentBar) {
 		const barW = options.accentBar.width !== undefined ? Number(options.accentBar.width) : 0.03
-		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : '6366F1'
+		const barColor = options.accentBar.color !== undefined ? options.accentBar.color : (palette?.accents?.[0] ?? '6366F1')
 		const barH = Math.max(0, h - 2 * cornerRadius)
 		group.addShape(SHAPE_TYPE.RECTANGLE, {
 			x: 0, y: cornerRadius, w: barW, h: barH,
