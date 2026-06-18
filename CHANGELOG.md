@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.4](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.4) - 2026-06-18
+
 ### Removed
 
 **Breaking change** (major): all `@deprecated` legacy option aliases and their runtime shims have been removed. Migrate to the modern equivalents listed below.
