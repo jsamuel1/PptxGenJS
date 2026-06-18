@@ -48,6 +48,10 @@ Releases run through two GitHub Actions workflows:
 2. Open the **Actions** tab → **Version Bump and Tag** → **Run workflow**.
 3. Choose the `bump` type (`patch`, `minor`, `major`, or `prerelease`). For a
    prerelease, set the `preid` (default `beta`).
+   > **Breaking changes do NOT require a `major` bump** — this fork is private and the
+   > converter is its only consumer, updated in lockstep ([ADR-0011](docs/architecture/decisions/0011-private-fork-breaking-changes-are-free.md)).
+   > `patch`/`minor` is fine even for API removals; the version is a build marker, not a
+   > SemVer contract. (Revisit ADR-0011 before any public release.)
 4. The workflow does the rest: version bump, `VERSION` sync, CHANGELOG roll-up,
    commit/tag/push, and it dispatches `Publish to npm`.
 5. Watch **Publish to npm** complete: it builds, runs the test suite, publishes to

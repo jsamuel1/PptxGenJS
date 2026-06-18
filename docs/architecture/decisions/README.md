@@ -25,3 +25,4 @@ what it forbids).
 | [0008](./0008-remove-icons-fa-pack.md) | Icon packs removed; icon data is the consumer's job (fetch-not-bundle) | Accepted |
 | [0009](./0009-neutral-defaults.md) | Neutral defaults: no consumer aesthetics in the library surface | Accepted |
 | [0010](./0010-balanced-workaround.md) | Balanced workarounds: fixes must solve the general case | Accepted |
+| [0011](./0011-private-fork-breaking-changes-are-free.md) | Private fork: breaking changes are free; no major-bump or migration ceremony | Accepted |
