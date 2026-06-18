@@ -1,13 +1,10 @@
 # PptxGenJS Fork — Work Plan
 
 > **Audience:** A developer (or agent) implementing fixes and features in this
-> fork (`github.com/jsamuel1/PptxGenJS`). This is the actionable, ordered work
-> plan. It supersedes the old feature-tracker. Status of the format surface
-> lives in [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md); this document is
-> the *execution order*.
->
-> **Prime directive:** Work top to bottom. **Phase 0 (make the suite green)
-> must be completed and committed before any Phase 1+ feature work begins.**
+> fork (`github.com/jsamuel1/PptxGenJS`). This document holds the contribution
+> ground rules and the release procedure; the live work queue is **Linear**
+> (issues labelled `repo:library`), specs are in [`docs/features/`](docs/features/),
+> and format-coverage status is [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md).
 
 ---
 
@@ -99,232 +96,36 @@ from a local machine. Follow the
    bump downstream consumers, or report the release done. If any step fails, stop and
    report the intermediate state — never re-dispatch blindly (it double-bumps).
 
-> **When to release** is called out explicitly in the phase checkpoints below
-> (a **patch** after Phase 0, a **minor** after each feature set). Always
-> follow this same procedure.
+> **When to release:** a **patch** for bug-fix-only batches, a **minor** after a
+> shipped feature or coherent feature set. Release only a green build, and never in
+> the same iteration that implemented the feature. Always follow this same procedure.
 
 ---
 
-## Phase 0 — Make the test suite green (BLOCKING) — ✅ COMPLETED
+## Queue — Linear is the source of truth
 
-**Done.** The five root causes below were fixed and released (see the
-`invertIfNegative`/`varyColors`/scatter/clamping entries in `CHANGELOG.md`);
-CI has been green through the subsequent 4.3.x releases. The detail is kept
-for the regression record — if any of these resurface, the analysis below is
-the map. The standing rules it produced are ground rules 2 and 4
-(schema-validate everything; clamp, don't crash) and
+The old Phase 0-5 roadmap is retired. Work is tracked in **Linear** (project
+"HTML → PPTX (library + skill)", issues labelled `repo:library`) and specified in
+[`docs/features/`](docs/features/); [`docs/FEATURE-MATRIX.md`](docs/FEATURE-MATRIX.md)
+records what is shipped vs open across the OOXML surface.
+
+Per iteration:
+
+1. Pick the top **unblocked** `repo:library` issue (respect `blocked-by`; review /
+   follow-up issues take priority over new feature slices).
+2. Read its linked `docs/features/feature-*.md` spec **and the issue comments** — code
+   review and cross-deck findings put file:line evidence, root cause, and acceptance
+   criteria there.
+3. Implement per the [ground rules](#ground-rules-apply-to-every-task) (schema-validate,
+   default-off, clamp, public-API definition of done); update `CHANGELOG.md` +
+   `docs/FEATURE-MATRIX.md` + `website/docs/*.md` in the same commit; flip the spec
+   `Status` to `Implemented` only when its consumer can use it; move the Linear issue
+   In Review -> Done.
+4. Release per the procedure above when a feature (or coherent set) is green on `master`.
+
+Phase 0 (chart/gradient schema fixes) shipped — its regression analysis lives in git
+history and `CHANGELOG.md`; the standing rules it produced are ground rules 2 & 4 and
 [ADR-0005](docs/architecture/decisions/0005-schema-validate-clamp.md).
-
-The original failures grouped into 5 root causes:
-
-### 0.1 — `<c:invertIfNegative>` emitted for non-bar chart types
-- **Symptom:** `area`, `radar`, `line`, `combo` fixtures fail:
-  `invalid child element '...:invertIfNegative'`.
-- **Cause:** `invertIfNegative` is only valid on bar/bubble series
-  (`CT_BarSer`/`CT_BubbleSer`), but it is emitted for other series types.
-  See `src/gen-charts.ts` ~lines 886, 936, 1260.
-- **Fix:** only emit `<c:invertIfNegative>` when the chart type is one that
-  allows it (bar, bar3D, bubble). Gate each emit on chart type.
-- **Done when:** `chart-area`, `chart-radar`, `chart-line` pass; combo no
-  longer reports `invertIfNegative`.
-
-### 0.2 — `<c:varyColors>` ordered before `<c:grouping>`
-- **Symptom:** `line` and `combo` fixtures fail:
-  `unexpected child element '...:varyColors' ... expected: <...:grouping>`.
-- **Cause:** In `CT_LineChart` (and the line branch of combo), `varyColors`
-  must follow `grouping` per the schema sequence. Current emit order is wrong.
-  See `src/gen-charts.ts` ~lines 798–810 (grouping vs varyColors ordering).
-- **Fix:** emit `<c:grouping>` **before** `<c:varyColors>` for line/combo
-  (match `CT_LineChart` element order: `grouping`, `varyColors`, `ser`...).
-- **Done when:** `chart-line` and `chart-combo` no longer report varyColors.
-
-### 0.3 — Bubble chart emits invalid `<c:auto>`
-- **Symptom:** `bubble` fixture: `invalid child element '...:auto'`
-  (`/ppt/charts/chart9.xml`).
-- **Cause:** a `<c:auto>` element is emitted where `CT_BubbleChart` does not
-  allow it. See `src/gen-charts.ts` ~line 1727 (`<c:auto val="1"/>`); confirm
-  the call path that reaches it for bubble.
-- **Fix:** suppress `<c:auto>` for bubble series (or move it to the valid
-  axis context only).
-- **Done when:** `chart-bubble` passes.
-
-### 0.4 — Scatter chart throws `Cannot read properties of undefined (reading '0')`
-- **Symptom:** `scatter (XY) chart` fails with a runtime TypeError (not a
-  schema error) — generation crashes.
-- **Cause:** an array access on undefined data in the scatter path of
-  `makeChartType` / scatter series builder in `src/gen-charts.ts`.
-- **Fix:** guard the access; build scatter series defensively (the test's
-  data shape is valid, so the code must handle it).
-- **Done when:** `chart-scatter` generates and passes schema.
-
-### 0.5 — Out-of-range numeric inputs emitted verbatim (the 2 `BUG-EXPOSURE` xfails)
-These two tests are intentionally written to fail *until the value is clamped*.
-Implement clamping so the emitted XML is schema-valid, then the tests pass.
-
-- **Doughnut `holeSize`:** `holeSize:500` emits `<c:holeSize val="500"/>` but
-  `ST_HoleSize` = `xsd:unsignedByte` restricted **1–90** (PowerPoint allows
-  10–90). Clamp to a valid range before emit. See `src/gen-charts.ts` ~1636.
-- **Gradient stop `position`/`transparency`:** values map to OOXML units with
-  `MaxInclusive 100000` (e.g. `pos` and `alpha` are in thousandths of a
-  percent). Out-of-range inputs exceed `100000`. Clamp `position` to 0–100 and
-  `transparency`/alpha to 0–100 (→ 0–100000 EMU-percent) before emit. Stop
-  emit lives in the gradient-fill path in `src/gen-xml.ts` (gradient `gsLst`
-  builder) / `src/gen-utils.ts` color selection.
-- **Done when:** `chart-doughnut-holesize-oob` and `gradient-stop-oob` pass
-  with the clamped (valid) values, and the test comments are updated from
-  "expected to FAIL" to assert the clamped output.
-
-### Phase 0 exit criteria
-- `npm test` → both suites `Failed: 0`.
-- `npm run build && npm run ship && npm run lint` clean.
-- Each root cause is its own commit (`fix(charts): ...`, `fix(gradient): ...`)
-  with a regression fixture proving the schema is now valid, **and a
-  `CHANGELOG.md` `Fixed` entry** describing each bug.
-- Push; confirm CI (`ci.yml`) goes green before starting Phase 1.
-- **🚀 RELEASE: cut a patch version now.** Once CI is green on `master`, run
-  the [Release procedure](#release-procedure-cut-a-version) with `bump=patch`
-  (this is a bug-fix release) — including the CHANGELOG roll-over step. Verify
-  the new version is live on npm before moving on.
-
----
-
-## Phase 1 — Finish the partials
-
-These are listed `⚠️ Partial` in the matrix — already half-built, lowest risk,
-highest reuse. The animation timing engine already emits real
-`<p:seq nodeType="mainSeq">` build steps, so animation work reuses it.
-
-Each feature has a detailed spec in `docs/features/feature-*.md` — **read the spec
-before implementing** (API, emitted OOXML, touch points, edge cases, tests):
-
-- 1.1 — [`docs/features/feature-pattern-fill.md`](docs/features/feature-pattern-fill.md) — `a:pattFill`
-- 1.2 — [`docs/features/feature-picture-fill.md`](docs/features/feature-picture-fill.md) — `a:blipFill`
-- 1.3 — [`docs/features/feature-emphasis-animations.md`](docs/features/feature-emphasis-animations.md) — `p:animClr`/`p:animScale`/`p:animRot`
-- 1.4 — [`docs/features/feature-exit-animations.md`](docs/features/feature-exit-animations.md)
-- 1.5 — [`docs/features/feature-header-footer.md`](docs/features/feature-header-footer.md) — `p:hf`
-
-### Phase 1 exit criteria
-- All sub-features schema-validated with fixtures; full verify gate clean;
-  **docs + CHANGELOG + matrix updated** (`⚠️ Partial`/`❌` → `✅`), and each
-  spec's `Status` flipped to `Implemented`.
-- **🚀 RELEASE: cut a minor version** once `master` is green — run the
-  [Release procedure](#release-procedure-cut-a-version) with `bump=minor`
-  (new features). You may release after the whole phase, or after a coherent
-  subset (e.g. 1.1+1.2 fills, or 1.3+1.4 animations) — but only ever release a
-  green build.
-
----
-
-## Phase 2 — Further shape effects
-
-- 2.1 — [`docs/features/feature-reflection-effect.md`](docs/features/feature-reflection-effect.md) — `a:reflection`
-- 2.2 — [`docs/features/feature-soft-edge-effect.md`](docs/features/feature-soft-edge-effect.md) — `a:softEdge`
-- 2.3 — [`docs/features/feature-shape-3d.md`](docs/features/feature-shape-3d.md) — `a:sp3d`/`a:scene3d`
-
-All three extend the shared `<a:effectLst>` / `<p:spPr>` emit; mind the
-canonical `CT_EffectList` child order when combining with shadow/glow.
-
-### Phase 2 exit criteria
-- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated; specs
-  flipped to `Implemented`.
-- **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
-  [Release procedure](#release-procedure-cut-a-version).
-
----
-
-## Phase 3 — Timing depth & links
-
-- 3.1 — [`docs/features/feature-motion-paths.md`](docs/features/feature-motion-paths.md) — `p:animMotion`
-- 3.2 & 3.3 — [`docs/features/feature-hyperlink-actions.md`](docs/features/feature-hyperlink-actions.md) — `a:hlinkHover` + action jumps
-
-### Phase 3 exit criteria
-- Fixtures + verify gate clean; docs + CHANGELOG + matrix updated; specs
-  flipped to `Implemented`.
-- **🚀 RELEASE: cut a minor version** (`bump=minor`) on a green build via the
-  [Release procedure](#release-procedure-cut-a-version).
-
----
-
-## Phase 4 — Presentation-level features
-
-In rough priority order; each is self-contained and has its own spec:
-
-- 4.1 — [`docs/features/feature-comments.md`](docs/features/feature-comments.md) — `p:cm`/`cmAuthorLst`
-- 4.2 — [`docs/features/feature-embedded-fonts.md`](docs/features/feature-embedded-fonts.md) — `p:embeddedFontLst` (high value)
-- 4.3 — [`docs/features/feature-custom-shows.md`](docs/features/feature-custom-shows.md) — `p:custShowLst`
-- 4.4 — [`docs/features/feature-photo-album.md`](docs/features/feature-photo-album.md) — `p:photoAlbum`
-- 4.5 — [`docs/features/feature-handout-master.md`](docs/features/feature-handout-master.md) — `p:handoutMasterIdLst`
-- 4.6 — [`docs/features/feature-kinsoku.md`](docs/features/feature-kinsoku.md) — `p:kinsoku`
-- 4.7 — [`docs/features/feature-smartart.md`](docs/features/feature-smartart.md) — `dgm:*`/`dsp:*` (large; minimal subset first)
-- 4.8 — [`docs/features/feature-structured-notes.md`](docs/features/feature-structured-notes.md) — talking-points notes
-- 4.9 — [`docs/features/feature-ink.md`](docs/features/feature-ink.md) — `p:contentPart` + InkML (niche)
-
-### Phase 4 exit criteria
-- Each feature (or coherent subset) schema-validated with fixtures; verify gate
-  clean; docs + CHANGELOG + matrix updated; specs flipped to `Implemented`.
-- **🚀 RELEASE: cut a minor version** (`bump=minor`) after each shipped feature
-  set, on a green build, via the
-  [Release procedure](#release-procedure-cut-a-version). Don't batch many
-  large features into one release — ship incrementally.
-
----
-
-## Phase 5 — Standalone feature specs (`docs/features/feature-*.md`)
-
-**Discover and implement every `docs/features/feature-*.md` spec that is not yet done.**
-This directory is the backlog of feature specs — including developer-experience
-helpers not tied to a single OOXML element. The Phase 1–4 specs above are also
-`docs/features/feature-*.md` files; this phase covers **the rest** plus any specs added
-later.
-
-### Procedure for each spec
-
-1. **Scan** `docs/features/feature-*.md` (excluding `FEATURE-MATRIX.md`). For each,
-   check its `> **Status:**` line.
-2. **Skip** specs marked `Implemented` / `Done`. Implement those marked
-   `Proposed` (or with no status).
-3. **Confirm it isn't already built** — grep the codebase for the proposed API
-   (e.g. the method/option name) before starting; a spec may predate an
-   existing implementation.
-4. **Implement** per the spec's API / Implementation location / Edge cases,
-   following all [ground rules](#ground-rules-apply-to-every-task) (schema
-   validation, default-off, clamping, tests).
-5. **On completion, mark the spec complete:** change its
-   `> **Status:** Proposed` to `> **Status:** Implemented (vX.Y.Z)` and add a
-   one-line "Implemented:" note pointing at the source + tests.
-6. **Document it** per ground rule 8: CHANGELOG `Added` entry, update
-   `docs/FEATURE-MATRIX.md` if it maps to a matrix row, and add user-facing
-   docs in `website/docs/*.md`.
-
-### Known standalone specs (DX helpers — implement if still `Proposed`)
-
-Specs carry a `> **Priority:**` line where ordering matters: work `high` before
-`medium` before unlabelled. The converter-driven `/utils` specs below are paired with
-work items in `../html-to-pptx/PROMPT.md` — releasing them unblocks that repo.
-
-- **High** — [`docs/features/feature-html-entity-map-completeness.md`](docs/features/feature-html-entity-map-completeness.md) — extend the `/utils` html-dom named-entity map + export `decodeEntities` (pairs with a conversion-quality *critical*)
-- **High** — `parseCards` sibling-card adoption — upstream half of [`../html-to-pptx/docs/features/feature-grid-card-completeness.md`](../html-to-pptx/docs/features/feature-grid-card-completeness.md) (dropped "Memory" card)
-- **Medium** — [`docs/features/feature-css-context-layout.md`](docs/features/feature-css-context-layout.md) — extend cascade-lite `CssContext` from colours to layout properties (`declOf`, grid/flex/column interpreters)
-- **High (BREAKING chunk, with ADR 0008)** — [`docs/features/feature-depalette-public-surface.md`](docs/features/feature-depalette-public-surface.md) — neutral defaults per ADR 0009: ThemePalette v2, luminance-derived add* ink, drop consumer vocab/presets
-- **High** — [`docs/features/feature-extractor-foreign-framework-correctness.md`](docs/features/feature-extractor-foreign-framework-correctness.md) — Bootstrap/Tailwind/MUI correctness round (desc corruption, badges, quotes, timelines, colspan, columns, icon layer, option exposure)
-- **High** — [`docs/features/feature-font-family-resolver.md`](docs/features/feature-font-family-resolver.md) — match font files by internal name table (embedFont is unusable for downloaded fonts; field repro: Inter-Regular.ttf not matched)
-- **Medium** — [`docs/features/feature-text-measurement-from-font.md`](docs/features/feature-text-measurement-from-font.md) — replace 0.1*char-count width guesses with font glyph-advance measurement (CJK overflow); built on the font parser
-- **Medium** — [`docs/features/feature-resolver-provenance.md`](docs/features/feature-resolver-provenance.md) — consistent source/provenance tag on every resolver result so consumers can tell resolved-vs-fallback (feeds the downstream conversion provenance report)
-- **High** — [`docs/features/feature-theme-extraction-generality.md`](docs/features/feature-theme-extraction-generality.md) — prefix-aware vars, body{} fallback, light-mode inference, no Frankenstein mixing
-- **High** (after css-context Slice 4 ships) — [`docs/features/feature-icon-pack-entry.md`](docs/features/feature-icon-pack-entry.md) — `icons-fa` subpath export + `subsetIconPack()`; absorbs html-to-pptx's downstream-local icon-pack generator
-- **Medium-High** — [`docs/features/feature-pua-text-filtering.md`](docs/features/feature-pua-text-filtering.md) — strip PUA glyph codepoints in `textOf` by default; upstream half of the "🎵×" bug class
-- [`docs/features/feature-layout-grid.md`](docs/features/feature-layout-grid.md) — `pptx.layoutGrid()` grid math (pure util)
-- [`docs/features/feature-card-helper.md`](docs/features/feature-card-helper.md) — `slide.addCard()` structured card
-- [`docs/features/feature-animation-stagger.md`](docs/features/feature-animation-stagger.md) — `animation.group` auto-grouping sugar
-- [`docs/features/feature-theme-extraction.md`](docs/features/feature-theme-extraction.md) — HTML/CSS theme extraction utility (review its "should this be in PptxGenJS?" question first)
-
-### Phase 5 exit criteria
-- No `docs/features/feature-*.md` remains `Proposed` (each is either `Implemented` or has
-  a documented decision not to build it, e.g. theme-extraction may land as an
-  optional util or be declined — record the decision in the spec).
-- Each implemented spec: tests + verify gate clean; docs + CHANGELOG updated;
-  `Status` flipped to `Implemented`.
-- **🚀 RELEASE: cut a minor version** (`bump=minor`) per shipped feature set.
 
 ---
 
