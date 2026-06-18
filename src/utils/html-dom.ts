@@ -520,7 +520,7 @@ function parseCompound (token: string, selector: string): Compound {
 				compound.pseudos.push({ name: pName })
 			} else if (pName === 'nth-child' || pName === 'not') {
 				if (token[i] !== '(') unsupported(selector)
-				let depth = 1, argStart = i + 1
+				const argStart = i + 1; let depth = 1
 				i++
 				while (i < n && depth > 0) {
 					if (token[i] === '(') depth++

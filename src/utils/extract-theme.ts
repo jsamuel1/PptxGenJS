@@ -227,7 +227,7 @@ function mixColors (a: string, b: string, weight: number): string {
 }
 
 /** Derive gradient-bar stops from the `--bar-gradient` var (≥2 `var()` refs → resolved colours), else `[accent, accentSoft, sky]`. */
-function deriveBarStops (vars: Record<string, string>, palette: ThemePalette, barVarName: string, resolveVarRefs: boolean, parseRgb: boolean): string[] {
+function deriveBarStops (vars: Record<string, string>, palette: ThemePalette, barVarName: string, resolveVarRefs: boolean, _parseRgb: boolean): string[] {
 	const barKey = String(barVarName || '--bar-gradient').replace(/^--/, '').toLowerCase()
 	const barVal = vars[barKey] || ''
 	const refs = [...barVal.matchAll(/var\(\s*--([\w-]+)\s*\)/g)].map(m => m[1])
