@@ -23,6 +23,8 @@ import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAn
 import type { HNode } from './html-dom'
 import { parseStyleSheets, colorOf, cssProp, flexInfoOf, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
+import { detectIcon } from './icon-classify'
+import { ICON_FAMILIES } from './icon-fonts.constants'
 
 /** A single parsed table cell, shaped to map onto `slide.addTable()` rows. */
 export interface TableCell {
@@ -45,6 +47,21 @@ export interface TableData {
 
 /** One detected column of a multi-column structure. */
 export interface ColumnData { text: string }
+
+/** A single icon+label tile within a {@link TileRow}. */
+export interface TileData {
+	/** Tile label (the short text beside/under the icon; trimmed). */
+	label: string
+	/**
+	 * The tile's icon, when one is present. `svg` carries the verbatim `<svg>…</svg>` markup
+	 * (feed to `parseSvg`); `fontIcon` carries the icon element's class string; `emoji` carries the
+	 * leading pictographic cluster. Omitted when the tile has no recognisable icon.
+	 */
+	icon?:
+		| { type: 'svg', raw: string }
+		| { type: 'fontIcon', className: string }
+		| { type: 'emoji', text: string }
+}
 
 /** Options shared by the content extractors (mirrors `parseCards`). */
 export interface ParseContentOptions {
@@ -74,6 +91,56 @@ function isExcluded (el: HNode, pat: RegExp): boolean {
 	let cur: HNode | null = el
 	while (cur) { if (cur.classes.length && classMatch(cur, pat)) return true; cur = cur.parent }
 	return false
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// Icon detection (class-agnostic) — shared by `parseTiles` and the `parseColumns` tile guard.
+// Structural, NOT class-name driven: an inline `<svg>`, a recognised icon-font `<i>`/`<span>`,
+// or a leading emoji cluster all count as "an icon node".
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** Leading emoji (pictographic) cluster at the start of a string, if any. */
+function leadingEmoji (text: string): string | undefined {
+	const t = text.trim()
+	if (!t) return undefined
+	const m = t.match(/^(?:\p{Extended_Pictographic}(?:‍|️)?)+/u)
+	return m ? m[0] : undefined
+}
+
+/** True when `el` is an `<i>`/`<span>` carrying a recognised icon-font class (FA/BI/PH/ION/Material…). */
+function isFontIconEl (el: HNode): boolean {
+	if (el.tag !== 'i' && el.tag !== 'span') return false
+	const desc = detectIcon(el.classes.join(' '), textOf(el, { keepPUA: true }))
+	if (!desc) return false
+	return ICON_FAMILIES.has(desc.fontFamily) || desc.isLigature
+}
+
+/** First recognised font-icon `<i>`/`<span>` within `el`'s subtree, or null. Class-agnostic. */
+function findFontIconEl (el: HNode): HNode | null {
+	const scan = (n: HNode): HNode | null => {
+		for (const c of n.children) {
+			if (c.tag === '#text') continue
+			if (isFontIconEl(c)) return c
+			const hit = scan(c)
+			if (hit) return hit
+		}
+		return null
+	}
+	return scan(el)
+}
+
+/**
+ * The icon descriptor of a single tile: an `<svg>`, a recognised font-icon `<i>`/`<span>`, or a
+ * leading-emoji text cluster. Returns `null` when the element carries no recognisable icon.
+ */
+function tileIcon (el: HNode): { kind: 'svg', el: HNode } | { kind: 'fontIcon', el: HNode } | { kind: 'emoji', text: string } | null {
+	const svg = queryOne(el, 'svg')
+	if (svg) return { kind: 'svg', el: svg }
+	const fi = findFontIconEl(el)
+	if (fi) return { kind: 'fontIcon', el: fi }
+	const em = leadingEmoji(textOf(el))
+	if (em) return { kind: 'emoji', text: em }
+	return null
 }
 
 /**
@@ -169,9 +236,12 @@ export function parseColumns (input: string | HNode, opts: ParseContentOptions =
 		if (columnCountOf(el, ctx) >= 2) {
 			return childEls.map(c => ({ text: textOf(c).trim() }))
 		}
-		// (c) flex row layout with ≥ 2 children → each child is a column
+		// (c) flex row layout with ≥ 2 children → each child is a column. GATE (SAU-40): an
+		// icon+label TILE row is NOT prose columns — flattening it to text would drop the icons and
+		// pre-empt `parseTiles`, so the eager branch yields to the tile recogniser. A genuine prose
+		// flex row (children with no icon / a long label) is not a tile row → unchanged behaviour.
 		const fi = flexInfoOf(el, ctx)
-		if (fi && fi.direction === 'row') {
+		if (fi && fi.direction === 'row' && !tileChildrenOf(el, TILE_LABEL_MAX)) {
 			return childEls.map(c => ({ text: textOf(c).trim() }))
 		}
 	}
@@ -393,4 +463,81 @@ export function parseCallout (input: string | HNode, opts: ParseContentOptions =
 		}
 	}
 	return null
+}
+
+// ──────────────────────────────────────────────────────────────────────────────────────────
+// parseTiles — structure-driven icon+label tile rows (the dropped AWS-service rows; SAU-40)
+//
+// A "tile row" is a horizontal strip of ≥2 UNIFORM sibling tiles where each tile = one icon node
+// (svg / recognised font-icon / leading emoji) + a SHORT label. Detection is STRUCTURE-driven, not
+// class-name driven (works for `.stack-row` / `.reg-badge` AND class-token-free equivalents) and does
+// NOT require any stylesheet-resolvable CSS — exactly the rows `parseCards`/`parseColumns` drop when
+// a flex/grid row carries no recognisable class vocabulary and no inline/`<style>` display.
+// ──────────────────────────────────────────────────────────────────────────────────────────
+
+/** Max characters for a tile label — a tile is a SHORT label beside an icon, not a prose block. @default 40 */
+const TILE_LABEL_MAX = 40
+
+/** Build a {@link TileData} from one tile element. `null` when it carries no icon or no label. */
+function analyzeTile (el: HNode, labelMax: number): TileData | null {
+	const ic = tileIcon(el)
+	if (!ic) return null
+	// Label = the tile's full text with a leading emoji icon stripped (svg/font-icon carry no text).
+	let label = textOf(el).trim()
+	if (ic.kind === 'emoji' && label.startsWith(ic.text)) label = label.slice(ic.text.length).trim()
+	if (!label || label.length > labelMax) return null
+	const out: TileData = { label }
+	if (ic.kind === 'svg') out.icon = { type: 'svg', raw: ic.el.raw || '' }
+	else if (ic.kind === 'fontIcon') out.icon = { type: 'fontIcon', className: ic.el.classes.join(' ') }
+	else out.icon = { type: 'emoji', text: ic.text }
+	return out
+}
+
+/**
+ * True when `container`'s direct element children form a UNIFORM icon+label tile row: ≥2 children,
+ * EVERY child is a valid tile (icon + short label), and the children are structurally uniform (each
+ * has the same small element-child count, within ±1). Class- and CSS-agnostic.
+ */
+function tileChildrenOf (container: HNode, labelMax: number): TileData[] | null {
+	const childEls = container.children.filter(c => c.tag !== '#text')
+	if (childEls.length < 2) return null
+	const tiles: TileData[] = []
+	for (const c of childEls) {
+		const t = analyzeTile(c, labelMax)
+		if (!t) return null // EVERY child must be a tile — a single non-tile child rejects the row
+		tiles.push(t)
+	}
+	// Uniformity: child element-counts must be tight (tile rows are repeated identical structures).
+	const counts = childEls.map(c => c.children.filter(k => k.tag !== '#text').length)
+	const avg = counts.reduce((s, n) => s + n, 0) / counts.length
+	if (counts.some(n => Math.abs(n - avg) > 1)) return null
+	return tiles
+}
+
+/**
+ * Detect the first horizontal row of icon+label tiles and return one {@link TileData} per tile.
+ *
+ * STRUCTURE-driven (SAU-40): a tile row is ≥2 uniform sibling elements, each carrying one icon node
+ * (inline `<svg>`, a recognised icon-font `<i>`/`<span>`, or a leading emoji) plus a SHORT label.
+ * Independent of class vocabulary and resolvable CSS, so it recovers `.stack`/`.stack-row`/`.reg-badge`
+ * rows AND class-token-free equivalents that `parseCards`/`parseColumns` would otherwise drop. The
+ * OUTERMOST qualifying container in document order wins (a nested duplicate is not re-reported).
+ *
+ * NEUTRAL — it never decides "this is a tile slide". Returns `[]` (not `null`) when none is found, so
+ * a non-participating input adds nothing. `labelMax` clamps the per-tile label length.
+ *
+ * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
+ * @param opts - `excludeWithin` skips tile rows inside a matching region.
+ */
+export function parseTiles (input: string | HNode, opts: ParseContentOptions = {}): TileData[] {
+	const root = toRoot(input)
+	const exclPat = opts.excludeWithin
+	const labelMax = TILE_LABEL_MAX
+	for (const el of elements(root)) {
+		if (el.tag === 'table') continue
+		if (exclPat && isExcluded(el, exclPat)) continue
+		const tiles = tileChildrenOf(el, labelMax)
+		if (tiles) return tiles
+	}
+	return []
 }

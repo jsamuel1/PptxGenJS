@@ -433,6 +433,27 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp,
 // parseCards — the public entry
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * True when EVERY direct element child of `e` is a structural icon+label TILE (one icon node + a
+ * short label) and the children are uniform — a class- and CSS-agnostic tile row (SAU-40). This is
+ * the signal that lets a class-token-free, externally-styled `.stack`/`.stack-row` row be recognised
+ * even though it carries no card/grid class and no inline/`<style>`-resolvable display.
+ */
+function isTileRow (e: HNode): boolean {
+	const childEls = e.children.filter(c => c.tag !== '#text')
+	if (childEls.length < 2) return false
+	const isTile = (c: HNode): boolean => {
+		const hasIconNode = !!findFirst(c, n => n.tag === 'svg') || !!findFirst(c, n => isIconEl(n)) || !!leadingEmoji(textOf(c))
+		if (!hasIconNode) return false
+		const label = textOf(c).trim()
+		return label.length > 0 && label.length <= 40
+	}
+	if (!childEls.every(isTile)) return false
+	const counts = childEls.map(c => c.children.filter(k => k.tag !== '#text').length)
+	const avg = counts.reduce((s, n) => s + n, 0) / counts.length
+	return !counts.some(n => Math.abs(n - avg) > 1)
+}
+
 /** Locate a grid/flex container whose repeated children are the cards. */
 function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp | undefined, ctx: CssContext): HNode | null {
 	for (const e of allEls) {
@@ -443,6 +464,10 @@ function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp | unde
 		const disp = cssProp(e, 'display', ctx)
 		if ((disp === 'grid' || cssProp(e, 'grid-template-columns', ctx) !== undefined) && childEls.length >= 2) return e
 		if (disp === 'flex' && childEls.length >= 3) return e
+		// FALLBACK (SAU-40): a class-token-free / externally-styled row of icon+label tiles. Only
+		// reached when the class/grid/flex signals above did NOT match, so previously-recognised
+		// inputs keep selecting the same container — this strictly ADDS the dropped tile rows.
+		if (isTileRow(e)) return e
 	}
 	return null
 }

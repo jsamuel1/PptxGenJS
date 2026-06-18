@@ -200,6 +200,18 @@ export interface ParseCardsOptions {
 	 * descriptor. Must be sync — `parseCards` stays synchronous.
 	 */
 	iconResolver?: (className: string, fontFamily: string, glyphName: string) => SvgPart[] | null
+	/** Class pattern identifying TITLE elements within a card. @default /(?:^|-)(title|name|heading|head|label)$/ */
+	titlePattern?: RegExp
+	/** Class pattern identifying DESCRIPTION elements within a card. @default /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/ */
+	descPattern?: RegExp
+	/** Class pattern identifying BADGE elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip)$/i */
+	badgePattern?: RegExp
+	/** Class pattern for elements that must NEVER be adopted as sibling cards. @default /(^|-)(quote|callout|testimonial|blockquote)\b/ */
+	neverAdoptPattern?: RegExp
+	/** Max character length for title-likeness heuristic in sibling adoption. @default 60 */
+	titleMaxChars?: number
+	/** Max character length for badge text. @default 24 */
+	badgeMaxChars?: number
 }
 
 /**
@@ -245,8 +257,11 @@ export function parseHtml(html: string): HNode
 /**
  * Find all descendants of `root` matching a CSS `selector`, in document order (like
  * `querySelectorAll`). Supports a BOUNDED grammar only: universal `*`, type, `.class`, `#id`,
- * `[attr]`, `[attr="v"]`, `[attr*="v"]`, compound (type+class/attr, no space), descendant (space),
- * child (`>`), and selector lists (comma). Anything outside it throws `unsupported selector: …`.
+ * `[attr]`, `[attr="v"]`, `[attr*="v"]`, `[attr^="v"]`, `[attr$="v"]`, `[attr~="v"]` (word/
+ * class-membership), `[attr|="v"]` (dash-match), the pseudo-classes `:first-child`, `:last-child`,
+ * `:only-child`, `:nth-child(An+B)` (incl. `even`/`odd`) and `:not(<selector>)`, compound
+ * (type+class/attr, no space), descendant (space), child (`>`), adjacent sibling (`+`), general
+ * sibling (`~`), and selector lists (comma). Anything outside it throws `unsupported selector: …`.
  *
  * Passing an `HNode` instead of a string is a containment/descendant test (mirrors cheerio's
  * `$(root).find(node)`): returns `[selector]` iff `selector` is a descendant of `root` (not `root`
@@ -355,6 +370,21 @@ export interface ColumnData {
 	text: string
 }
 
+/** A single icon+label tile within a tile row (see `parseTiles`). */
+export interface TileData {
+	/** Tile label (the short text beside/under the icon; trimmed). */
+	label: string
+	/**
+	 * The tile's icon, when present. `svg` carries the verbatim `<svg>…</svg>` markup (feed to
+	 * `parseSvg`); `fontIcon` carries the icon element's class string; `emoji` carries the leading
+	 * pictographic cluster. Omitted when the tile has no recognisable icon.
+	 */
+	icon?:
+		| { type: 'svg'; raw: string }
+		| { type: 'fontIcon'; className: string }
+		| { type: 'emoji'; text: string }
+}
+
 /** Options shared by the content extractors (mirrors `parseCards`). */
 export interface ParseContentOptions {
 	/** Class pattern; elements within a matching region are skipped (mockups/flows). */
@@ -430,6 +460,16 @@ export function parseBadges(input: string | HNode, options?: ParseContentOptions
  * in document order wins. NEUTRAL — structural only. `null` when none. Accepts a string OR `HNode`.
  */
 export function parseCallout(input: string | HNode, options?: ParseContentOptions): CalloutData | null
+
+/**
+ * Detect the first horizontal row of icon+label tiles and return one {@link TileData} per tile.
+ * STRUCTURE-driven (framework-agnostic): a tile row is ≥2 uniform sibling elements, each carrying one
+ * icon node (inline `<svg>`, a recognised icon-font `<i>`/`<span>`, or a leading emoji) plus a SHORT
+ * label — independent of class vocabulary and resolvable CSS, so it recovers `.stack`/`.stack-row`/
+ * `.reg-badge` rows AND class-token-free equivalents. NEUTRAL — returns `[]` (not `null`) when none.
+ * Accepts a raw HTML string OR an `HNode` from `parseHtml`.
+ */
+export function parseTiles(input: string | HNode, options?: ParseContentOptions): TileData[]
 
 /** Token classification produced by `tokenizeCode`. */
 export type TokenKind = 'keyword' | 'string' | 'comment' | 'number' | 'function' | 'operator' | 'plain'
