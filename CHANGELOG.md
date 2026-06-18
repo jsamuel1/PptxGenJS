@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.3) - 2026-06-18
+
 ### Added
 - `ThemePalette.accents?: string[]` — multi-role accent colours ranked by usage prominence (max 6, OOXML-aligned). `accents[0] === accent` invariant enforced.
 - Callout and Card accent bar defaults now fall back through `palette.accents[0]` before the hardcoded hex.
