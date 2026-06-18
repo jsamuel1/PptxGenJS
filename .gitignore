@@ -21,6 +21,12 @@ coverage/
 ### Build artifacts
 src/bld/
 dist/
+# Self-contained browser bundle copied into the demo by rollup (output of `npm run build`,
+# alongside dist/ above). Regenerated on every build, so it must not be tracked — it churns.
+# NOTE: the website/static/demo copy is intentionally NOT ignored — the docs Pages deploy
+# (docs.yml) serves that committed copy and does not rebuild it.
+demos/browser/js/pptxgen.bundle.js
+demos/browser/js/pptxgen.bundle.js.map
 
 ### Docusaurus build artifacts (the docs site lives under website/, which has its own .gitignore)
 /build/
