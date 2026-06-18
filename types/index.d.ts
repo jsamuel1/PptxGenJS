@@ -136,13 +136,6 @@ declare class PptxGenJS {
 	 */
 	addSlide(props?: PptxGenJS.AddSlideProps): PptxGenJS.Slide
 	/**
-	 * Add a new Slide to Presentation
-	 * @param {string} masterName master slide name
-	 * @returns {Slide} the new Slide
-	 * @deprecated use `addSlide(IAddSlideOptions)`
-	 */
-	addSlide(masterName?: string): PptxGenJS.Slide
-	/**
 	 * Compute evenly-spaced grid cell positions within a bounding area.
 	 * - Pure layout helper: returns one `{ x, y, w, h }` (inches) per item; emits no slide content.
 	 * @param {LayoutGridProps} props grid options
@@ -1009,19 +1002,7 @@ declare namespace PptxGenJS {
 		 */
 		data?: string
 	}
-	export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {
-		/**
-		 * Color (hex format)
-		 * @deprecated v3.6.0 - use `ShapeFillProps` instead
-		 */
-		fill?: HexColor
-
-		/**
-		 * source URL
-		 * @deprecated v3.6.0 - use `DataOrPathProps` instead - remove in v4.0.0
-		 */
-		src?: string
-	}
+	export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {}
 	/**
 	 * Color in Hex format
 	 * @example 'FF3399'
@@ -1135,12 +1116,6 @@ declare namespace PptxGenJS {
 		 * @default 'solid'
 		 */
 		type?: 'none' | 'solid'
-
-		/**
-		 * Transparency (percent)
-		 * @deprecated v3.3.0 - use `transparency`
-		 */
-		alpha?: number
 	}
 	/**
 	 * A single colour stop within a gradient fill.
@@ -1191,30 +1166,6 @@ declare namespace PptxGenJS {
 		endArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 		// FUTURE: beginArrowSize (1-9)
 		// FUTURE: endArrowSize (1-9)
-
-		/**
-		 * Dash type
-		 * @deprecated v3.3.0 - use `dashType`
-		 */
-		lineDash?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
-		/**
-		 * @deprecated v3.3.0 - use `beginArrowType`
-		 */
-		lineHead?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-		/**
-		 * @deprecated v3.3.0 - use `endArrowType`
-		 */
-		lineTail?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-		/**
-		 * Line width (pt)
-		 * @deprecated v3.3.0 - use `width`
-		 */
-		pt?: number
-		/**
-		 * Line size (pt)
-		 * @deprecated v3.3.0 - use `width`
-		 */
-		size?: number
 	}
 	// used by: chart, slide, table, text
 	export interface TextBaseProps {
@@ -1289,30 +1240,6 @@ declare namespace PptxGenJS {
 			 * @example 10 // numbered bullets start with 10
 			 */
 			numberStartAt?: number
-
-			// DEPRECATED
-
-			/**
-			 * Bullet code (unicode)
-			 * @deprecated v3.3.0 - use `characterCode`
-			 */
-			code?: string
-			/**
-			 * Margin between bullet and text
-			 * @since v3.2.1
-			 * @deplrecated v3.3.0 - use `indent`
-			 */
-			marginPt?: number
-			/**
-			 * Number to start with (only applies to type:number)
-			 * @deprecated v3.3.0 - use `numberStartAt`
-			 */
-			startAt?: number
-			/**
-			 * Number type
-			 * @deprecated v3.3.0 - use `numberType`
-			 */
-			style?: string
 		}
 		/**
 		 * Text color
@@ -1667,28 +1594,6 @@ declare namespace PptxGenJS {
 		 * TODO: need new demo.js entry for shape shadow
 		 */
 		shadow?: ShadowProps
-
-		/**
-		 * @deprecated v3.3.0
-		 */
-		lineSize?: number
-		/**
-		 * @deprecated v3.3.0
-		 */
-		lineDash?: 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
-		/**
-		 * @deprecated v3.3.0
-		 */
-		lineHead?: 'arrow' | 'diamond' | 'none' | 'oval' | 'stealth' | 'triangle'
-		/**
-		 * @deprecated v3.3.0
-		 */
-		lineTail?: 'arrow' | 'diamond' | 'none' | 'oval' | 'stealth' | 'triangle'
-		/**
-		 * Shape name (used instead of default "Shape N" name)
-		 * @deprecated v3.10.0 - use `objectName`
-		 */
-		shapeName?: string
 	}
 
 	// tables =========================================================================================
@@ -1766,15 +1671,6 @@ declare namespace PptxGenJS {
 		 * - this margin will be across all slides created by auto-paging
 		 */
 		slideMargin?: Margin
-
-		/**
-		 * @deprecated v3.3.0 - use `autoPageRepeatHeader`
-		 */
-		addHeaderToEach?: boolean
-		/**
-		 * @deprecated v3.3.0 - use `autoPageSlideStartY`
-		 */
-		newSlideStartY?: number
 	}
 	export interface TableCellProps extends TextBaseProps {
 		/**
@@ -1906,11 +1802,6 @@ declare namespace PptxGenJS {
 		 * @default false // obviously
 		 */
 		verbose?: boolean // Undocumented; shows verbose output
-
-		/**
-		 * @deprecated v3.3.0 - use `autoPageSlideStartY`
-		 */
-		newSlideStartY?: number
 	}
 	export interface TableCell {
 		text?: string | TableCell[]
@@ -2047,39 +1938,6 @@ declare namespace PptxGenJS {
 		 * @default true
 		 */
 		wrap?: boolean
-
-		/**
-		 * Whether "Fit to Shape?" is enabled
-		 * @deprecated v3.3.0 - use `fit`
-		 */
-		autoFit?: boolean
-		/**
-		 * Whather "Shrink Text on Overflow?" is enabled
-		 * @deprecated v3.3.0 - use `fit`
-		 */
-		shrinkText?: boolean
-		/**
-		 * Inset
-		 * @deprecated v3.10.0 - use `margin`
-		 */
-		inset?: number
-		/**
-		 * Dash type
-		 * @deprecated v3.3.0 - use `line.dashType`
-		 */
-		lineDash?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
-		/**
-		 * @deprecated v3.3.0 - use `line.beginArrowType`
-		 */
-		lineHead?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-		/**
-		 * @deprecated v3.3.0 - use `line.width`
-		 */
-		lineSize?: number
-		/**
-		 * @deprecated v3.3.0 - use `line.endArrowType`
-		 */
-		lineTail?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 	}
 	export interface TextProps {
 		text?: string
@@ -2259,15 +2117,6 @@ declare namespace PptxGenJS {
 		 * @since v3.11
 		 */
 		plotArea?: IChartPropsFillLine
-
-		/**
-		 * @deprecated v3.11.0 - use `plotArea.border`
-		 */
-		border?: BorderProps
-		/**
-		 * @deprecated v3.11.0 - use `plotArea.fill`
-		 */
-		fill?: HexColor
 	}
 	export interface IChartPropsAxisCat {
 		/**
@@ -3054,11 +2903,6 @@ declare namespace PptxGenJS {
 					text?: string
 				}
 			}>
-
-		/**
-		 * @deprecated v3.3.0 - use `background`
-		 */
-		bkgd?: string | BackgroundProps
 	}
 	export interface ObjectOptions extends ImageProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
 		//_placeholderIdx?: number
@@ -3275,11 +3119,5 @@ declare namespace PptxGenJS {
 		 * @return {Slide} this Slide
 		 */
 		addSeparator(options: SeparatorProps): Slide
-
-		/**
-		 * Background color
-		 * @deprecated in 3.3.0 - use `background` instead
-		 */
-		bkgd: string
 	}
 }

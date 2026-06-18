@@ -75,7 +75,6 @@ import {
 	SHAPE_TYPE,
 	SchemeColor,
 	ShapeType,
-	WRITE_OUTPUT_TYPE,
 } from './core-enums'
 import {
 	AddSlideProps,
@@ -585,11 +584,6 @@ export default class PptxGenJS implements IPresentationProps {
 	}
 
 	/**
-	 * Create and export the .pptx file
-	 * @param {WRITE_OUTPUT_TYPE} outputType - output file type
-	 * @return {Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array>} Promise with data or stream (node) or filename (browser)
-	 */
-	/**
 	 * Resolve each embedded-font face to base64, writing the result into `fontData[face.index]`.
 	 * Node: reads filesystem paths via `fs.readFileSync`. All runtimes: accepts `data:` URIs and
 	 * raw base64 strings directly. On read failure the face is left empty (clamp, don't crash).
@@ -795,14 +789,10 @@ export default class PptxGenJS implements IPresentationProps {
 	 * @param {WriteProps} props output properties
 	 * @returns {Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array>} file content in selected type
 	 */
-	async write(props?: WriteProps | WRITE_OUTPUT_TYPE): Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array> {
-		// DEPRECATED: @deprecated v3.5.0 - outputType - [[remove in v4.0.0]]
-		const propsOutpType = typeof props === 'object' && props?.outputType ? props.outputType : props ? (props as WRITE_OUTPUT_TYPE) : null
-		const propsCompress = typeof props === 'object' && props?.compression ? props.compression : false
-
+	async write(props?: WriteProps): Promise<string | ArrayBuffer | Blob | Buffer | Uint8Array> {
 		return await this.exportPresentation({
-			compression: propsCompress,
-			outputType: propsOutpType,
+			compression: props?.compression ?? false,
+			outputType: props?.outputType ?? null,
 		})
 	}
 
@@ -812,17 +802,12 @@ export default class PptxGenJS implements IPresentationProps {
 	 * @param {WriteFileProps} props - output file properties
 	 * @returns {Promise<string>} the presentation name
 	 */
-	async writeFile(props?: WriteFileProps | string): Promise<string> {
+	async writeFile(props?: WriteFileProps): Promise<string> {
 		// STEP 1: Figure out where we are running
 		const isNode = typeof process !== 'undefined' && !!process.versions?.node && process.release?.name === 'node'
 
 		// STEP 2: Normalise the user arguments
-		if (typeof props === 'string') {
-			// DEPRECATED: @deprecated v3.5.0 - fileName - [[remove in v4.0.0]]
-			console.warn('[WARNING] writeFile(string) is deprecated - pass { fileName } instead.')
-			props = { fileName: props }
-		}
-		const { fileName: rawName = 'Presentation.pptx', compression = false } = props as WriteFileProps
+		const { fileName: rawName = 'Presentation.pptx', compression = false } = props ?? {}
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
 		// STEP 3: Get the binary/Blob from exportPresentation()
@@ -963,8 +948,7 @@ export default class PptxGenJS implements IPresentationProps {
 	 * @returns {PresSlide} the new Slide
 	 */
 	addSlide(options?: AddSlideProps): PresSlide {
-		// TODO: DEPRECATED: arg0 string "masterSlideName" dep as of 3.2.0
-		const masterSlideName = typeof options === 'string' ? options : options?.masterName ? options.masterName : ''
+		const masterSlideName = options?.masterName ? options.masterName : ''
 		let slideLayout: SlideLayout = {
 			_name: this.LAYOUTS[DEF_PRES_LAYOUT].name,
 			_presLayout: this.presLayout,
@@ -1084,7 +1068,6 @@ export default class PptxGenJS implements IPresentationProps {
 			_slideNumberProps: propsClone.slideNumber || null,
 			_slideObjects: [],
 			background: propsClone.background || null,
-			bkgd: propsClone.bkgd || null,
 		}
 
 		// STEP 1: Create the Slide Master/Layout
@@ -1094,7 +1077,7 @@ export default class PptxGenJS implements IPresentationProps {
 		this.slideLayouts.push(newLayout)
 
 		// STEP 3: Add background (image data/path must be captured before `exportPresentation()` is called)
-		if (propsClone.background || propsClone.bkgd) genObj.addBackgroundDefinition(propsClone.background, newLayout)
+		if (propsClone.background) genObj.addBackgroundDefinition(propsClone.background, newLayout)
 
 		// STEP 4: Add slideNumber to master slide (if any)
 		if (newLayout._slideNumberProps && !this.masterSlide._slideNumberProps) this.masterSlide._slideNumberProps = newLayout._slideNumberProps

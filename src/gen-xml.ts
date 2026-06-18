@@ -299,7 +299,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 		strSlideXml += `<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${slide._bkgdImgRid}"><a:lum/></a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>`
 	} else if (slide.background?.color) {
 		strSlideXml += `<p:bg><p:bgPr>${genXmlColorSelection(slide.background)}<a:effectLst/></p:bgPr></p:bg>`
-	} else if (!slide.bkgd && slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
+	} else if (slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
 		// NOTE: Default [white] background is needed on slideMaster1.xml to avoid gray background in Keynote (and Finder previews)
 		strSlideXml += '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>'
 	}
@@ -1359,7 +1359,7 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 			if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `<a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'
+				strXmlBullet = `<a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="${textObj.options.bullet.numberType || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || '1'
 				}"/>`
 			} else if (textObj.options.bullet.characterCode) {
 				let bulletCode = `&#x${textObj.options.bullet.characterCode};`
@@ -1367,19 +1367,6 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(textObj.options.bullet.characterCode)) {
 					console.warn('Warning: `bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
-					bulletCode = BULLET_TYPES.DEFAULT
-				}
-
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-				strXmlBullet = '<a:buSzPct val="100000"/><a:buChar char="' + bulletCode + '"/>'
-			} else if (textObj.options.bullet.code) {
-				// @deprecated `bullet.code` v3.3.0
-				let bulletCode = `&#x${textObj.options.bullet.code};`
-
-				// Check value for hex-ness (s/b 4 char hex)
-				if (!/^[0-9A-Fa-f]{4}$/.test(textObj.options.bullet.code)) {
-					console.warn('Warning: `bullet.code should be a 4-digit hex code (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
@@ -1436,9 +1423,6 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	runProps += opts?.strike ? ` strike="${typeof opts.strike === 'string' ? opts.strike : 'sngStrike'}"` : ''
 	if (typeof opts.underline === 'object' && opts.underline?.style) {
 		runProps += ` u="${opts.underline.style}"`
-	} else if (typeof opts.underline === 'string') {
-		// DEPRECATED: opts.underline is an object as of v3.5.0
-		runProps += ` u="${String(opts.underline)}"`
 	} else if (opts.hyperlink) {
 		runProps += ' u="sng"'
 	}
@@ -1597,14 +1581,6 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 			else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit fontScale="70000"/>'
 			else if (slideObject.options.fit === 'resize') bodyProperties += '<a:spAutoFit/>'
 		}
-		//
-		// DEPRECATED: below (@deprecated v3.3.0)
-		if (slideObject.options.shrinkText) bodyProperties += '<a:normAutofit/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
-		/* DEPRECATED: below (@deprecated v3.3.0)
-		 * MS-PPT > Format shape > Text Options: "Resize shape to fit text" [spAutoFit]
-		 * NOTE: Use of '<a:noAutofit/>' in lieu of '' below causes issues in PPT-2013
-		 */
-		bodyProperties += slideObject.options._bodyProp.autoFit ? '<a:spAutoFit/>' : ''
 
 		// LAST: Close _bodyProp
 		bodyProperties += '</a:bodyPr>'

@@ -31,12 +31,11 @@ slide.addText([{ text: "TEXT", options: { OPTIONS } }]);
 | Option                | Type               | Unit    | Default | Description               | Possible Values                                                                                                                |
 | :-------------------- | :----------------- | :------ | :------ | :------------------------ | :----------------------------------------------------------------------------------------------------------------------------- |
 | `align`               | string             |         | `left`  | alignment                 | `left` or `center` or `right`                                                                                                  |
-| `autoFit`             | boolean            |         | `false` | "Fit to Shape"            | `true` or `false`                                                                                                              |
 | `baseline`            | number             | points  |         | text baseline value       | 0-256                                                                                                                          |
 | `bold`                | boolean            |         | `false` | bold text                 | `true` or `false`                                                                                                              |
 | `breakLine`           | boolean            |         | `false` | appends a line break      | `true` or `false` (only applies when used in text options) Ex: `{text:'hi', options:{breakLine:true}}`                         |
 | `bullet`              | boolean            |         | `false` | bulleted text             | `true` or `false`                                                                                                              |
-| `bullet`              | object             |         |         | bullet options            | object with `type`, `code` or `style`. Ex: `bullet:{type:'number'}`. Ex: `bullet:{code:'2605'}`. Ex: `{style:'alphaLcPeriod'}` |
+| `bullet`              | object             |         |         | bullet options            | object with `type`, `characterCode` or `numberType`. Ex: `bullet:{type:'number'}`. Ex: `bullet:{characterCode:'2605'}`. Ex: `{numberType:'alphaLcPeriod'}` |
 | `charSpacing`         | number             | points  |         | character spacing         | 1-256. Ex: `{ charSpacing:12 }`                                                                                                |
 | `color`               | string \| object   |         |         | text color                | hex color code or [scheme color](/PptxGenJS/docs/shapes-and-schemes). Ex: `{ color:'0088CC' }`. Also accepts a gradient object to fill the glyphs: `{ color:{ type:'gradient', direction:'horizontal', stops:[{position:0,color:'FF0000'},{position:100,color:'0000FF'}] } }` |
 | `fill`                | string             |         |         | fill/bkgd color           | hex color code or [scheme color](/PptxGenJS/docs/shapes-and-schemes). Ex: `{ color:'0088CC' }`                                 |
@@ -47,7 +46,6 @@ slide.addText([{ text: "TEXT", options: { OPTIONS } }]);
 | `highlight`           | string             |         |         | highlight color           | hex color code or [scheme color](/PptxGenJS/docs/shapes-and-schemes). Ex: `{ color:'0088CC' }`                                 |
 | `hyperlink`           | string             |         |         | add hyperlink             | object with `url` or `slide` (`tooltip` optional; `on:'hover'` for mouse-over activation; `action:'nextSlide'\|'prevSlide'\|'firstSlide'\|'lastSlide'\|'endShow'\|'slide'` for navigation jumps). Ex: `{ hyperlink:{url:'https://github.com'} }`                              |
 | `indentLevel`         | number             | level   | `0`     | bullet indent level       | 1-32. Ex: `{ indentLevel:1 }`                                                                                                  |
-| `inset`               | number             | inches  |         | inset/padding             | 1-256. Ex: `{ inset:1.25 }`                                                                                                    |
 | `isTextBox`           | boolean            |         | `false` | PPT "Textbox"             | `true` or `false`                                                                                                              |
 | `italic`              | boolean            |         | `false` | italic text               | `true` or `false`                                                                                                              |
 | `lang`                | string             |         | `en-US` | language setting          | Ex: `{ lang:'zh-TW' }` (Set this when using non-English fonts like Chinese)                                                    |
@@ -99,7 +97,7 @@ slide.addText("Hello", { x: 0.5, y: 0.7, w: 3, color: "0000FF", fontSize: 64 });
 slide.addText("World!", { x: 2.7, y: 1.0, w: 5, color: "DDDD00", fontSize: 90 });
 
 // EX: More formatting options
-slide.addText("Arial, 32pt, green, bold, underline, 0 inset", {
+slide.addText("Arial, 32pt, green, bold, underline, 0.5 margin", {
     x: 0.5,
     y: 5.0,
     w: "90%",
@@ -134,8 +132,8 @@ slide.addText("Line 1\nLine 2\nLine 3", { x: 8.0, y: 2.4, w: "30%", h: 1, fill: 
 // Bullets can also be applied on a per-line level
 slide.addText(
     [
-        { text: "I have a star bullet", options: { bullet: { code: "2605" }, color: "CC0000" } },
-        { text: "I have a triangle bullet", options: { bullet: { code: "25BA" }, color: "00CD00" } },
+        { text: "I have a star bullet", options: { bullet: { characterCode: "2605" }, color: "CC0000" } },
+        { text: "I have a triangle bullet", options: { bullet: { characterCode: "25BA" }, color: "00CD00" } },
         { text: "no bullets on this line", options: { fontSize: 12 } },
         { text: "I have a normal bullet", options: { bullet: true, color: "0000AB" } },
     ],

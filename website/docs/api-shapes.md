@@ -81,7 +81,7 @@ slide.addText("ShapeType.line", {
 | `softEdge`   | [SoftEdgeProps](/PptxGenJS/docs/types#soft-edge-props-softedgeprops)     | soft-edge (feather) props | Ex: `{ radius: 0.1 }` (radius in inches)                  |
 | `bevel`      | [Shape3DProps](/PptxGenJS/docs/types#shape-3d-props-shape3dprops)       | 3-D bevel/extrusion props | Ex: `{ top: { preset: 'circle', width: 0.06, height: 0.06 }, depth: { color: '5B21B6', amount: 0.08 }, material: 'plastic' }` |
 | `shadow`     | [ShadowProps](/PptxGenJS/docs/types#shadow-props-shadowprops)           | shadow props        | (see type link)                                             |
-| `shapeName`  | string                                                                  | optional shape name | Ex: "Customer Network Diagram 99"                           |
+| `objectName` | string                                                                  | optional object name | Ex: "Customer Network Diagram 99"                          |
 
 ## Examples
 

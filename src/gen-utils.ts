@@ -286,7 +286,6 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		} else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
-			if (props.alpha) internalElements += `<a:alpha val="${Math.round((100 - props.alpha) * 1000)}"/>` // DEPRECATED: @deprecated v3.3.0
 			if (props.transparency) internalElements += `<a:alpha val="${Math.round((100 - props.transparency) * 1000)}"/>`
 		}
 

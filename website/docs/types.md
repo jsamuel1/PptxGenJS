@@ -76,7 +76,7 @@ The PptxGenJS interfaces referenced in surrounding documentation. See the [compl
 | `rectRadius` | number                                             | rounding radius     | 0-180. (only for `pptx.shapes.ROUNDED_RECTANGLE`) |
 | `rotate`     | number                                             | rotation (degrees)  | -360 to 360. Default: `0`                         |
 | `shadow`     | [ShadowProps](#shadow-props-shadowprops)           | shadow props        | (see type link)                                   |
-| `shapeName`  | string                                             | optional shape name | Ex: "Customer Network Diagram 99"                 |
+| `objectName` | string                                             | optional object name | Ex: "Customer Network Diagram 99"                |
 
 ## Shape Fill Props (`ShapeFillProps`)
 

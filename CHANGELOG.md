@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+**Breaking change** (major): all `@deprecated` legacy option aliases and their runtime shims have been removed. Migrate to the modern equivalents listed below.
+
+- **Line options** (`ShapeLineProps`) — removed `lineDash`, `lineHead`, `lineTail`, `pt`, `size`. Use `dashType`, `beginArrowType`, `endArrowType`, and `width`.
+- **Shape options** (`ShapeProps`) — removed top-level `lineSize`, `lineDash`, `lineHead`, `lineTail` (use the `line.*` equivalents: `line.width`, `line.dashType`, `line.beginArrowType`, `line.endArrowType`) and `shapeName` (use `objectName`).
+- **Text options** (`TextPropsOptions`) — removed `autoFit` and `shrinkText` (use `fit: 'resize'` / `fit: 'shrink'`), `inset` (use `margin`), and `lineDash` / `lineHead` / `lineSize` / `lineTail` (use the `line.*` equivalents). The legacy `line: <string>` (line-colour) shorthand is no longer accepted — pass a `ShapeLineProps` object.
+- **Bullet options** (`bullet.*`) — removed `code`, `marginPt`, `startAt`, `style`. Use `characterCode`, `indent`, `numberStartAt`, `numberType`.
+- **Fill options** (`ShapeFillProps`) — removed `alpha`. Use `transparency`.
+- **Background** (`BackgroundProps`, slide/master/layout `bkgd`) — removed `bkgd` (use `background`), `BackgroundProps.fill` (use the `ShapeFillProps` `color`) and `BackgroundProps.src` (use `path`/`data` from `DataOrPathProps`). The `slide.bkgd` accessor has been removed.
+- **Chart options** (`IChartOpts`) — removed top-level `border` and `fill`. Use `plotArea.border` and `plotArea.fill`.
+- **Auto-paging / table options** — removed `addHeaderToEach` (use `autoPageRepeatHeader`) and `newSlideStartY` (use `autoPageSlideStartY`).
+- **`write(outputType)` / `writeFile(fileName)` positional string signatures** — removed. Use the object forms `write({ outputType })` and `writeFile({ fileName })`.
+- **`addSlide(masterName: string)` positional overload** — removed. Use `addSlide({ masterName })`.
+- **Text run `underline: <string>`** — removed; pass the object form `underline: { style, color }`.
+- **`DEF_CELL_MARGIN_PT`** constant — removed (unused).
+
 ## [5.0.3](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.3) - 2026-06-18
 
 ### Added

@@ -194,7 +194,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	function calcSlideTabH(): void {
 		let emuStartY = 0
 		if (tableRowSlides.length === 0) emuStartY = tablePropY || inch2Emu(arrInchMargins[0])
-		if (tableRowSlides.length > 0) emuStartY = inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])
+		if (tableRowSlides.length > 0) emuStartY = inch2Emu(tableProps.autoPageSlideStartY || arrInchMargins[0])
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
 		// console.log(`| startY .......................................... = ${(emuStartY / EMU).toFixed(1)}`)
 		// console.log(`| emuSlideTabH .................................... = ${(emuSlideTabH / EMU).toFixed(1)}`)
@@ -202,9 +202,6 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y` (ISSUE #43, ISSUE #47, ISSUE #48)
 			if (typeof tableProps.autoPageSlideStartY === 'number') {
 				emuSlideTabH = (tablePropH || presLayout.height) - inch2Emu(tableProps.autoPageSlideStartY + arrInchMargins[2])
-			} else if (typeof tableProps.newSlideStartY === 'number') {
-				// @deprecated v3.3.0
-				emuSlideTabH = (tablePropH || presLayout.height) - inch2Emu(tableProps.newSlideStartY + arrInchMargins[2])
 			} else if (tablePropY) {
 				emuSlideTabH = (tablePropH || presLayout.height) - inch2Emu((tablePropY / EMU < arrInchMargins[0] ? tablePropY / EMU : arrInchMargins[0]) + arrInchMargins[2])
 				// Use whichever is greater: area between margins or the table H provided (dont shrink usable area - the whole point of over-riding Y on paging is to *increase* usable space)
@@ -449,7 +446,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				emuTabCurrH = 0
 
 				// G: handle repeat headers option /or/ Add new empty row to continue current lines into
-				if ((tableProps.addHeaderToEach || tableProps.autoPageRepeatHeader) && tableProps._arrObjTabHeadRows) {
+				if (tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows) {
 					tableProps._arrObjTabHeadRows.forEach(row => {
 						const newHeadRow: TableRow = []
 						let maxLineHeight = 0
@@ -720,7 +717,7 @@ export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: Tab
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
-		if (idxTr > 0) opts.y = opts.autoPageSlideStartY || opts.newSlideStartY || arrInchMargins[0]
+		if (idxTr > 0) opts.y = opts.autoPageSlideStartY || arrInchMargins[0]
 		if (opts.verbose) console.log(`| opts.autoPageSlideStartY: ${opts.autoPageSlideStartY} / arrInchMargins[0]: ${arrInchMargins[0]} => opts.y = ${opts.y}`)
 
 		// C: Add table to Slide

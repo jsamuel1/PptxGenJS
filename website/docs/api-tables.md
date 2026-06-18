@@ -114,7 +114,7 @@ Auto-paging will create new slides as table rows overflow, doing the magical wor
 | `autoPageLineWeight`   | `0`     | line weight value (adjusts line height)        | -1.0 to 1.0. Ex: `{autoPageLineWeight:0.5}`            |
 | `autoPageRepeatHeader` | `false` | repeat header row(s) on each auto-page slide   | `true` or `false`. Ex: `{autoPageRepeatHeader:true}`   |
 | `autoPageHeaderRows`   | `1`     | number of table rows that comprise the headers | 1-n. Ex: `2` repeats the first two rows on every slide |
-| `newSlideStartY`       |         | starting `y` value for tables on new Slides    | 0-n OR 'n%'. Ex:`{newSlideStartY:0.5}`                 |
+| `autoPageSlideStartY`  |         | starting `y` value for tables on new Slides    | 0-n OR 'n%'. Ex:`{autoPageSlideStartY:0.5}`            |
 
 ### Auto-Paging Property Notes
 
@@ -124,7 +124,7 @@ Auto-paging will create new slides as table rows overflow, doing the magical wor
 - `autoPageLineWeight`: adjusts the calculated height of lines. If too much empty space is left under each table,
     then increase line weight value. Conversely, if the tables are overflowing the bottom of the Slides, then
     reduce the line weight value. Also helpful when using some fonts that do not have the usual golden ratio.
-- `newSlideStartY`: provides the ability to specify where new tables will be placed on new Slides. For example,
+- `autoPageSlideStartY`: provides the ability to specify where new tables will be placed on new Slides. For example,
     you may place a table halfway down a Slide, but you wouldn't that to be the starting location for subsequent
     tables. Use this option to ensure there is no wasted space and to guarantee a professional look.
 

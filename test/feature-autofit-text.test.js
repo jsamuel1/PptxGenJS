@@ -39,16 +39,6 @@ module.exports = [
 		}
 	},
 	{
-		name: "legacy autoFit:true maps to fit:'resize' (single <a:spAutoFit/>)",
-		fn: async () => {
-			const xml = await buildSlideXml(slide => {
-				slide.addText('legacy autofit', { x: 1, y: 1, w: 4, h: 1, autoFit: true })
-			})
-			const count = (xml.match(/<a:spAutoFit\/>/g) || []).length
-			assert(count === 1, 'legacy autoFit:true must emit exactly one <a:spAutoFit/>; got ' + count + ': ' + xml)
-		}
-	},
-	{
 		name: "no fit option => no autofit element emitted",
 		fn: async () => {
 			const xml = await buildSlideXml(slide => {
