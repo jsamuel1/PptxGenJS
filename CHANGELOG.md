@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `extractThemeFromCSS` ranks `accents[]` by applied CSS usage prominence, so a deck's lead accent (e.g. `--orange`) wins `accents[0]`/`accent` rather than an incidental var. (SAU-62/SAU-37)
+- Selector engine: `:first-child`/`:last-child`/`:nth-child(n)`/`:not()`, `+` and `~` sibling combinators, and `^=`/`$=`/`~=`/`|=` attribute operators. (SAU-45)
+- Raw-text lexing for `<script>`/`<style>` content so `<script>if(a<b)</script>` no longer corrupts the parsed tree. (SAU-44)
+- Structure-driven extraction of icon+label tile / stack rows in `parseContent`/`parseCards` (generic, not class-gated). (SAU-40)
+- `BorderProps.transparency` (0–100) emits `<a:alpha>` on `<a:ln>`; unset is byte-identical to before. (SAU-64)
+- `parseCards` populates `colors.borderTransparency` from CSS `rgba()`/`hsla()`/`#rrggbbaa` border alpha. (SAU-64)
+
+### Changed
+- `normalizeColor` now handles `hsl()`/`hwb()`/`oklch()`/`lab()`/named colours, preserves the `var()` fallback, and drops alpha to a 6-hex slot. (SAU-46)
+- `ParseCardsOptions` typings document `titlePattern`/`descPattern`/`badgePattern`/`neverAdoptPattern`/`titleMaxChars` (hand-maintained API parity). (SAU-13)
+- `resolveIconFonts` resolution chain matches its documentation. (SAU-47)
+- Docs: ADR-0010 (balanced-workaround) linked from README-Fork, architecture overview, and AGENTS.md. (SAU-63)
+
+### Fixed
+- `textOf` no longer leaks `<script>`/`<style>`/`<noscript>`/`<template>` raw text into extracted slide content (source + the published `dist/utils.*` bundle). (SAU-43)
+- `addCallout` body text defaults to luminance-derived ink (`inkForFill`) instead of hardcoded white, fixing low-contrast text on pale fills. (SAU-19)
+- Corrected the `extractThemeFromCSS` `@example` — `--purple` is not auto-mapped to `accent`; only role names are.
+
 ## [5.0.5](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.5) - 2026-06-18
 
 ### Added
