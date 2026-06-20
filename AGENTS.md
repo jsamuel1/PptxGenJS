@@ -25,7 +25,10 @@ You are working in the PptxGenJS fork. Before any work, internalise:
    already chosen *and rejected* — re-proposing a superseded direction without new
    evidence is an intent deviation. If your change alters the public surface, a
    seam, or chooses a new direction, update the overview / add an ADR in the same
-   commit (rules in CONTRIBUTING.md → Documentation).
+   commit (rules in CONTRIBUTING.md → Documentation). In particular, read
+   [ADR-0010: balanced workaround](./docs/architecture/decisions/0010-balanced-workaround.md)
+   every iteration — fixes must be general/structure-driven, never keyed to a
+   specific deck's class names.
 4. **[PROMPT.md](./PROMPT.md)** — the ordered work queue; `autoloop task list` is
    the shared steering channel — check it every iteration and mark items complete.
 

@@ -339,6 +339,8 @@ against tests (the autoloop critic reviews for deviations explicitly):
    proxy is worse than an honest gap.
 5. **Structure-driven, not class-name-driven.** Content extractors (`parseCards`,
    `parseTimeline`, …) detect by structure so they generalise across frameworks;
-   downstream consumers (html-to-pptx) should shrink as this library grows.
+   downstream consumers (html-to-pptx) should shrink as this library grows. See
+   [ADR-0010: balanced workaround](./docs/architecture/decisions/0010-balanced-workaround.md)
+   — fix the general case, never key a fix to one deck's class names.
 6. **Copy fidelity is sacred.** Never strip unknown parts/relationships when
    round-tripping; "unsupported to author" never means "safe to drop".

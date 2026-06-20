@@ -69,6 +69,8 @@ iteration as the implementation
 - `test/release/` — real-render verification via Microsoft PowerPoint.
 - Default-off invariant: a presentation not using a feature emits
   byte-identical XML ([ADR-0006](./decisions/0006-default-off-invariant.md)).
+- Balanced-workaround invariant: fixes are general/structure-driven, not keyed to
+  a specific deck's class names ([ADR-0010](./decisions/0010-balanced-workaround.md)).
 
 ## Keeping this document honest
 
