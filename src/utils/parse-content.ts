@@ -21,7 +21,7 @@
  */
 import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf } from './html-dom'
 import type { HNode } from './html-dom'
-import { parseStyleSheets, colorOf, cssProp, flexInfoOf, EMPTY_CSS } from './css-context'
+import { parseStyleSheets, colorOf, flexInfoOf, columnCountOf, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
 import { detectIcon } from './icon-classify'
 import { ICON_FAMILIES } from './icon-fonts.constants'
@@ -190,20 +190,6 @@ export function parseTable (input: string | HNode, opts: ParseContentOptions = {
  * `column-count`. Bootstrap responsive forms (`col-md-6`) are intentionally out of scope.
  */
 const COL_CLASS = /^col(?:umn)?(?:-\d+)?$/i
-
-/** The column count declared by `column-count` or a `columns:` shorthand on `el` (0 when none/<1). */
-function columnCountOf (el: HNode, ctx: CssContext): number {
-	const cc = cssProp(el, 'column-count', ctx)
-	if (cc) { const n = parseInt(cc, 10); if (isFinite(n)) return n }
-	const cols = cssProp(el, 'columns', ctx)
-	if (cols) {
-		// `columns: <width>? <count>?` — the bare integer token (no length unit) is the count.
-		for (const t of cols.trim().split(/\s+/)) {
-			if (/^\d+$/.test(t)) { const n = parseInt(t, 10); if (isFinite(n)) return n }
-		}
-	}
-	return 0
-}
 
 /**
  * Detect an EXPLICIT multi-column structure and return one `{ text }` per column. The only safe,

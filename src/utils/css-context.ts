@@ -18,6 +18,7 @@
  */
 import { parseStyle } from './html-dom'
 import type { HNode } from './html-dom'
+import { normalizeColor } from './color-convert'
 
 /** Hex colour string (6-digit, no leading `#`). */
 export type HexColor = string
@@ -34,20 +35,17 @@ export interface CssContext { rootVars: Record<string, string>, classRules: Clas
 /** Empty context — yields byte-identical output to inline-only parsing. */
 export const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [], typeRules: [] }
 
-/** Extract the first colour in a CSS value as 6-digit hex (no `#`); handles `#rgb`/`#rrggbb`/`rgb()`. */
+/** Extract the first colour in a CSS value as 6-digit hex (no `#`); delegates to normalizeColor. */
 export function extractHex (v: string | undefined): string | undefined {
 	if (!v) return undefined
-	const hm = v.match(/#([0-9a-fA-F]{3,8})\b/)
-	if (hm) {
-		let h = hm[1]
-		if (h.length === 3) h = h.split('').map(c => c + c).join('')
-		return h.slice(0, 6).toUpperCase()
-	}
-	const rgb = v.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
-	if (rgb) {
-		const to2 = (s: string): string => Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, '0')
-		return (to2(rgb[1]) + to2(rgb[2]) + to2(rgb[3])).toUpperCase()
-	}
+	// Try normalizeColor on the full value first (handles standalone colours)
+	const full = normalizeColor(v)
+	if (/^[0-9A-F]{6,8}$/.test(full)) return full.slice(0, 6)
+	// For compound values (e.g. `3px solid #abc`), extract the first hex-like or rgb() token
+	const hm = v.match(/#[0-9a-fA-F]{3,8}\b/)
+	if (hm) { const r = normalizeColor(hm[0]); if (/^[0-9A-F]{6,8}$/.test(r)) return r.slice(0, 6) }
+	const rgb = v.match(/rgba?\([^)]+\)/)
+	if (rgb) { const r = normalizeColor(rgb[0]); if (/^[0-9A-F]{6,8}$/.test(r)) return r.slice(0, 6) }
 	return undefined
 }
 
@@ -183,9 +181,6 @@ export function colorOf (el: HNode, prop: string, ctx: CssContext): string | und
 	return extractHex(cssProp(el, prop, ctx))
 }
 
-/** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. */
-export const declOf = cssProp
-
 /** Count depth-0 whitespace-separated tokens (parenthesized groups count as one token). */
 function countTokens(s: string): number {
 	let depth = 0, count = 0, inToken = false
@@ -262,12 +257,18 @@ export function flexInfoOf(node: HNode, ctx: CssContext): { direction: 'row' | '
 	}
 }
 
-/** CSS `column-count` value; undefined when absent or non-numeric. */
+/** CSS `column-count` value (from `column-count` or `columns:` shorthand); undefined when absent or non-numeric. */
 export function columnCountOf(node: HNode, ctx: CssContext): number | undefined {
-	const v = cssProp(node, 'column-count', ctx)
-	if (!v) return undefined
-	const n = parseInt(v, 10)
-	return isNaN(n) ? undefined : n
+	const cc = cssProp(node, 'column-count', ctx)
+	if (cc) { const n = parseInt(cc, 10); if (isFinite(n) && n >= 1) return n }
+	const cols = cssProp(node, 'columns', ctx)
+	if (cols) {
+		// `columns: <width>? <count>?` — the bare integer token (no length unit) is the count.
+		for (const t of cols.trim().split(/\s+/)) {
+			if (/^\d+$/.test(t)) { const n = parseInt(t, 10); if (isFinite(n) && n >= 1) return n }
+		}
+	}
+	return undefined
 }
 
 /** Pixel width/height; undefined when absent or non-px. */

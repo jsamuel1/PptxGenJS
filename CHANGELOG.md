@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `extractHex` now delegates to `normalizeColor`, supporting named colours, hsl, hwb, oklch, lab in `colorOf`/`bgOfCtx`.
+- `columnCountOf` already handles `columns:` shorthand (confirmed; no duplicate existed).
+
+### Removed
+- `declOf` alias removed from public typings and built bundles (use `cssProp` directly).
+
+### Fixed
+- Unused `cssProp` import removed from `parse-content.ts`.
+
 ## [5.0.7](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.7) - 2026-06-20
 
 ### Added

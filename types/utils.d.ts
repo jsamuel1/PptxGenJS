@@ -512,9 +512,6 @@ export const EMPTY_CSS: CssContext
 /** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else CLASS RULE, else TYPE RULE. */
 export function cssProp(el: HNode, prop: string, ctx: CssContext): string | undefined
 
-/** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. Alias of `cssProp`. */
-export const declOf: typeof cssProp
-
 /** Merged declarations of all type rules matching `el`. */
 export function typeDecls(el: HNode, ctx: CssContext): Record<string, string>
 

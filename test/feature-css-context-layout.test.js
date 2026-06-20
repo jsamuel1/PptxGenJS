@@ -1,12 +1,12 @@
 'use strict'
 
-// Feature: css-context layout interpreter functions (declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf)
+// Feature: css-context layout interpreter functions (cssProp, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf)
 // Tests the layout-aware CSS property extraction helpers added to src/utils/css-context.ts.
 
 const { assert, assertEqual } = require('./helpers')
 // Import through the BUILT PUBLIC ENTRY — never an internal bundle (TESTING.md rule 1;
 // the original export-gap incident was hidden by a test-only css-context bundle).
-const { declOf, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleSheets, EMPTY_CSS, parseHtml } = require('../src/bld/utils.cjs.js')
+const { cssProp, gridColumnsOf, flexInfoOf, columnCountOf, sizeOf, parseStyleSheets, EMPTY_CSS, parseHtml } = require('../src/bld/utils.cjs.js')
 
 /** Helper: parse HTML, return first element matching tag (depth-first). */
 function el(html) {
@@ -24,28 +24,28 @@ function el(html) {
 }
 
 module.exports = [
-	// --- declOf ---
+	// --- cssProp ---
 	{
-		name: 'declOf: inline style wins over class rule',
+		name: 'cssProp: inline style wins over class rule',
 		fn: async () => {
 			const ctx = parseStyleSheets('<style>.x { color: red }</style>')
 			const node = el('<div class="x" style="color: blue"></div>')
-			assertEqual(declOf(node, 'color', ctx), 'blue', 'inline should win')
+			assertEqual(cssProp(node, 'color', ctx), 'blue', 'inline should win')
 		},
 	},
 	{
-		name: 'declOf: var() resolved from :root',
+		name: 'cssProp: var() resolved from :root',
 		fn: async () => {
 			const ctx = parseStyleSheets('<style>:root { --fg: green } .a { color: var(--fg) }</style>')
 			const node = el('<span class="a"></span>')
-			assertEqual(declOf(node, 'color', ctx), 'green', 'var() should resolve')
+			assertEqual(cssProp(node, 'color', ctx), 'green', 'var() should resolve')
 		},
 	},
 	{
-		name: 'declOf: returns undefined when property is absent',
+		name: 'cssProp: returns undefined when property is absent',
 		fn: async () => {
 			const node = el('<p></p>')
-			assertEqual(declOf(node, 'color', EMPTY_CSS), undefined, 'absent → undefined')
+			assertEqual(cssProp(node, 'color', EMPTY_CSS), undefined, 'absent → undefined')
 		},
 	},
 
@@ -281,11 +281,11 @@ module.exports = [
 		},
 	},
 	{
-		name: '!important is stripped from declOf values (class rule)',
+		name: '!important is stripped from cssProp values (class rule)',
 		fn: async () => {
 			const ctx = parseStyleSheets('<style>.x { grid-template-columns: 1fr 1fr !important }</style>')
 			const node = el('<div class="x"></div>')
-			assertEqual(declOf(node, 'grid-template-columns', ctx), '1fr 1fr')
+			assertEqual(cssProp(node, 'grid-template-columns', ctx), '1fr 1fr')
 			assertEqual(gridColumnsOf(node, ctx), 2)
 		},
 	},
