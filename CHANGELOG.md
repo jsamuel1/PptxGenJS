@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.7](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.7) - 2026-06-20
+
 ### Added
 - `extractThemeFromCSS` ranks `accents[]` by applied CSS usage prominence, so a deck's lead accent (e.g. `--orange`) wins `accents[0]`/`accent` rather than an incidental var. (SAU-62/SAU-37)
 - Selector engine: `:first-child`/`:last-child`/`:nth-child(n)`/`:not()`, `+` and `~` sibling combinators, and `^=`/`$=`/`~=`/`|=` attribute operators. (SAU-45)
