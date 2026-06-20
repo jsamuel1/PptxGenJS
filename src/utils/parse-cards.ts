@@ -35,7 +35,7 @@ import type { HNode } from './html-dom'
 // Shared, dependency-free CSS colour-resolution context (promoted out of this file — see
 // docs/features/feature-html-content-extractors.md). `parseCards` behaviour is unchanged: it uses the
 // identical colour logic, now shared with the HTML content extractors.
-import { extractHex, parseStyleSheets, cssProp, bgOfCtx, colorOf } from './css-context'
+import { extractHex, parseStyleSheets, cssProp, bgOfCtx, colorOf, transparencyOf } from './css-context'
 import type { HexColor, CssContext } from './css-context'
 
 /** A single parsed card, shaped to spread straight into `slide.addCard()` v2. */
@@ -71,6 +71,8 @@ export interface CardData {
 		tileFill?: HexColor | GradientFillProps
 		cardFill?: HexColor | GradientFillProps
 		borderColor?: HexColor
+		/** Border transparency (percent, 0–100) from an `rgba()`/`#rrggbbaa` border colour. Omitted when opaque. */
+		borderTransparency?: number
 		titleColor?: HexColor
 		descColor?: HexColor
 	}
@@ -342,6 +344,10 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 	if (cardFill) colors.cardFill = cardFill
 	const borderColor = colorOf(card, 'border', ctx) || colorOf(card, 'border-color', ctx)
 	if (borderColor) colors.borderColor = borderColor
+	// Border alpha (e.g. `border: 2px solid rgba(0,0,0,.4)` or `#rrggbbaa`) → transparency 0–100.
+	// Undefined for opaque borders so the default-off line path stays byte-identical (ADR-0006).
+	const borderTransparency = transparencyOf(card, 'border', ctx) ?? transparencyOf(card, 'border-color', ctx)
+	if (borderTransparency != null && borderTransparency > 0) colors.borderTransparency = borderTransparency
 	if (titleEl) { const c = colorOf(titleEl, 'color', ctx); if (c) colors.titleColor = c }
 	if (descEl) { const c = colorOf(descEl, 'color', ctx); if (c) colors.descColor = c }
 	if (iconEl) {

@@ -176,6 +176,8 @@ export interface CardData {
 		tileFill?: string | GradientFillProps
 		cardFill?: string | GradientFillProps
 		borderColor?: string
+		/** Border transparency (percent, 0–100) from an `rgba()`/`#rrggbbaa` border colour. Omitted when opaque. */
+		borderTransparency?: number
 		titleColor?: string
 		descColor?: string
 	}

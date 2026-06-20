@@ -46,6 +46,41 @@ export function extractHex (v: string | undefined): string | undefined {
 	return undefined
 }
 
+/**
+ * Border/line transparency (percent, 0–100) implied by the FIRST colour in a CSS value.
+ * Reads the alpha of an `rgba()`/`hsla()` (`a` 0–1) or an 8-digit `#rrggbbaa` hex, and returns
+ * `(1 - alpha) * 100` rounded. Returns `undefined` when no alpha is present (fully opaque colours,
+ * `rgb()`, 3/6-digit hex) so callers can leave the default-off path byte-identical (ADR-0006).
+ */
+export function transparencyFromColor (v: string | undefined): number | undefined {
+	if (!v) return undefined
+	// 8-digit hex `#rrggbbaa` (4-digit `#rgba` shorthand expands the alpha nibble)
+	const hm = v.match(/#([0-9a-fA-F]{3,8})\b/)
+	if (hm) {
+		let h = hm[1]
+		if (h.length === 4) h = h.split('').map(c => c + c).join('')
+		if (h.length === 8) {
+			const alpha = parseInt(h.slice(6, 8), 16) / 255
+			return Math.round((1 - alpha) * 100)
+		}
+		return undefined
+	}
+	// rgba()/hsla() functional notation — 4th component is alpha 0–1 (or `N%`)
+	const fn = v.match(/(?:rgba|hsla)\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*([\d.]+%?)\s*\)/i)
+	if (fn) {
+		const raw = fn[1]
+		const alpha = raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw)
+		if (!isFinite(alpha)) return undefined
+		return Math.round((1 - Math.max(0, Math.min(1, alpha))) * 100)
+	}
+	return undefined
+}
+
+/** Border/line transparency (0–100) of a CSS property of `el` honouring the cascade (inline > class rule). */
+export function transparencyOf (el: HNode, prop: string, ctx: CssContext): number | undefined {
+	return transparencyFromColor(cssProp(el, prop, ctx))
+}
+
 /** Resolve `var(--name[, fallback])` references against `rootVars`; left as-is when unresolved. */
 export function resolveVars (value: string | undefined, rootVars: Record<string, string>): string | undefined {
 	if (!value || value.indexOf('var(') === -1) return value
