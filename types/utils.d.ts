@@ -500,17 +500,23 @@ export function codeRuns(source: string, opts?: CodeRunsOptions): object[]
 /** A simple single-element class rule from a `<style>` block. */
 export interface ClassRule { classes: string[], decls: Record<string, string> }
 
+/** A type selector rule (bare tag or tag+classes) from a `<style>` block. */
+export interface TypeRule { tag: string, classes: string[], decls: Record<string, string> }
+
 /** Parsed stylesheet context threaded through colour analysis. Empty ⇒ inline-only (legacy) behaviour. */
-export interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[] }
+export interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[], typeRules: TypeRule[] }
 
 /** Empty context — yields byte-identical output to inline-only parsing. */
 export const EMPTY_CSS: CssContext
 
-/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
+/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else CLASS RULE, else TYPE RULE. */
 export function cssProp(el: HNode, prop: string, ctx: CssContext): string | undefined
 
 /** Resolved CSS declaration for any property: INLINE style (var-resolved) > CLASS RULE. Alias of `cssProp`. */
 export const declOf: typeof cssProp
+
+/** Merged declarations of all type rules matching `el`. */
+export function typeDecls(el: HNode, ctx: CssContext): Record<string, string>
 
 /** Explicit grid column count from `grid-template-columns`; undefined when indeterminate. */
 export function gridColumnsOf(node: HNode, ctx: CssContext): number | undefined
@@ -524,7 +530,7 @@ export function columnCountOf(node: HNode, ctx: CssContext): number | undefined
 /** Pixel width/height; undefined when absent or non-px. */
 export function sizeOf(node: HNode, ctx: CssContext): { wPx?: number, hPx?: number } | undefined
 
-/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
+/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules + type rules. */
 export function parseStyleSheets(html: string): CssContext
 
 /**

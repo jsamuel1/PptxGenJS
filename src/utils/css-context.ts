@@ -8,11 +8,13 @@
  * implementation. It is a behaviour-neutral move — `parseCards` output is byte-identical.
  *
  * COLOUR SCOPE: colours are resolved from INLINE `style="…"`, from simple class rules in a
- * `<style>` block (`.foo { background; color; border; border-left }`, last-declared wins), and
+ * `<style>` block (`.foo { background; color; border; border-left }`, last-declared wins), from
+ * type selectors (`h1`, `td`, `h1.title` — bare tag or tag+classes, lowest priority), and
  * from `var(--name[, fallback])` references against `:root`/`html`/`body` custom properties — in
- * both inline styles and class rules. Precedence is INLINE STYLE > CLASS RULE. Out of scope: the
- * browser COMPUTED-style cascade (specificity ranking, id/descendant/combinator selectors,
- * `@media`), which needs a live DOM and is incompatible with string-input, zero-dependency parsing.
+ * both inline styles and class/type rules. Precedence is INLINE STYLE > CLASS RULE > TYPE RULE.
+ * Out of scope: the browser COMPUTED-style cascade (specificity ranking, id/descendant/combinator
+ * selectors, `@media`), which needs a live DOM and is incompatible with string-input,
+ * zero-dependency parsing.
  */
 import { parseStyle } from './html-dom'
 import type { HNode } from './html-dom'
@@ -23,11 +25,14 @@ export type HexColor = string
 /** A simple single-element class rule from a `<style>` block. */
 export interface ClassRule { classes: string[], decls: Record<string, string> }
 
+/** A type selector rule (bare tag or tag+classes) from a `<style>` block. */
+export interface TypeRule { tag: string, classes: string[], decls: Record<string, string> }
+
 /** Parsed stylesheet context threaded through colour analysis. Empty ⇒ inline-only (legacy) behaviour. */
-export interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[] }
+export interface CssContext { rootVars: Record<string, string>, classRules: ClassRule[], typeRules: TypeRule[] }
 
 /** Empty context — yields byte-identical output to inline-only parsing. */
-export const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [] }
+export const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [], typeRules: [] }
 
 /** Extract the first colour in a CSS value as 6-digit hex (no `#`); handles `#rgb`/`#rrggbb`/`rgb()`. */
 export function extractHex (v: string | undefined): string | undefined {
@@ -99,10 +104,11 @@ export function resolveVars (value: string | undefined, rootVars: Record<string,
 	return cur
 }
 
-/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules. */
+/** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules + type rules. */
 export function parseStyleSheets (html: string): CssContext {
 	const rootVars: Record<string, string> = {}
 	const classRules: ClassRule[] = []
+	const typeRules: TypeRule[] = []
 	let css = ''
 	const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
 	let sm: RegExpExecArray | null
@@ -123,10 +129,13 @@ export function parseStyleSheets (html: string): CssContext {
 			} else if (/^(?:\.[-\w]+)+$/.test(s)) {
 				// simple class selector only (`.a` or chained `.a.b`); no element/id/combinator/pseudo
 				classRules.push({ classes: s.split('.').filter(Boolean), decls })
+			} else {
+				const tm = s.match(/^([a-zA-Z][\w-]*)((?:\.[-\w]+)*)$/)
+				if (tm) typeRules.push({ tag: tm[1].toLowerCase(), classes: tm[2] ? tm[2].split('.').filter(Boolean) : [], decls })
 			}
 		}
 	}
-	return { rootVars, classRules }
+	return { rootVars, classRules, typeRules }
 }
 
 /** Merged declarations of all class rules matching `el` (every selector class present); later wins. */
@@ -139,16 +148,29 @@ export function classDecls (el: HNode, ctx: CssContext): Record<string, string> 
 	return out
 }
 
+/** Merged declarations of all type rules matching `el` (tag matches and every selector class present); later wins. */
+export function typeDecls (el: HNode, ctx: CssContext): Record<string, string> {
+	if (ctx.typeRules.length === 0 || !el.tag) return {}
+	const tag = el.tag.toLowerCase()
+	const out: Record<string, string> = {}
+	for (const rule of ctx.typeRules) {
+		if (rule.tag === tag && rule.classes.every(c => el.classes.includes(c))) Object.assign(out, rule.decls)
+	}
+	return out
+}
+
 /** Strip trailing `!important` from a CSS value. */
 function stripImportant(v: string | undefined): string | undefined {
 	return v ? v.replace(/\s*!important\s*$/i, '').trim() || undefined : undefined
 }
 
-/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else matched CLASS RULE. */
+/** Resolved CSS property for `el`: INLINE style (var-resolved) wins, else CLASS RULE, else TYPE RULE. */
 export function cssProp (el: HNode, prop: string, ctx: CssContext): string | undefined {
 	const inline = resolveVars(el.style[prop], ctx.rootVars)
 	if (inline !== undefined && inline !== '') return stripImportant(inline)
-	return stripImportant(resolveVars(classDecls(el, ctx)[prop], ctx.rootVars))
+	const fromClass = resolveVars(classDecls(el, ctx)[prop], ctx.rootVars)
+	if (fromClass !== undefined && fromClass !== '') return stripImportant(fromClass)
+	return stripImportant(resolveVars(typeDecls(el, ctx)[prop], ctx.rootVars))
 }
 
 /** Background colour of `el` honouring the cascade (inline > class rule, with `var()` resolved). */
