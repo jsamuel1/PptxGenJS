@@ -473,6 +473,46 @@ export function parseCallout(input: string | HNode, options?: ParseContentOption
  */
 export function parseTiles(input: string | HNode, options?: ParseContentOptions): TileData[]
 
+/** A neutral structured image node (`<img>`/`<picture>`), ready for a converter to fetch + embed. */
+export interface ImageNode {
+	/** Discriminant — always `'image'`. */
+	kind: 'image'
+	/**
+	 * The image source: a data URI or absolute URL passed through verbatim; a relative URL resolved
+	 * against `options.baseUrl` when supplied, else preserved as authored. The consumer fetches/embeds
+	 * this — the extractor never reads it.
+	 */
+	src: string
+	/** Alternative text (`alt` attribute, trimmed). Empty string when absent — `alt=""` is meaningful. */
+	alt: string
+	/** Intrinsic width in CSS px, when expressible from the `width` attr or inline `style`. Omitted otherwise. */
+	width?: number
+	/** Intrinsic height in CSS px, when expressible from the `height` attr or inline `style`. Omitted otherwise. */
+	height?: number
+}
+
+/** Options for {@link parseImages}. */
+export interface ParseImageOptions {
+	/** Class pattern; an image within a matching region is skipped (mockups/flows). Mirrors parse-content. */
+	excludeWithin?: RegExp
+	/**
+	 * Base URL for resolving a RELATIVE `src`. When omitted, a relative `src` is preserved verbatim —
+	 * never guessed. Data URIs and absolute URLs are always passed through unchanged.
+	 */
+	baseUrl?: string
+}
+
+/**
+ * Extract every image — `<img>` and the resolved image of a `<picture>` — as a neutral
+ * {@link ImageNode} (`{ kind:'image', src, alt, width?, height? }`), in document order. `src` is
+ * resolved (data URI / absolute URL verbatim; relative resolved against `options.baseUrl` when given),
+ * `alt` is the trimmed alt text (`''` when absent), and `width`/`height` carry the intrinsic px size
+ * from the `width`/`height` attribute or an inline `style` px length. NEUTRAL & DEPENDENCY-FREE —
+ * represents the HTML, never fetches/embeds. Returns `[]` (NOT `null`) when no image is present.
+ * Accepts a raw HTML string OR an `HNode` from `parseHtml`.
+ */
+export function parseImages(input: string | HNode, options?: ParseImageOptions): ImageNode[]
+
 /** Token classification produced by `tokenizeCode`. */
 export type TokenKind = 'keyword' | 'string' | 'comment' | 'number' | 'function' | 'operator' | 'plain'
 
