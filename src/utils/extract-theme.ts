@@ -391,6 +391,40 @@ function canonicalVarName (name: string): string[] {
 /** Known CSS framework prefixes to strip before VAR_TO_SLOT lookup. */
 const KNOWN_PREFIXES = ['bs-', 'md-sys-color-', 'mui-', 'tw-', 'chakra-', 'mantine-', 'sl-']
 
+/**
+ * Resolve a bare CSS variable name to a {@link ThemePalette} slot, or `undefined`.
+ *
+ * The SINGLE definition of the name→slot resolution order, shared by the base-vars and
+ * media-query passes (so they cannot drift):
+ *  1. user-supplied `varAliases` (applied first, by lower-cased name),
+ *  2. the exact / spelling-folded canonical name against `VAR_TO_SLOT`,
+ *  3. a known-framework-prefix strip, then canonical lookup,
+ *  4. a generic first-word-segment strip, then canonical lookup.
+ */
+function resolveSlot (name: string, varAliases: Record<string, string>): keyof ThemePalette | undefined {
+	const lcName = name.toLowerCase()
+	if (varAliases[lcName]) return varAliases[lcName] as keyof ThemePalette
+	for (const cand of canonicalVarName(name)) {
+		if (VAR_TO_SLOT[cand]) return VAR_TO_SLOT[cand]
+	}
+	for (const prefix of KNOWN_PREFIXES) {
+		if (lcName.startsWith(prefix)) {
+			const stripped = lcName.slice(prefix.length)
+			for (const cand of canonicalVarName(stripped)) {
+				if (VAR_TO_SLOT[cand]) return VAR_TO_SLOT[cand]
+			}
+		}
+	}
+	const dashIdx = lcName.indexOf('-')
+	if (dashIdx > 0) {
+		const afterPrefix = lcName.slice(dashIdx + 1)
+		for (const cand of canonicalVarName(afterPrefix)) {
+			if (VAR_TO_SLOT[cand]) return VAR_TO_SLOT[cand]
+		}
+	}
+	return undefined
+}
+
 /** Return type for {@link parseCssVars}: base vars plus media-query scoped vars. */
 interface ParsedCssVars {
 	vars: Record<string, string>
@@ -493,39 +527,8 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		let matched = 0
 		let fontFromVar = false
 		Object.keys(vars).forEach(name => {
-			let slot: keyof ThemePalette | undefined
-			// 5e: varAliases applied BEFORE VAR_TO_SLOT lookup
-			const lcName = name.toLowerCase()
-			if (varAliases[lcName]) {
-				slot = varAliases[lcName] as keyof ThemePalette
-			} else {
-				// 5a: try canonical name, then prefix-stripped canonical name
-				for (const cand of canonicalVarName(name)) {
-					if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-				}
-				if (!slot) {
-					// Strip known framework prefixes and retry
-					for (const prefix of KNOWN_PREFIXES) {
-						if (lcName.startsWith(prefix)) {
-							const stripped = lcName.slice(prefix.length)
-							for (const cand of canonicalVarName(stripped)) {
-								if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-							}
-							if (slot) break
-						}
-					}
-				}
-				if (!slot) {
-					// Generic fallback: strip the first word-segment as a potential prefix
-					const dashIdx = lcName.indexOf('-')
-					if (dashIdx > 0) {
-						const afterPrefix = lcName.slice(dashIdx + 1)
-						for (const cand of canonicalVarName(afterPrefix)) {
-							if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-						}
-					}
-				}
-			}
+			// 5a/5e: shared name→slot resolution (varAliases → canonical → prefix-strip → dash-strip).
+			const slot = resolveSlot(name, varAliases)
 			if (!slot) return
 			let value = vars[name]
 			if (resolveVarRefs) value = resolveVar(value, vars)
@@ -621,35 +624,7 @@ export function extractThemeFromCSS (css: string, options: ExtractThemeOptions =
 		const mediaVars = inferredMode === 'dark' ? darkVars : lightVars
 		if (Object.keys(mediaVars).length > 0) {
 			Object.keys(mediaVars).forEach(name => {
-				let slot: keyof ThemePalette | undefined
-				const lcName = name.toLowerCase()
-				if (varAliases[lcName]) {
-					slot = varAliases[lcName] as keyof ThemePalette
-				} else {
-					for (const cand of canonicalVarName(name)) {
-						if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-					}
-					if (!slot) {
-						for (const prefix of KNOWN_PREFIXES) {
-							if (lcName.startsWith(prefix)) {
-								const stripped = lcName.slice(prefix.length)
-								for (const cand of canonicalVarName(stripped)) {
-									if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-								}
-								if (slot) break
-							}
-						}
-					}
-					if (!slot) {
-						const dashIdx = lcName.indexOf('-')
-						if (dashIdx > 0) {
-							const afterPrefix = lcName.slice(dashIdx + 1)
-							for (const cand of canonicalVarName(afterPrefix)) {
-								if (VAR_TO_SLOT[cand]) { slot = VAR_TO_SLOT[cand]; break }
-							}
-						}
-					}
-				}
+				const slot = resolveSlot(name, varAliases)
 				if (!slot) return
 				let value = mediaVars[name]
 				if (resolveVarRefs) value = resolveVar(value, { ...vars, ...mediaVars })

@@ -15,6 +15,10 @@
  */
 import type { GradientFillProps, GradientStop } from '../core-interfaces'
 import { normalizeColor } from './color-convert'
+// Shared, dependency-free attribute/style parsers (promoted to html-dom — see
+// docs/features/feature-html-tree-query.md). html-dom's `parseAttrs` is a superset of the old
+// SVG-local copy (it also reads unquoted/boolean attrs); SVG attribute strings parse identically.
+import { parseAttrs, parseStyle } from './html-dom'
 
 /** Hex colour string (6-digit, no leading `#`). */
 type HexColor = string
@@ -381,25 +385,6 @@ function parsePoints (raw: string): number[][] {
 // SVG element / attribute / gradient extraction
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
-/** Extract attributes from an element's opening-tag attribute string. */
-function parseAttrs (attrStr: string): Record<string, string> {
-	const out: Record<string, string> = {}
-	const re = /([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g
-	let m: RegExpExecArray | null
-	while ((m = re.exec(attrStr)) !== null) out[m[1].toLowerCase()] = m[3] !== undefined ? m[3] : m[4]
-	return out
-}
-
-/** Read a CSS-like `style="a:b;c:d"` attribute into a property map. */
-function parseStyle (style: string): Record<string, string> {
-	const out: Record<string, string> = {}
-	for (const decl of (style || '').split(';')) {
-		const ix = decl.indexOf(':')
-		if (ix > 0) out[decl.slice(0, ix).trim().toLowerCase()] = decl.slice(ix + 1).trim()
-	}
-	return out
-}
-
 interface GradDef { stops: GradientStop[], direction: number }
 
 /** Collect `<linearGradient>`/`<radialGradient>` defs by `id` (matched by id attr, not tag name). */
@@ -460,7 +445,10 @@ function resolvePaint (value: string | undefined, gradients: Record<string, Grad
 			const g = gradients[id]
 			return { kind: 'gradient', gradId: id, grad: { type: 'gradient', direction: g.direction, stops: g.stops } }
 		}
-		// Unresolvable reference → fall back to a solid colour
+		// Broken gradient ref (`url(#id)` whose <linear/radialGradient> is outside the captured
+		// subtree): prefer the inherited `currentColor`, then the caller's `defaultFill`, and only
+		// degrade to black as a last resort — so a missing def no longer silently blackens the shape.
+		if (currentColor) return { kind: 'solid', hex: normalizeColor(currentColor) }
 		return { kind: 'solid', hex: fallback ? normalizeColor(fallback) : '000000' }
 	}
 	if (v === 'currentColor') return { kind: 'solid', hex: normalizeColor(currentColor || fallback || '000000') }
@@ -529,7 +517,12 @@ export function parseSvg (markup: string, opts: ParseSvgOptions = {}): SvgPart[]
 		const strokeVal = get('stroke') !== undefined ? get('stroke') : rootStroke
 		const strokeWVal = get('stroke-width') !== undefined ? get('stroke-width') : rootStrokeW
 
-		const currentColor = normalizeColor((fillVal && fillVal !== 'currentColor' ? fillVal : strokeVal) || fallback || '000000')
+		// `currentColor` = a concrete solid colour to inherit. A `url(#…)`/`none`/`currentColor`
+		// fill is not itself a colour, so prefer the stroke (then defaultFill) in those cases — this
+		// gives the broken-gradient-ref path a meaningful colour to fall back to instead of black.
+		const fillIsColor = fillVal !== undefined && fillVal !== 'currentColor' && fillVal !== 'none' && !/^url\(/i.test(fillVal.trim())
+		const ccSource = (fillIsColor ? fillVal : (strokeVal && !/^url\(/i.test(strokeVal.trim()) ? strokeVal : undefined)) || fallback || '000000'
+		const currentColor = normalizeColor(ccSource)
 		const fillPaint = resolvePaint(fillVal, gradients, fallback, currentColor)
 		const strokePaint = resolvePaint(strokeVal !== undefined ? strokeVal : 'none', gradients, fallback, currentColor)
 		const mode: 'fill' | 'stroke' = fillPaint.kind === 'none' && strokePaint.kind !== 'none' ? 'stroke' : 'fill'

@@ -25,12 +25,12 @@
  */
 import { parseSvg } from './parse-svg'
 import type { SvgPart } from './parse-svg'
-import { detectIcon, extractCssCodepoints } from './icon-classify'
-import { ICON_FAMILIES, MATERIAL_FONT_FACE_FAMILIES, ICON_FONT_FACES } from './icon-fonts.constants'
+import { detectIcon, extractCssCodepoints, isFontIconEl, isUniformTileRow } from './icon-classify'
+import { MATERIAL_FONT_FACE_FAMILIES, ICON_FONT_FACES } from './icon-fonts.constants'
 import type { GradientFillProps } from '../core-interfaces'
 // Shared, dependency-free HTML tree-builder + helpers (promoted out of this file — see
 // docs/features/feature-html-tree-query.md). `parseHtml` is the same parser previously named `buildTree`.
-import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf } from './html-dom'
+import { parseHtml as buildTree, elements, textOf, classMatch, isAncestorOrSelf, isExcluded, leadingEmoji } from './html-dom'
 import type { HNode } from './html-dom'
 // Shared, dependency-free CSS colour-resolution context (promoted out of this file — see
 // docs/features/feature-html-content-extractors.md). `parseCards` behaviour is unchanged: it uses the
@@ -61,8 +61,8 @@ export interface CardData {
 	title: string
 	/** Card description / body text. */
 	description?: string
-	/** Small pill/count badge: `color` is the badge FILL colour. */
-	badge?: { text: string, color: HexColor }
+	/** Small pill/count badge. `color` (badge FILL colour, 6-hex) is OMITTED when undetectable. */
+	badge?: { text: string, color?: HexColor }
 	/** Thin left-edge accent bar (from a `border-left` rule). `width` is in source px. */
 	accentBar?: { color: HexColor | GradientFillProps, width: number }
 	/** Colours read from inline styles. All hex values are 6-digit, no `#`. */
@@ -132,14 +132,6 @@ const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)$/i
 // file). They are shared with the public `parseHtml`/`query` selector engine. `parseCards`
 // behaviour is unchanged — it uses the identical parser, now in one place.
 
-/** True when `el` (or an ancestor) matches the exclude pattern. */
-function isExcluded (el: HNode, pat: RegExp | undefined): boolean {
-	if (!pat) return false
-	let cur: HNode | null = el
-	while (cur) { if (cur.classes.length && classMatch(cur, pat)) return true; cur = cur.parent }
-	return false
-}
-
 /** First descendant element of `root` matching `pred`, preorder, skipping `skip` subtrees. */
 function findFirst (root: HNode, pred: (e: HNode) => boolean, skip?: Set<HNode>): HNode | null {
 	const stack = [...root.children].reverse().filter(c => c.tag !== '#text')
@@ -151,16 +143,6 @@ function findFirst (root: HNode, pred: (e: HNode) => boolean, skip?: Set<HNode>)
 		for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k])
 	}
 	return null
-}
-
-/** Returns true when an `<i>`/`<span>` element carries any recognised icon-font classes. */
-function isIconEl (el: HNode): boolean {
-	if (el.tag !== 'i' && el.tag !== 'span') return false
-	const desc = detectIcon(el.classes.join(' '), textOf(el, { keepPUA: true }))
-	if (!desc) return false
-	// detectIcon returns a descriptor for ANY classed element (fallback fontFamily = tokens[0]).
-	// Only treat it as a genuine icon if the family is one we explicitly recognise.
-	return ICON_FAMILIES.has(desc.fontFamily) || desc.isLigature
 }
 
 /**
@@ -204,14 +186,8 @@ function inlineStyleBlocks (html: string): string[] {
 	return blocks
 }
 
-/** Leading emoji (pictographic) cluster at the start of a string, if any. */
-function leadingEmoji (text: string): string | undefined {
-	const t = text.trim()
-	if (!t) return undefined
-	// Match a leading emoji / pictographic / symbol code point (incl. surrogate pairs + VS16/ZWJ runs).
-	const m = t.match(/^(?:\p{Extended_Pictographic}(?:\u200D|\uFE0F)?)+/u)
-	return m ? m[0] : undefined
-}
+// `leadingEmoji` is the shared helper from `./html-dom` (imported above) — one definition shared
+// with the content extractors so the leading-pictographic rule cannot drift.
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // Per-card structure analysis
@@ -256,7 +232,7 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 		const parts = parseSvg(svgEl.raw || '', opts.defaultFill ? { defaultFill: opts.defaultFill } : {})
 		icon = { type: 'svg', parts }
 	} else {
-		const faEl = findFirst(card, e => isIconEl(e))
+		const faEl = findFirst(card, e => isFontIconEl(e))
 		if (faEl) {
 			iconEl = faEl
 			skip.add(faEl)
@@ -289,7 +265,9 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 		skip.add(badgeEl)
 		const bt = textOf(badgeEl).trim()
 		const bc = bgOfCtx(badgeEl, ctx)
-		badge = { text: bt, color: bc || '' }
+		// OMIT colour when undetectable (don't emit an empty-string sentinel into a HexColor field) —
+		// matches every other colour field, so the consumer keeps its own default instead of warning.
+		badge = bc ? { text: bt, color: bc } : { text: bt }
 	}
 
 	// ── title ─────────────────────────────────────────────────────────────────────────────
@@ -389,7 +367,7 @@ const NEVER_ADOPT_CLASS = /(^|-)(quote|callout|testimonial|blockquote)\b/
 /** True when the subtree contains an inline `<svg>` or an icon-font `<i>`/`<span>`. */
 function hasIcon (node: HNode): boolean {
 	return !!findFirst(node, e => e.tag === 'svg') ||
-		!!findFirst(node, e => isIconEl(e))
+		!!findFirst(node, e => isFontIconEl(e))
 }
 
 /** Returns true when `sibling` is structurally similar to the already-detected `cards`. */
@@ -439,26 +417,9 @@ function isStructurallySimilar (sibling: HNode, cards: HNode[], contPat: RegExp,
 // parseCards — the public entry
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
-/**
- * True when EVERY direct element child of `e` is a structural icon+label TILE (one icon node + a
- * short label) and the children are uniform — a class- and CSS-agnostic tile row (SAU-40). This is
- * the signal that lets a class-token-free, externally-styled `.stack`/`.stack-row` row be recognised
- * even though it carries no card/grid class and no inline/`<style>`-resolvable display.
- */
-function isTileRow (e: HNode): boolean {
-	const childEls = e.children.filter(c => c.tag !== '#text')
-	if (childEls.length < 2) return false
-	const isTile = (c: HNode): boolean => {
-		const hasIconNode = !!findFirst(c, n => n.tag === 'svg') || !!findFirst(c, n => isIconEl(n)) || !!leadingEmoji(textOf(c))
-		if (!hasIconNode) return false
-		const label = textOf(c).trim()
-		return label.length > 0 && label.length <= 40
-	}
-	if (!childEls.every(isTile)) return false
-	const counts = childEls.map(c => c.children.filter(k => k.tag !== '#text').length)
-	const avg = counts.reduce((s, n) => s + n, 0) / counts.length
-	return !counts.some(n => Math.abs(n - avg) > 1)
-}
+// The class- and CSS-agnostic icon+label tile-row rule (SAU-40) is the shared `isUniformTileRow`
+// from `./icon-classify` (imported above) — ONE definition (incl. the `≤40`-char magic and the ±1
+// uniformity tolerance) shared with the `parseContent` tile recogniser so the two cannot drift.
 
 /** Locate a grid/flex container whose repeated children are the cards. */
 function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp | undefined, ctx: CssContext): HNode | null {
@@ -473,7 +434,7 @@ function findContainer (allEls: HNode[], contPat: RegExp, exclPat: RegExp | unde
 		// FALLBACK (SAU-40): a class-token-free / externally-styled row of icon+label tiles. Only
 		// reached when the class/grid/flex signals above did NOT match, so previously-recognised
 		// inputs keep selecting the same container — this strictly ADDS the dropped tile rows.
-		if (isTileRow(e)) return e
+		if (isUniformTileRow(e)) return e
 	}
 	return null
 }

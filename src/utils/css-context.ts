@@ -18,7 +18,7 @@
  */
 import { parseStyle } from './html-dom'
 import type { HNode } from './html-dom'
-import { normalizeColor } from './color-convert'
+import { normalizeColor, alphaFromColor } from './color-convert'
 
 /** Hex colour string (6-digit, no leading `#`). */
 export type HexColor = string
@@ -35,48 +35,47 @@ export interface CssContext { rootVars: Record<string, string>, classRules: Clas
 /** Empty context — yields byte-identical output to inline-only parsing. */
 export const EMPTY_CSS: CssContext = { rootVars: {}, classRules: [], typeRules: [] }
 
+/** Match the FIRST colour token of a (possibly compound) CSS value: a hex, or any colour function. */
+const FIRST_COLOR_TOKEN = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?|hwb|oklch|lab)\([^)]*\)/i
+
 /** Extract the first colour in a CSS value as 6-digit hex (no `#`); delegates to normalizeColor. */
 export function extractHex (v: string | undefined): string | undefined {
 	if (!v) return undefined
 	// Try normalizeColor on the full value first (handles standalone colours)
 	const full = normalizeColor(v)
 	if (/^[0-9A-F]{6,8}$/.test(full)) return full.slice(0, 6)
-	// For compound values (e.g. `3px solid #abc`), extract the first hex-like or rgb() token
-	const hm = v.match(/#[0-9a-fA-F]{3,8}\b/)
-	if (hm) { const r = normalizeColor(hm[0]); if (/^[0-9A-F]{6,8}$/.test(r)) return r.slice(0, 6) }
-	const rgb = v.match(/rgba?\([^)]+\)/)
-	if (rgb) { const r = normalizeColor(rgb[0]); if (/^[0-9A-F]{6,8}$/.test(r)) return r.slice(0, 6) }
+	// Compound value (e.g. `3px solid #abc` / `2px solid oklch(.7 .1 30 / .4)`): extract the FIRST
+	// colour token (hex OR any colour function) — the SAME token set transparencyFromColor reads, so
+	// colour and alpha coverage stay in lockstep (SAU-69).
+	const m = v.match(FIRST_COLOR_TOKEN)
+	if (m) { const r = normalizeColor(m[0]); if (/^[0-9A-F]{6,8}$/.test(r)) return r.slice(0, 6) }
 	return undefined
 }
 
 /**
  * Border/line transparency (percent, 0–100) implied by the FIRST colour in a CSS value.
- * Reads the alpha of an `rgba()`/`hsla()` (`a` 0–1) or an 8-digit `#rrggbbaa` hex, and returns
- * `(1 - alpha) * 100` rounded. Returns `undefined` when no alpha is present (fully opaque colours,
- * `rgb()`, 3/6-digit hex) so callers can leave the default-off path byte-identical (ADR-0006).
+ *
+ * Alpha is read through {@link alphaFromColor} — the SAME `color-convert` path `normalizeColor`
+ * uses — so transparency coverage stays in lockstep with colour coverage: it now reads the alpha
+ * of `rgb()/rgba()`/`hsl()/hsla()`/`hwb()`/`oklch()`/`lab()` in BOTH comma and modern slash
+ * syntax, plus 8-digit `#rrggbbaa` (and the `#rgba` shorthand). Returns `(1 - alpha) * 100`
+ * rounded. Returns `undefined` when no alpha is present OR the colour is fully OPAQUE (`rgb()`
+ * with no alpha, 3/6-digit hex, named colours, any `alpha >= 1`) so callers leave the default-off
+ * path byte-identical (ADR-0006).
  */
 export function transparencyFromColor (v: string | undefined): number | undefined {
 	if (!v) return undefined
-	// 8-digit hex `#rrggbbaa` (4-digit `#rgba` shorthand expands the alpha nibble)
-	const hm = v.match(/#([0-9a-fA-F]{3,8})\b/)
-	if (hm) {
-		let h = hm[1]
-		if (h.length === 4) h = h.split('').map(c => c + c).join('')
-		if (h.length === 8) {
-			const alpha = parseInt(h.slice(6, 8), 16) / 255
-			return Math.round((1 - alpha) * 100)
-		}
-		return undefined
+	// Try the whole value first (a standalone colour), then the first colour token of a compound
+	// value (e.g. `2px solid rgb(0 0 0 / .4)`), so the two cover-paths match normalizeColor's.
+	let alpha = alphaFromColor(v)
+	if (alpha === undefined) {
+		const m = v.match(FIRST_COLOR_TOKEN)
+		if (m) alpha = alphaFromColor(m[0])
 	}
-	// rgba()/hsla() functional notation — 4th component is alpha 0–1 (or `N%`)
-	const fn = v.match(/(?:rgba|hsla)\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*([\d.]+%?)\s*\)/i)
-	if (fn) {
-		const raw = fn[1]
-		const alpha = raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw)
-		if (!isFinite(alpha)) return undefined
-		return Math.round((1 - Math.max(0, Math.min(1, alpha))) * 100)
-	}
-	return undefined
+	if (alpha === undefined || !isFinite(alpha)) return undefined
+	const clamped = Math.max(0, Math.min(1, alpha))
+	if (clamped >= 1) return undefined // fully opaque ⇒ omit (default-off, byte-identical)
+	return Math.round((1 - clamped) * 100)
 }
 
 /** Border/line transparency (0–100) of a CSS property of `el` honouring the cascade (inline > class rule). */

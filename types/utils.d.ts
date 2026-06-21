@@ -166,8 +166,8 @@ export interface CardData {
 	title: string
 	/** Card description / body text. */
 	description?: string
-	/** Small pill/count badge; `color` is the badge FILL colour (6-hex, no `#`). */
-	badge?: { text: string; color: string }
+	/** Small pill/count badge; `color` (badge FILL colour, 6-hex, no `#`) is OMITTED when undetectable. */
+	badge?: { text: string; color?: string }
 	/** Thin left-edge accent bar (from a `border-left` rule). `width` is in source px. */
 	accentBar?: { color: string | GradientFillProps; width: number }
 	/** Colours read from inline styles. All hex values are 6-digit, no `#`. */

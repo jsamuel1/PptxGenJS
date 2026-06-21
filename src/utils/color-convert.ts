@@ -149,15 +149,20 @@ export function parseLabString(raw: string): { hex: string, alpha: number } | nu
 }
 
 /** Extract alpha from hsl/hwb raw string (the `/ A` or `, A` portion after the main values). */
-function extractAlphaFromColorFunc(raw: string): number {
-	const m = raw.match(/[/,]\s*([\d.]+)(%?)\s*\)\s*$/)
+export function extractAlphaFromColorFunc(raw: string): number {
+	const m = raw.match(/([/,])\s*([\d.]+)(%?)\s*\)\s*$/)
 	if (!m) return 1
-	// Distinguish the alpha separator from the last value — hsl has 3 values before alpha
+	const val = parseFloat(m[2])
+	const alpha = m[3] === '%' ? val / 100 : val
+	// A `/` ALWAYS introduces the alpha channel in CSS colour syntax (modern slash form), so the
+	// final component after a `/` is unambiguously alpha — `hsl(H S L / A)` / `hwb(H W B / A)`.
+	if (m[1] === '/') return isFinite(alpha) ? alpha : 1
+	// Comma form: distinguish the alpha separator from the last VALUE — `hsla(H,S,L,A)` has 3 commas
+	// (hsl has only 3 values, so a 3rd comma means a 4th = alpha component is present).
 	const parts = raw.replace(/^[a-z]+\(\s*/i, '').replace(/\s*\)$/, '')
 	const separators = parts.match(/[/,]/g)
 	if (!separators || separators.length < 3) return 1
-	const val = parseFloat(m[1])
-	return m[2] === '%' ? val / 100 : val
+	return isFinite(alpha) ? alpha : 1
 }
 
 /**
@@ -226,4 +231,45 @@ export function normalizeColor(raw: string): string {
 	if (varFb) return normalizeColor(varFb)
 
 	return v
+}
+
+/**
+ * Extract the ALPHA channel (0–1) of a single CSS colour token, covering EXACTLY the colour
+ * forms {@link normalizeColor} understands so colour and alpha stay in lockstep:
+ * 8-digit `#rrggbbaa` hex (and the `#rgba` shorthand), `rgb()/rgba()` in comma OR slash syntax,
+ * `hsl()/hsla()`, `hwb()`, `oklch()`, and `lab()` (slash-syntax alpha). 3/6-digit hex, `rgb()`
+ * with no alpha, and named colours are fully opaque → `1`.
+ *
+ * Returns `undefined` when `raw` is not a recognised colour token (so callers reading a compound
+ * value such as `2px solid …` can scan for the first colour without a false opaque reading).
+ * The value is NOT clamped here; callers that need 0–1 should clamp.
+ */
+export function alphaFromColor (raw: string): number | undefined {
+	const s = (raw || '').trim()
+	if (!s) return undefined
+
+	// Hex (with or without leading #). Expand 3→6 / 4→8 then read the alpha pair when present.
+	const hexBody = s.replace(/^#/, '')
+	if (/^[0-9a-fA-F]{3,8}$/.test(hexBody) && (hexBody.length === 3 || hexBody.length === 4 || hexBody.length === 6 || hexBody.length === 8)) {
+		let h = hexBody
+		if (h.length === 3) return 1 // #rgb — opaque
+		if (h.length === 4) h = h.split('').map(c => c + c).join('') // #rgba shorthand → 8-digit
+		if (h.length === 6) return 1 // #rrggbb — opaque
+		if (h.length === 8) return parseInt(h.slice(6, 8), 16) / 255
+		return 1
+	}
+
+	// Functional notations — reuse the SAME parsers normalizeColor uses.
+	const rgb = parseRgbString(s)
+	if (rgb) return rgb.alpha
+	const oklch = parseOklchString(s)
+	if (oklch) return oklch.alpha
+	const lab = parseLabString(s)
+	if (lab) return lab.alpha
+	if (parseHslString(s) || parseHwbString(s)) return extractAlphaFromColorFunc(s)
+
+	// Named colour → opaque.
+	if (cssNamedColorToHex(hexBody)) return 1
+
+	return undefined
 }

@@ -19,12 +19,11 @@
  * Ships all six neutral extractors: `parseTable` and `parseColumns` (clearest structural / PPTX
  * anchor), plus `parseTimeline`, `parseQuote`, `parseBadges`, and `parseCallout`.
  */
-import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf } from './html-dom'
+import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf, isExcluded, leadingEmoji } from './html-dom'
 import type { HNode } from './html-dom'
 import { parseStyleSheets, colorOf, flexInfoOf, columnCountOf, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
-import { detectIcon } from './icon-classify'
-import { ICON_FAMILIES } from './icon-fonts.constants'
+import { isFontIconEl, TILE_LABEL_MAX } from './icon-classify'
 
 /** A single parsed table cell, shaped to map onto `slide.addTable()` rows. */
 export interface TableCell {
@@ -86,34 +85,12 @@ function ctxOf (input: string | HNode): CssContext {
 	return typeof input === 'string' ? parseStyleSheets(input) : EMPTY_CSS
 }
 
-/** True when `el` (or an ancestor) matches the exclude pattern. */
-function isExcluded (el: HNode, pat: RegExp): boolean {
-	let cur: HNode | null = el
-	while (cur) { if (cur.classes.length && classMatch(cur, pat)) return true; cur = cur.parent }
-	return false
-}
-
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // Icon detection (class-agnostic) — shared by `parseTiles` and the `parseColumns` tile guard.
-// Structural, NOT class-name driven: an inline `<svg>`, a recognised icon-font `<i>`/`<span>`,
-// or a leading emoji cluster all count as "an icon node".
+// Structural, NOT class-name driven: an inline `<svg>`, a recognised icon-font `<i>`/`<span>`
+// (via the shared `isFontIconEl` guard in `icon-classify`), or a leading emoji cluster (via the
+// shared `leadingEmoji` in `html-dom`) all count as "an icon node".
 // ──────────────────────────────────────────────────────────────────────────────────────────
-
-/** Leading emoji (pictographic) cluster at the start of a string, if any. */
-function leadingEmoji (text: string): string | undefined {
-	const t = text.trim()
-	if (!t) return undefined
-	const m = t.match(/^(?:\p{Extended_Pictographic}(?:‍|️)?)+/u)
-	return m ? m[0] : undefined
-}
-
-/** True when `el` is an `<i>`/`<span>` carrying a recognised icon-font class (FA/BI/PH/ION/Material…). */
-function isFontIconEl (el: HNode): boolean {
-	if (el.tag !== 'i' && el.tag !== 'span') return false
-	const desc = detectIcon(el.classes.join(' '), textOf(el, { keepPUA: true }))
-	if (!desc) return false
-	return ICON_FAMILIES.has(desc.fontFamily) || desc.isLigature
-}
 
 /** First recognised font-icon `<i>`/`<span>` within `el`'s subtree, or null. Class-agnostic. */
 function findFontIconEl (el: HNode): HNode | null {
@@ -461,8 +438,8 @@ export function parseCallout (input: string | HNode, opts: ParseContentOptions =
 // a flex/grid row carries no recognisable class vocabulary and no inline/`<style>` display.
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
-/** Max characters for a tile label — a tile is a SHORT label beside an icon, not a prose block. @default 40 */
-const TILE_LABEL_MAX = 40
+// `TILE_LABEL_MAX` (the SHORT-label magic) is the shared constant from `./icon-classify` — one
+// source for the tile-label limit across `parseCards` and `parseContent` (SAU-40 de-dup).
 
 /** Build a {@link TileData} from one tile element. `null` when it carries no icon or no label. */
 function analyzeTile (el: HNode, labelMax: number): TileData | null {

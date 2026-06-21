@@ -64,7 +64,7 @@ const VERBATIM_TEXT_TAGS = new Set(['script', 'style'])
  * forms and valueless boolean attributes (`disabled`, `data-demo`, … → stored as `''`) so that
  * attribute-present selectors (`[data-demo]`) work. Keys are lowercased.
  */
-function parseAttrs (attrStr: string): Record<string, string> {
+export function parseAttrs (attrStr: string): Record<string, string> {
 	const out: Record<string, string> = {}
 	const re = /([\w:-]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g
 	let m: RegExpExecArray | null
@@ -377,6 +377,26 @@ export function isAncestorOrSelf (a: HNode, b: HNode | null): boolean {
 	let cur: HNode | null = b
 	while (cur) { if (cur === a) return true; cur = cur.parent }
 	return false
+}
+
+/** True when `el` (or any ancestor) has a class token matching `pat`. `undefined` pattern ⇒ never. */
+export function isExcluded (el: HNode, pat: RegExp | undefined): boolean {
+	if (!pat) return false
+	let cur: HNode | null = el
+	while (cur) { if (cur.classes.length && classMatch(cur, pat)) return true; cur = cur.parent }
+	return false
+}
+
+/**
+ * The leading emoji / pictographic cluster at the start of `text` (after trimming), or `undefined`.
+ * Matches a run of `Extended_Pictographic` code points, each optionally followed by a ZWJ
+ * (U+200D) or variation selector-16 (U+FE0F) so multi-codepoint / VS16 emoji survive intact.
+ */
+export function leadingEmoji (text: string): string | undefined {
+	const t = text.trim()
+	if (!t) return undefined
+	const m = t.match(/^(?:\p{Extended_Pictographic}(?:‍|️)?)+/u)
+	return m ? m[0] : undefined
 }
 
 /** Get an attribute value (case-insensitive name), or `undefined` when absent. */

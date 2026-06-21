@@ -8,7 +8,9 @@
  * one classifier and cannot drift in how they recognise Font Awesome / Bootstrap / Phosphor /
  * Ionicons / Material families. Behaviour is byte-identical to the original private helpers.
  */
-import { FA_MODIFIERS } from './icon-fonts.constants'
+import { FA_MODIFIERS, ICON_FAMILIES } from './icon-fonts.constants'
+import { textOf, leadingEmoji } from './html-dom'
+import type { HNode } from './html-dom'
 
 /** Classified icon-font element. */
 export interface IconDescriptor {
@@ -58,6 +60,63 @@ export function detectIcon (cls: string, text: string): IconDescriptor | null {
 	// Return a descriptor for ANY classed element so the chain can still try customResolver/CSS;
 	// unresolvable elements are omitted later (never an error).
 	return { key: cls.trim(), className: cls.trim(), fontFamily: family || tokens[0], glyphName: glyph, isLigature: false }
+}
+
+/**
+ * True when `el` is an `<i>`/`<span>` carrying a recognised icon-font class (FA/BI/PH/ION/Material…).
+ *
+ * This is the SHARED de-fang for {@link detectIcon}'s permissive `family || tokens[0]` fallback:
+ * `detectIcon` returns a descriptor for ANY classed element, so callers that want a GENUINE icon
+ * element must re-gate on a recognised family (or a ligature). Hoisted to one definition so the
+ * `parseCards` and `parseContent`/tile recognisers cannot drift — if one copy dropped the family
+ * check, every classed `<span>` would become a phantom icon.
+ */
+export function isFontIconEl (el: HNode): boolean {
+	if (el.tag !== 'i' && el.tag !== 'span') return false
+	const desc = detectIcon(el.classes.join(' '), textOf(el, { keepPUA: true }))
+	if (!desc) return false
+	return ICON_FAMILIES.has(desc.fontFamily) || desc.isLigature
+}
+
+/** Default max characters for a tile label — a tile is a SHORT label beside an icon, not prose. */
+export const TILE_LABEL_MAX = 40
+
+/** Find the first descendant (or self) satisfying `pred`, preorder. */
+function findInTree (node: HNode, pred: (n: HNode) => boolean): boolean {
+	for (const c of node.children) {
+		if (c.tag === '#text') continue
+		if (pred(c) || findInTree(c, pred)) return true
+	}
+	return false
+}
+
+/**
+ * True when `node`'s subtree carries a "tile icon": an inline `<svg>`, a recognised font-icon
+ * `<i>`/`<span>` (via {@link isFontIconEl}), or a leading-emoji text cluster. Shared by the
+ * `parseCards` and `parseContent` tile-row recognisers so they cannot drift.
+ */
+export function hasTileIcon (node: HNode): boolean {
+	if (findInTree(node, n => n.tag === 'svg') || findInTree(node, isFontIconEl)) return true
+	return leadingEmoji(textOf(node)) !== undefined
+}
+
+/**
+ * True when `container`'s direct element children form a UNIFORM icon+label tile row: ≥2 children,
+ * EVERY child is a tile (has an icon node + a non-empty label ≤ `labelMax` chars), and the children
+ * are structurally uniform (their element-child counts are within ±1 of the mean). The single
+ * definition of the "tile row" rule (SAU-40) — the magic `labelMax` and the ±1 tolerance live here.
+ */
+export function isUniformTileRow (container: HNode, labelMax: number = TILE_LABEL_MAX): boolean {
+	const childEls = container.children.filter(c => c.tag !== '#text')
+	if (childEls.length < 2) return false
+	for (const c of childEls) {
+		if (!hasTileIcon(c)) return false
+		const label = textOf(c).trim()
+		if (label.length === 0 || label.length > labelMax) return false
+	}
+	const counts = childEls.map(c => c.children.filter(k => k.tag !== '#text').length)
+	const avg = counts.reduce((s, n) => s + n, 0) / counts.length
+	return !counts.some(n => Math.abs(n - avg) > 1)
 }
 
 /**
