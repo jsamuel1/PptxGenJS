@@ -801,7 +801,13 @@ export function layoutStack (props: LayoutStackProps): LayoutStackResult {
 
 /** Relative luminance per WCAG 2.1 */
 export function relativeLuminance(hex: string): number {
-	const rgb = hex.replace(/^#/, '').match(/.{2}/g)!.map(c => {
+	// Clamp-don't-crash (ADR-0005): a malformed/empty/odd-length/non-hex string would make the
+	// `.match(/.{2}/g)!` non-null assertion throw (null → odd-length yields a bad final pair).
+	// Normalise to exactly 6 hex digits first; on invalid input fall back to mid-luminance (0.5)
+	// so `inkForFill`/`contrastRatio` stay sensible rather than throwing.
+	const clean = (hex || '').replace(/^#/, '')
+	if (!/^[0-9a-fA-F]{6}$/.test(clean)) return 0.5
+	const rgb = clean.match(/.{2}/g)!.map(c => {
 		const v = parseInt(c, 16) / 255
 		return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
 	})
