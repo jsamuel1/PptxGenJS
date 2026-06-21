@@ -570,6 +570,18 @@ export function sizeOf(node: HNode, ctx: CssContext): { wPx?: number, hPx?: numb
 /** Parse all `<style>…</style>` blocks of the input into `:root` vars + simple class rules + type rules. */
 export function parseStyleSheets(html: string): CssContext
 
+/** Extract the first colour in a CSS value as 6-digit hex (no `#`); undefined when none. */
+export function extractHex(v: string | undefined): string | undefined
+
+/** Background colour of `el` honouring the cascade (inline > class rule > type rule, `var()` resolved); 6-hex, no `#`. */
+export function bgOfCtx(el: HNode, ctx: CssContext): string | undefined
+
+/** Colour of a single CSS property of `el` honouring the cascade (inline > class rule > type rule); 6-hex, no `#`. */
+export function colorOf(el: HNode, prop: string, ctx: CssContext): string | undefined
+
+/** Border/line transparency (percent, 0–100) of a CSS property of `el` honouring the cascade; undefined when opaque/absent. */
+export function transparencyOf(el: HNode, prop: string, ctx: CssContext): number | undefined
+
 /**
  * File paths for each role of a resolved font family.
  *
