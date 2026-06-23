@@ -24,6 +24,31 @@
 			"types": "./types/utils.d.ts",
 			"import": "./dist/utils.es.js",
 			"require": "./dist/utils.cjs.js"
+		},
+		"./utils/parse": {
+			"types": "./types/utils-parse.d.ts",
+			"import": "./dist/utils-parse.es.js",
+			"require": "./dist/utils-parse.cjs.js"
+		},
+		"./utils/css": {
+			"types": "./types/utils-css.d.ts",
+			"import": "./dist/utils-css.es.js",
+			"require": "./dist/utils-css.cjs.js"
+		},
+		"./utils/color": {
+			"types": "./types/utils-color.d.ts",
+			"import": "./dist/utils-color.es.js",
+			"require": "./dist/utils-color.cjs.js"
+		},
+		"./utils/measure": {
+			"types": "./types/utils-measure.d.ts",
+			"import": "./dist/utils-measure.es.js",
+			"require": "./dist/utils-measure.cjs.js"
+		},
+		"./utils/icons": {
+			"types": "./types/utils-icons.d.ts",
+			"import": "./dist/utils-icons.es.js",
+			"require": "./dist/utils-icons.cjs.js"
 		}
 	},
 	"main": "dist/pptxgen.cjs.js",

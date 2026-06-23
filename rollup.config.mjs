@@ -92,6 +92,20 @@ export default [
 		],
 	},
 
+	// 1c) src/bld/utils-<area>.* — tree-shakeable /utils sub-path entries (SAU-84).
+	//     Additive: the full `src/utils.ts` barrel above is unchanged. Each sub-path
+	//     re-exports a subset of the same `src/utils/*` modules so a consumer can require
+	//     only the area it needs (e.g. `@jsamuel1/pptxgenjs/utils/parse`).
+	...['parse', 'css', 'color', 'measure', 'icons'].map(area => ({
+		input: `src/utils-${area}.ts`,
+		external: externalLib,
+		plugins: basePlugins(),
+		output: [
+			{ file: `./src/bld/utils-${area}.cjs.js`, format: 'cjs' },
+			{ file: `./src/bld/utils-${area}.es.js`, format: 'es' },
+		],
+	})),
+
 	// The dist/* artifacts are only built for publishing (`npm run ship`).
 	...(isShip
 		? [
@@ -126,6 +140,18 @@ export default [
 					{ file: './dist/utils.es.js', format: 'es', banner },
 				],
 			},
+
+			// 2c) dist/utils-<area>.* — published tree-shakeable /utils sub-path entries (SAU-84).
+			//     Additive: the full `dist/utils.*` barrel above is unchanged.
+			...['parse', 'css', 'color', 'measure', 'icons'].map(area => ({
+				input: `src/utils-${area}.ts`,
+				external: externalLib,
+				plugins: basePlugins(),
+				output: [
+					{ file: `./dist/utils-${area}.cjs.js`, format: 'cjs', banner },
+					{ file: `./dist/utils-${area}.es.js`, format: 'es', banner },
+				],
+			})),
 
 			// 3) dist/pptxgen.bundle.js — self-contained browser bundle (jszip
 			//    inlined via prepended vendor libs). Emitted to dist/ and
