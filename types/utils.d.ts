@@ -717,6 +717,50 @@ export interface MeasureTextBlockResult {
  */
 export function measureTextBlock(text: string, opts: MeasureTextBlockOptions): MeasureTextBlockResult
 
+/** Options for {@link fitFontSize}. */
+export interface FitFontSizeOptions {
+	/** Box width, in **inches** — the word-wrap target handed to `measureTextBlock`. */
+	boxWidthIn: number
+	/** Box height, in **inches** — the block must measure ≤ this to "fit". */
+	boxHeightIn: number
+	/** Largest font size (points) to consider. The search never returns a larger size. */
+	maxFontSize: number
+	/** Smallest font size (points) to consider. @default 8 */
+	minFontSize?: number
+	/** Advisory font-family name — forwarded to `measureTextBlock` for caller bookkeeping. */
+	fontFamily?: string
+	/** Line-height multiple forwarded to `measureTextBlock`. @default 1.2 */
+	lineHeight?: number
+	/** Bold weight hint forwarded to `measureTextBlock`. */
+	bold?: boolean
+	/** Font-size grid step, in points. @default 0.5 */
+	step?: number
+}
+
+/** Result of {@link fitFontSize}. */
+export interface FitFontSizeResult {
+	/** Chosen font size, in points — the largest grid point that fits, or `minFontSize` if none fit. */
+	fontSize: number
+	/** Wrapped line count at the chosen `fontSize` (from `measureTextBlock`). */
+	lines: number
+	/** Measured block height at the chosen `fontSize`, in **inches**. */
+	heightIn: number
+	/** True when the chosen `fontSize` actually fits the box (`heightIn <= boxHeightIn`). */
+	fits: boolean
+}
+
+/**
+ * Find the LARGEST font size in `[minFontSize ?? 8, maxFontSize]` (on a `step`-sized grid, default
+ * 0.5pt) at which `text` word-wrapped to `opts.boxWidthIn` inches measures ≤ `opts.boxHeightIn` tall
+ * via `measureTextBlock` — the shrink-to-fit companion to `measureTextBlock`.
+ *
+ * Returns the largest fitting grid point with `fits: true`. If even `minFontSize` overflows the box,
+ * returns `{ fontSize: minFontSize, fits: false, ... }` (caller decides to truncate/paginate). Pure,
+ * deterministic, DOM-free; guards `boxWidthIn`/`boxHeightIn` ≤ 0 and degenerate step/range inputs —
+ * never loops forever or divides by zero.
+ */
+export function fitFontSize(text: string, opts: FitFontSizeOptions): FitFontSizeResult
+
 /** Relative luminance per WCAG 2.1 */
 export function relativeLuminance(hex: string): number
 
