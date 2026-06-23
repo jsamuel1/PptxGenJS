@@ -53,10 +53,6 @@ export interface ParseSvgOptions {
 const KAPPA = 0.5522847498307936
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
-// Colour helpers
-// ──────────────────────────────────────────────────────────────────────────────────────────
-
-// ──────────────────────────────────────────────────────────────────────────────────────────
 // Path tokenisation
 // ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -513,9 +509,12 @@ export function parseSvg (markup: string, opts: ParseSvgOptions = {}): SvgPart[]
 		if (!d) continue
 
 		// inherited fill/stroke
-		const fillVal = get('fill') !== undefined ? get('fill') : rootFill
-		const strokeVal = get('stroke') !== undefined ? get('stroke') : rootStroke
-		const strokeWVal = get('stroke-width') !== undefined ? get('stroke-width') : rootStrokeW
+		const ownFill = get('fill')
+		const ownStroke = get('stroke')
+		const ownStrokeW = get('stroke-width')
+		const fillVal = ownFill !== undefined ? ownFill : rootFill
+		const strokeVal = ownStroke !== undefined ? ownStroke : rootStroke
+		const strokeWVal = ownStrokeW !== undefined ? ownStrokeW : rootStrokeW
 
 		// `currentColor` = a concrete solid colour to inherit. A `url(#…)`/`none`/`currentColor`
 		// fill is not itself a colour, so prefer the stroke (then defaultFill) in those cases — this
@@ -528,7 +527,8 @@ export function parseSvg (markup: string, opts: ParseSvgOptions = {}): SvgPart[]
 		const mode: 'fill' | 'stroke' = fillPaint.kind === 'none' && strokePaint.kind !== 'none' ? 'stroke' : 'fill'
 
 		const strokeWidth = strokeWVal !== undefined && isFinite(parseFloat(strokeWVal)) ? parseFloat(strokeWVal) : undefined
-		const opRaw = get('fill-opacity') !== undefined ? get('fill-opacity') : get('opacity')
+		const ownFillOpacity = get('fill-opacity')
+		const opRaw = ownFillOpacity !== undefined ? ownFillOpacity : get('opacity')
 		const op = opRaw !== undefined && isFinite(parseFloat(opRaw)) ? parseFloat(opRaw) : undefined
 
 		raws.push({
