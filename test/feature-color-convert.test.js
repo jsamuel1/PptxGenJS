@@ -1,73 +1,60 @@
 const { assertEqual } = require('./helpers')
-const { hslToHex, hwbToHex, parseHslString, parseHwbString, extractVarFallback } = require('../src/bld/utils.cjs.js')
+// SAU-68 item 3: the per-format colour helpers (hslToHex/hwbToHex/parseHslString/
+// parseHwbString/extractVarFallback) are no longer part of the public `/utils` barrel —
+// they are internal to normalizeColor. Assert the same conversions through normalizeColor,
+// the single public colour entry point.
+const { normalizeColor } = require('../src/bld/utils.cjs.js')
 
 module.exports = [
+	// hsl() conversion (internally: parseHslString → hslToHex)
 	{
-		name: 'hslToHex: red (0, 100%, 50%)',
-		fn: () => assertEqual(hslToHex(0, 100, 50), 'FF0000'),
+		name: 'normalizeColor: hsl red (0, 100%, 50%)',
+		fn: () => assertEqual(normalizeColor('hsl(0, 100%, 50%)'), 'FF0000'),
 	},
 	{
-		name: 'hslToHex: green (120, 100%, 25%)',
-		fn: () => assertEqual(hslToHex(120, 100, 25), '008000'),
+		name: 'normalizeColor: hsl green (120, 100%, 25%)',
+		fn: () => assertEqual(normalizeColor('hsl(120, 100%, 25%)'), '008000'),
 	},
 	{
-		name: 'hslToHex: blue (240, 100%, 50%)',
-		fn: () => assertEqual(hslToHex(240, 100, 50), '0000FF'),
+		name: 'normalizeColor: hsl blue (240, 100%, 50%)',
+		fn: () => assertEqual(normalizeColor('hsl(240, 100%, 50%)'), '0000FF'),
 	},
 	{
-		name: 'hslToHex: grey (0, 0%, 50%)',
-		fn: () => assertEqual(hslToHex(0, 0, 50), '808080'),
+		name: 'normalizeColor: hsl grey (0, 0%, 50%)',
+		fn: () => assertEqual(normalizeColor('hsl(0, 0%, 50%)'), '808080'),
 	},
 	{
-		name: 'parseHslString: comma-separated',
-		fn: () => assertEqual(parseHslString('hsl(0, 100%, 50%)'), 'FF0000'),
+		name: 'normalizeColor: hsl space-separated',
+		fn: () => assertEqual(normalizeColor('hsl(240 100% 50%)'), '0000FF'),
 	},
 	{
-		name: 'parseHslString: space-separated',
-		fn: () => assertEqual(parseHslString('hsl(240 100% 50%)'), '0000FF'),
+		name: 'normalizeColor: hsla alpha ignored when fully opaque',
+		fn: () => assertEqual(normalizeColor('hsla(120, 100%, 25%, 1)'), '008000'),
+	},
+	// hwb() conversion (internally: parseHwbString → hwbToHex)
+	{
+		name: 'normalizeColor: hwb pure red (0 0% 0%)',
+		fn: () => assertEqual(normalizeColor('hwb(0 0% 0%)'), 'FF0000'),
 	},
 	{
-		name: 'parseHslString: hsla with alpha (alpha ignored)',
-		fn: () => assertEqual(parseHslString('hsla(120, 100%, 25%, 0.5)'), '008000'),
+		name: 'normalizeColor: hwb white (0 100% 0%)',
+		fn: () => assertEqual(normalizeColor('hwb(0 100% 0%)'), 'FFFFFF'),
 	},
 	{
-		name: 'parseHslString: invalid returns null',
-		fn: () => assertEqual(parseHslString('not-a-color'), null),
+		name: 'normalizeColor: hwb black (0 0% 100%)',
+		fn: () => assertEqual(normalizeColor('hwb(0 0% 100%)'), '000000'),
 	},
 	{
-		name: 'hwbToHex: pure red (0, 0%, 0%)',
-		fn: () => assertEqual(hwbToHex(0, 0, 0), 'FF0000'),
+		name: 'normalizeColor: hwb grey (0 50% 50%)',
+		fn: () => assertEqual(normalizeColor('hwb(0 50% 50%)'), '808080'),
+	},
+	// var() fallback (internally: extractVarFallback → recurse)
+	{
+		name: 'normalizeColor: var() simple fallback resolved',
+		fn: () => assertEqual(normalizeColor('var(--primary, red)'), 'FF0000'),
 	},
 	{
-		name: 'hwbToHex: white (0, 100%, 0%)',
-		fn: () => assertEqual(hwbToHex(0, 100, 0), 'FFFFFF'),
-	},
-	{
-		name: 'hwbToHex: black (0, 0%, 100%)',
-		fn: () => assertEqual(hwbToHex(0, 0, 100), '000000'),
-	},
-	{
-		name: 'hwbToHex: grey (0, 50%, 50%)',
-		fn: () => assertEqual(hwbToHex(0, 50, 50), '808080'),
-	},
-	{
-		name: 'parseHwbString: valid',
-		fn: () => assertEqual(parseHwbString('hwb(0 100% 0%)'), 'FFFFFF'),
-	},
-	{
-		name: 'parseHwbString: invalid returns null',
-		fn: () => assertEqual(parseHwbString('rgb(255,0,0)'), null),
-	},
-	{
-		name: 'extractVarFallback: simple fallback',
-		fn: () => assertEqual(extractVarFallback('var(--primary, red)'), 'red'),
-	},
-	{
-		name: 'extractVarFallback: no fallback returns null',
-		fn: () => assertEqual(extractVarFallback('var(--primary)'), null),
-	},
-	{
-		name: 'extractVarFallback: nested var in fallback',
-		fn: () => assertEqual(extractVarFallback('var(--x, var(--y, blue))'), 'var(--y, blue)'),
+		name: 'normalizeColor: var() nested fallback resolved',
+		fn: () => assertEqual(normalizeColor('var(--x, var(--y, blue))'), '0000FF'),
 	},
 ]
