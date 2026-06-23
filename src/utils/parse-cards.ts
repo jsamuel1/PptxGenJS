@@ -37,6 +37,10 @@ import type { HNode } from './html-dom'
 // identical colour logic, now shared with the HTML content extractors.
 import { extractHex, parseStyleSheets, cssProp, bgOfCtx, colorOf, transparencyOf } from './css-context'
 import type { HexColor, CssContext } from './css-context'
+// Shared eyebrow/kicker/section-label/pill/badge class vocabulary (promoted out of this file — see
+// `./badge-classify`, SAU-76/SAU-70). One pattern shared with `parseBadges` so the two extractors
+// cannot drift in WHICH classes count as a pill.
+import { BADGE_CLASS_PAT, isStructuralEyebrow } from './badge-classify'
 
 /** A single parsed card, shaped to spread straight into `slide.addCard()` v2. */
 export interface CardData {
@@ -102,7 +106,7 @@ export interface ParseCardsOptions {
 	titlePattern?: RegExp
 	/** Class pattern identifying DESCRIPTION elements within a card. @default /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/ */
 	descPattern?: RegExp
-	/** Class pattern identifying BADGE elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip)$/i */
+	/** Class pattern identifying BADGE/eyebrow/kicker elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip|kicker|eyebrow|section-label)$/i */
 	badgePattern?: RegExp
 	/** Class pattern for elements that must NEVER be adopted as sibling cards. @default /(^|-)(quote|callout|testimonial|blockquote)\b/ */
 	neverAdoptPattern?: RegExp
@@ -122,7 +126,9 @@ const DEFAULT_CONTAINER = /(?:^|-)grid\b/
 
 const TITLE_PAT = /(?:^|-)(title|name|heading|head|label)$/
 const DESC_PAT = /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/
-const BADGE_PAT = /(?:^|-)(badge|pill|tag|count|chip)$/i
+// Shared eyebrow/kicker/section-label/pill/badge vocabulary (SAU-76/SAU-70 de-dup): one pattern
+// shared with `parseBadges` so the two extractors recognise the SAME pill class family.
+const BADGE_PAT = BADGE_CLASS_PAT
 
 // ──────────────────────────────────────────────────────────────────────────────────────────
 // HTML tree node + tiny dependency-free tree builder + tree helpers
@@ -260,7 +266,11 @@ function analyzeCard (card: HNode, opts: ParseCardsOptions, ctx: CssContext, css
 	let badge: CardData['badge']
 	const badgePat = opts.badgePattern || BADGE_PAT
 	const badgeMax = opts.badgeMaxChars ?? 24
-	const badgeEl = findFirst(card, e => classMatch(e, badgePat) && textOf(e).trim().length > 0 && textOf(e).trim().length <= badgeMax, skip)
+	// Recognise a pill BY CLASS (generalised badge/pill/tag/kicker/eyebrow/section-label vocabulary)
+	// OR STRUCTURALLY — a short all-caps eyebrow label sitting immediately above the card heading.
+	const badgeEl = findFirst(card, e =>
+		(classMatch(e, badgePat) || isStructuralEyebrow(e, badgeMax)) &&
+		textOf(e).trim().length > 0 && textOf(e).trim().length <= badgeMax, skip)
 	if (badgeEl) {
 		skip.add(badgeEl)
 		const bt = textOf(badgeEl).trim()

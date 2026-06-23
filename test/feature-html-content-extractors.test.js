@@ -187,11 +187,73 @@ module.exports = [
 		},
 	},
 	{
-		name: 'parseBadges: badge + pill labels (spec fixture)',
+		name: 'parseBadges: badge + pill labels (spec fixture) → {text} objects',
 		fn: async () => {
 			const b = parseBadges('<span class="badge">NEW</span><span class="pill">BETA</span>')
 			assert(b.length === 2, 'expected 2 badges; got: ' + b.length)
-			assert(b[0] === 'NEW' && b[1] === 'BETA', 'badge labels should be NEW,BETA; got: ' + JSON.stringify(b))
+			assert(b[0].text === 'NEW' && b[1].text === 'BETA', 'badge labels should be NEW,BETA; got: ' + JSON.stringify(b))
+			// no colour declared anywhere ⇒ bg/color OMITTED, never guessed
+			assert(!('bg' in b[0]) && !('color' in b[0]), 'undetectable colour must be omitted; got: ' + JSON.stringify(b[0]))
+		},
+	},
+	{
+		name: 'parseBadges: eyebrow/kicker CLASS pill carries RESOLVED bg + text colour (via var)',
+		fn: async () => {
+			// `layer-tag` is NOT in the old closed vocab — recognised via the generalised `-tag` tail.
+			// Background comes through a `<style>`-defined CSS var (proves the css cascade is used).
+			const html = '<style>:root{--sky:#0EA5E9}</style>' +
+				'<span class="layer-tag" style="background:var(--sky);color:#fff">LAYER 3</span>'
+			const b = parseBadges(html)
+			assert(b.length === 1, 'expected 1 badge; got: ' + b.length + ' → ' + JSON.stringify(b))
+			assert(b[0].text === 'LAYER 3', 'pill text should be LAYER 3; got: ' + b[0].text)
+			assert(b[0].bg === '0EA5E9', 'pill bg should resolve the --sky var to 0EA5E9; got: ' + b[0].bg)
+			assert(b[0].color === 'FFFFFF', 'pill text colour should be FFFFFF; got: ' + b[0].color)
+		},
+	},
+	{
+		name: 'parseBadges: kicker/eyebrow class tokens recognised (new vocab)',
+		fn: async () => {
+			const b = parseBadges('<span class="kicker">WHY NOW</span><div class="eyebrow">SECTION</div><p class="section-label">PHASE 1</p>')
+			assert(b.length === 3, 'kicker/eyebrow/section-label should all match; got: ' + JSON.stringify(b))
+			assert(b.map(x => x.text).join('|') === 'WHY NOW|SECTION|PHASE 1', 'texts; got: ' + JSON.stringify(b))
+		},
+	},
+	{
+		name: 'parseBadges: STRUCTURAL short-all-caps label above a heading (no pill class)',
+		fn: async () => {
+			// No badge/pill/eyebrow class anywhere — recognised purely structurally.
+			const b = parseBadges('<section><span style="color:#10B981">PLATFORM</span><h2>Build faster</h2></section>')
+			assert(b.length === 1, 'eyebrow-above-heading should be recognised; got: ' + JSON.stringify(b))
+			assert(b[0].text === 'PLATFORM', 'eyebrow text; got: ' + b[0].text)
+			assert(b[0].color === '10B981', 'eyebrow text colour resolved; got: ' + b[0].color)
+		},
+	},
+	{
+		name: 'parseBadges: NOT a false-positive on ordinary short prose',
+		fn: async () => {
+			// Short but mixed-case, and NOT above a heading → not an eyebrow; no pill class → []
+			assert(parseBadges('<section><span>Read more</span><p>Body copy</p></section>').length === 0, 'mixed-case short span → no badge')
+			// All-caps but NOT above a heading → []
+			assert(parseBadges('<div><span>HELLO</span><span>WORLD</span></div>').length === 0, 'all-caps not above heading → no badge')
+			// All-caps above a heading but TOO LONG → []
+			assert(parseBadges('<section><span>THIS IS A VERY LONG ALL CAPS SENTENCE THAT IS NOT AN EYEBROW LABEL</span><h2>Title</h2></section>').length === 0, 'long all-caps → no badge')
+		},
+	},
+	{
+		name: 'parseBadges: parse-content + parse-cards share ONE badge classifier (SAU-70/76)',
+		fn: async () => {
+			// Both extractors are backed by the shared `isBadgeEl`/`BADGE_CLASS_PAT` (./badge-classify),
+			// so the SAME generalised vocabulary must be honoured in BOTH surfaces. A `kicker` pill is
+			// in the NEW shared vocab (absent from the old closed list) — assert parity across both.
+			const { parseCards } = require('../src/bld/utils.cjs.js')
+			const cardHtml = '<div class="grid"><div class="card"><span class="kicker">EYEBROW</span><h3>Title One</h3><p>Body</p></div>' +
+				'<div class="card"><span class="kicker">EYEBROW</span><h3>Title Two</h3><p>Body</p></div></div>'
+			const cards = parseCards(cardHtml)
+			assert(cards.length === 2, 'two cards; got ' + cards.length)
+			assert(cards[0].badge && cards[0].badge.text === 'EYEBROW', 'parse-cards recognises kicker pill via shared vocab; got ' + JSON.stringify(cards[0].badge))
+			// And parse-content recognises the same kicker class as a badge:
+			const content = parseBadges('<span class="kicker">EYEBROW</span>')
+			assert(content.length === 1 && content[0].text === 'EYEBROW', 'parse-content recognises the SAME kicker pill')
 		},
 	},
 	{

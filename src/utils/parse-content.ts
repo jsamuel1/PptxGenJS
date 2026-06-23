@@ -21,9 +21,10 @@
  */
 import { parseHtml, query, queryOne, textOf, closest, elements, classMatch, isAncestorOrSelf, isExcluded, leadingEmoji } from './html-dom'
 import type { HNode } from './html-dom'
-import { parseStyleSheets, colorOf, flexInfoOf, columnCountOf, EMPTY_CSS } from './css-context'
+import { parseStyleSheets, colorOf, bgOfCtx, flexInfoOf, columnCountOf, EMPTY_CSS } from './css-context'
 import type { CssContext, HexColor } from './css-context'
 import { isFontIconEl, TILE_LABEL_MAX } from './icon-classify'
+import { isBadgeEl, BADGE_CLASS_PAT } from './badge-classify'
 
 /** A single parsed table cell, shaped to map onto `slide.addTable()` rows. */
 export interface TableCell {
@@ -235,6 +236,20 @@ export interface QuoteData {
 	attribution?: string
 }
 
+/**
+ * A parsed pill/badge/eyebrow/kicker/section-label. `bg`/`color` (the pill's RESOLVED background
+ * and text colour, 6-digit hex, no `#`) are OMITTED when undetectable — never guessed (ADR colour
+ * rule), so a consumer keeps its own default rather than warning.
+ */
+export interface BadgeData {
+	/** The pill's text (trimmed). */
+	text: string
+	/** Resolved background/fill colour (6-hex, no `#`), when detectable via the cascade. Omitted otherwise. */
+	bg?: HexColor
+	/** Resolved text colour (6-hex, no `#`), when detectable via the cascade. Omitted otherwise. */
+	color?: HexColor
+}
+
 /** A parsed callout (bordered/`.callout` box). */
 export interface CalloutData {
 	/** The callout's text. */
@@ -379,22 +394,39 @@ export function parseQuote (input: string | HNode, opts: ParseContentOptions = {
 }
 
 /**
- * Parse pill/badge labels into a `string[]` (NOT `null` — `[]` when none). Selects elements whose
- * class matches `badge`/`pill`/`tag`, skips excluded regions, de-dups nested matches (the outermost
- * badge wins), and drops empties. NEUTRAL — labels only, no slide-role judgement.
+ * Parse pill/badge/eyebrow/kicker/section-label labels into `BadgeData[]` (NOT `null` — `[]` when
+ * none). Recognition is GENERIC / structure-driven (shared `isBadgeEl` in `./badge-classify`, also
+ * used by `parseCards`): an element is a pill when its class TOKEN matches the generalised pill
+ * family (`badge|pill|tag|count|chip|kicker|eyebrow|section-label`) OR it is a SHORT ALL-CAPS label
+ * sitting immediately above a heading (the eyebrow-above-a-title arrangement, no pill class needed).
+ * Each kept pill carries its RESOLVED `bg`/`color` from the css cascade (`bgOfCtx`/`colorOf`) when
+ * detectable; the colour fields are OMITTED, never guessed, when absent.
+ *
+ * Excluded regions are skipped, nested matches are de-duped (the outermost pill wins), and empties
+ * are dropped. NEUTRAL — labels + colour only, no slide-role judgement.
  *
  * @param input - a raw HTML string OR an `HNode` from `parseHtml`.
  * @param opts - `excludeWithin` skips badges inside a matching region.
  */
-export function parseBadges (input: string | HNode, opts: ParseContentOptions = {}): string[] {
+export function parseBadges (input: string | HNode, opts: ParseContentOptions = {}): BadgeData[] {
 	const root = toRoot(input)
+	const ctx = ctxOf(input)
 	const exclPat = opts.excludeWithin
 	const matched = elements(root).filter(el =>
-		(!exclPat || !isExcluded(el, exclPat)) && classMatch(el, /(?:^|-)(badge|pill|tag|count|chip)$/i))
+		(!exclPat || !isExcluded(el, exclPat)) && isBadgeEl(el, BADGE_CLASS_PAT))
 	// nested de-dup: drop a badge that has a badge ANCESTOR (keep the outermost)
 	const kept = matched.filter(el => !matched.some(o => o !== el && isAncestorOrSelf(o, el)))
-	const out: string[] = []
-	for (const el of kept) { const t = textOf(el).trim(); if (t) out.push(t) }
+	const out: BadgeData[] = []
+	for (const el of kept) {
+		const t = textOf(el).trim()
+		if (!t) continue
+		const b: BadgeData = { text: t }
+		const bg = bgOfCtx(el, ctx)
+		if (bg) b.bg = bg
+		const color = colorOf(el, 'color', ctx)
+		if (color) b.color = color
+		out.push(b)
+	}
 	return out
 }
 

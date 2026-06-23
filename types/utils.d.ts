@@ -206,7 +206,7 @@ export interface ParseCardsOptions {
 	titlePattern?: RegExp
 	/** Class pattern identifying DESCRIPTION elements within a card. @default /(?:^|-)(desc|text|body|caption|subtitle|sub|detail|blurb)$/ */
 	descPattern?: RegExp
-	/** Class pattern identifying BADGE elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip)$/i */
+	/** Class pattern identifying BADGE/eyebrow/kicker elements within a card. @default /(?:^|-)(badge|pill|tag|count|chip|kicker|eyebrow|section-label)$/i */
 	badgePattern?: RegExp
 	/** Class pattern for elements that must NEVER be adopted as sibling cards. @default /(^|-)(quote|callout|testimonial|blockquote)\b/ */
 	neverAdoptPattern?: RegExp
@@ -425,6 +425,19 @@ export interface QuoteData {
 	attribution?: string
 }
 
+/**
+ * A parsed pill/badge/eyebrow/kicker/section-label. `bg`/`color` (the pill's RESOLVED background and
+ * text colour, 6-digit hex, no `#`) are OMITTED when undetectable — never guessed.
+ */
+export interface BadgeData {
+	/** The pill's text (trimmed). */
+	text: string
+	/** Resolved background/fill colour (6-hex, no `#`), when detectable via the cascade. Omitted otherwise. */
+	bg?: string
+	/** Resolved text colour (6-hex, no `#`), when detectable via the cascade. Omitted otherwise. */
+	color?: string
+}
+
 /** A parsed callout (bordered/`.callout` box). */
 export interface CalloutData {
 	/** The callout's text. */
@@ -450,11 +463,14 @@ export function parseTimeline(input: string | HNode, options?: ParseContentOptio
 export function parseQuote(input: string | HNode, options?: ParseContentOptions): QuoteData | null
 
 /**
- * Parse pill/badge labels (`[class*="badge"|"pill"|"tag"]`) into a `string[]` (NOT `null` — `[]`
- * when none). Nested badges are de-duped (outermost wins) and empties dropped. Accepts a string OR
- * an `HNode` from `parseHtml`.
+ * Parse pill/badge/eyebrow/kicker/section-label labels into `BadgeData[]` (NOT `null` — `[]` when
+ * none). Recognition is GENERIC / structure-driven: a class TOKEN matching the generalised pill
+ * family (`badge|pill|tag|count|chip|kicker|eyebrow|section-label`) OR a SHORT ALL-CAPS label
+ * sitting immediately above a heading (eyebrow-above-a-title). Each pill carries its RESOLVED
+ * `bg`/`color` from the css cascade when detectable (omitted otherwise — never guessed). Nested
+ * badges are de-duped (outermost wins) and empties dropped. Accepts a string OR an `HNode`.
  */
-export function parseBadges(input: string | HNode, options?: ParseContentOptions): string[]
+export function parseBadges(input: string | HNode, options?: ParseContentOptions): BadgeData[]
 
 /**
  * Parse the first callout — a BORDERED box (detectable `border`/`border-left`/`border-color`

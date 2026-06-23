@@ -441,9 +441,9 @@ module.exports = [
 			const html = fs.readFileSync(path.join(__dirname, 'fixtures/foreign/badges-false-positive.html'), 'utf8')
 			const badges = parseBadges(html)
 			assert(badges.length === 3, 'expected 3 real badges; got ' + badges.length + ' → ' + JSON.stringify(badges))
-			assert(badges[0] === 'New', 'badge0 New; got ' + badges[0])
-			assert(badges[1] === 'Sale', 'badge1 Sale; got ' + badges[1])
-			assert(badges[2] === 'Hot', 'badge2 Hot; got ' + badges[2])
+			assert(badges[0].text === 'New', 'badge0 New; got ' + JSON.stringify(badges[0]))
+			assert(badges[1].text === 'Sale', 'badge1 Sale; got ' + JSON.stringify(badges[1]))
+			assert(badges[2].text === 'Hot', 'badge2 Hot; got ' + JSON.stringify(badges[2]))
 		},
 	},
 	{
