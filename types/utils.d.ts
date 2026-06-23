@@ -674,6 +674,49 @@ export interface MeasureTextWidthOptions {
  */
 export function measureTextWidth(text: string, opts: MeasureTextWidthOptions): number
 
+/** Options for {@link measureTextBlock}. */
+export interface MeasureTextBlockOptions {
+	/** Font size in points (required). */
+	fontSize: number
+	/** Available width for the block, in **inches** (required). Word-wrap target. */
+	maxWidthIn: number
+	/**
+	 * Advisory font-family name. The underlying measurement is family-agnostic in its fallback
+	 * path; supply `fontFile` to drive per-glyph metrics. Accepted for forward compatibility — it
+	 * does not by itself change the measurement.
+	 */
+	fontFamily?: string
+	/** Path to a TTF/OTF/TTC font file — forwarded to `measureTextWidth` for exact metrics. */
+	fontFile?: string
+	/** Line-height multiple applied to `fontSize` for the height. @default 1.2 */
+	lineHeight?: number
+	/** Bold weight hint. Reserved for future metric refinement; does not change the result today. */
+	bold?: boolean
+}
+
+/** Result of {@link measureTextBlock}. */
+export interface MeasureTextBlockResult {
+	/** Number of wrapped lines (≥ 1 for any input, including the empty string). */
+	lines: number
+	/** Width of the widest wrapped line, in **inches**. */
+	widthIn: number
+	/** Total block height, in **inches** (`lines * fontSize * lineHeight / 72`). */
+	heightIn: number
+}
+
+/**
+ * Estimate wrapped line count, widest-line width, and total height for `text` inside a box of
+ * width `opts.maxWidthIn` inches at `opts.fontSize` points — the vertical/fit companion to
+ * `measureTextWidth`.
+ *
+ * Greedy word-wrap against `maxWidthIn` using `measureTextWidth` (Unicode-block-aware, so CJK
+ * wraps sooner than the same count of Latin glyphs). Explicit `\n` (and `\r\n`/`\r`) force a new
+ * line; a single word wider than the box still occupies one line; `maxWidthIn` ≤ 0 means no
+ * wrapping (each hard line is one line — never divides by zero). The empty string returns one line.
+ * `heightIn = lines * fontSize * (lineHeight ?? 1.2) / 72`.
+ */
+export function measureTextBlock(text: string, opts: MeasureTextBlockOptions): MeasureTextBlockResult
+
 /** Relative luminance per WCAG 2.1 */
 export function relativeLuminance(hex: string): number
 
