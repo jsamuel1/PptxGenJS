@@ -109,7 +109,7 @@ import * as genXml from './gen-xml'
 import * as genSmartArt from './gen-smartart'
 import { layoutGrid as layoutGridUtil, layoutStack as layoutStackUtil } from './gen-utils'
 
-const VERSION = '5.0.7'
+const VERSION = '5.0.8'
 
 /**
  * Ensure `globalThis.setImmediate`/`clearImmediate` exist before invoking JSZip.

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.8](https://github.com/jsamuel1/PptxGenJS/releases/tag/v5.0.8) - 2026-06-24
+
 ### Changed
 - `extractHex` now delegates to `normalizeColor`, supporting named colours, hsl, hwb, oklch, lab in `colorOf`/`bgOfCtx`.
 - `columnCountOf` already handles `columns:` shorthand (confirmed; no duplicate existed).
