@@ -286,6 +286,7 @@ declare namespace PptxGenJS {
 		'curvedLeftArrow' = 'curvedLeftArrow',
 		'curvedRightArrow' = 'curvedRightArrow',
 		'curvedUpArrow' = 'curvedUpArrow',
+		'custGeom' = 'custGeom',
 		'decagon' = 'decagon',
 		'diagStripe' = 'diagStripe',
 		'diamond' = 'diamond',
@@ -486,6 +487,7 @@ declare namespace PptxGenJS {
 		CURVED_RIGHT_ARROW = 'curvedRightArrow',
 		CURVED_UP_ARROW = 'curvedUpArrow',
 		CURVED_UP_RIBBON = 'ellipseRibbon2',
+		CUSTOM_GEOMETRY = 'custGeom',
 		DECAGON = 'decagon',
 		DIAGONAL_STRIPE = 'diagStripe',
 		DIAMOND = 'diamond',
@@ -722,6 +724,7 @@ declare namespace PptxGenJS {
 		| 'curvedLeftArrow'
 		| 'curvedRightArrow'
 		| 'curvedUpArrow'
+		| 'custGeom'
 		| 'decagon'
 		| 'diagStripe'
 		| 'diamond'
